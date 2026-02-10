@@ -1,0 +1,665 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// CORE LISTING TABLES
+// ─────────────────────────────────────────────
+
+model Listing {
+  id              String            @id @default(cuid())
+
+  // Business identification
+  title           String
+  businessName    String?
+  description     String?           @db.Text
+
+  // Financials (reported)
+  askingPrice     Decimal?          @db.Decimal(14, 2)
+  revenue         Decimal?          @db.Decimal(14, 2)
+  ebitda          Decimal?          @db.Decimal(14, 2)
+  sde             Decimal?          @db.Decimal(14, 2)
+  cashFlow        Decimal?          @db.Decimal(14, 2)
+  inventory       Decimal?          @db.Decimal(14, 2)
+  ffe             Decimal?          @db.Decimal(14, 2)
+  realEstate      Decimal?          @db.Decimal(14, 2)
+
+  // Inferred financials
+  inferredEbitda        Decimal?    @db.Decimal(14, 2)
+  inferredSde           Decimal?    @db.Decimal(14, 2)
+  inferenceMethod       String?
+  inferenceConfidence   Float?
+
+  // Multiples
+  priceToEbitda   Float?
+  priceToSde      Float?
+  priceToRevenue  Float?
+
+  // Location
+  city            String?
+  state           String?
+  county          String?
+  zipCode         String?
+  metroArea       String?
+  fullAddress     String?
+  latitude        Float?
+  longitude       Float?
+
+  // Classification
+  industry        String?
+  category        String?
+  subcategory     String?
+  naicsCode       String?
+
+  // Broker/Seller
+  brokerName      String?
+  brokerCompany   String?
+  brokerPhone     String?
+  brokerEmail     String?
+  sellerFinancing Boolean?
+
+  // Operational details
+  employees       Int?
+  established     Int?
+  reasonForSale   String?           @db.Text
+  facilities      String?           @db.Text
+
+  // Status and visibility
+  isHidden        Boolean           @default(false)
+  isActive        Boolean           @default(true)
+  isManualEntry   Boolean           @default(false)
+
+  // Tracking
+  firstSeenAt     DateTime          @default(now())
+  lastSeenAt      DateTime          @default(now())
+  lastVerifiedAt  DateTime?
+  listingDate     DateTime?
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  sources         ListingSource[]
+  opportunity     Opportunity?
+  notes           Note[]
+  tags            ListingTag[]
+  dedupGroupId    String?
+  dedupGroup      DedupGroup?       @relation(fields: [dedupGroupId], references: [id])
+  notifications   Notification[]
+
+  @@index([city, state])
+  @@index([industry])
+  @@index([askingPrice])
+  @@index([ebitda])
+  @@index([sde])
+  @@index([inferredEbitda])
+  @@index([inferredSde])
+  @@index([isHidden, isActive])
+  @@index([dedupGroupId])
+  @@index([lastSeenAt])
+  @@index([metroArea])
+}
+
+model ListingSource {
+  id              String   @id @default(cuid())
+
+  listingId       String
+  listing         Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  platform        Platform
+  sourceUrl       String   @unique
+  sourceId        String?
+
+  // Raw data snapshot
+  rawData         Json?
+  rawTitle        String?
+  rawPrice        Decimal? @db.Decimal(14, 2)
+  rawRevenue      Decimal? @db.Decimal(14, 2)
+  rawCashFlow     Decimal? @db.Decimal(14, 2)
+
+  firstScrapedAt  DateTime @default(now())
+  lastScrapedAt   DateTime @default(now())
+  isStale         Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([platform])
+  @@index([listingId])
+  @@unique([platform, sourceId])
+}
+
+enum Platform {
+  BIZBUYSELL
+  BIZQUEST
+  DEALSTREAM
+  TRANSWORLD
+  LOOPNET
+  BUSINESSBROKER
+  MANUAL
+}
+
+// ─────────────────────────────────────────────
+// DEDUPLICATION
+// ─────────────────────────────────────────────
+
+model DedupGroup {
+  id              String        @id @default(cuid())
+  primaryListingId String?
+  listings        Listing[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model DedupCandidate {
+  id              String        @id @default(cuid())
+
+  listingAId      String
+  listingBId      String
+
+  overallScore    Float
+  nameScore       Float?
+  locationScore   Float?
+  priceScore      Float?
+  revenueScore    Float?
+  descriptionScore Float?
+
+  status          DedupStatus   @default(PENDING)
+  resolvedBy      String?
+  resolvedAt      DateTime?
+
+  createdAt       DateTime      @default(now())
+
+  @@unique([listingAId, listingBId])
+  @@index([status])
+}
+
+enum DedupStatus {
+  PENDING
+  CONFIRMED_DUPLICATE
+  NOT_DUPLICATE
+  MERGED
+}
+
+// ─────────────────────────────────────────────
+// CRM / PIPELINE
+// ─────────────────────────────────────────────
+
+model Opportunity {
+  id              String            @id @default(cuid())
+
+  listingId       String?           @unique
+  listing         Listing?          @relation(fields: [listingId], references: [id])
+
+  title           String
+  description     String?           @db.Text
+
+  stage           PipelineStage     @default(CONTACTING)
+  priority        Priority          @default(MEDIUM)
+
+  // Key dates
+  contactedAt     DateTime?
+  cimRequestedAt  DateTime?
+  ndaSignedAt     DateTime?
+  offerSentAt     DateTime?
+  underContractAt DateTime?
+  closedAt        DateTime?
+
+  // Financial terms
+  offerPrice      Decimal?          @db.Decimal(14, 2)
+  offerTerms      String?           @db.Text
+
+  // Deal scoring
+  winProbability  Float?
+  dealValue       Float?
+
+  // Lost reason
+  lostReason      String?
+  lostCategory    String?
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // Relations
+  notes           Note[]
+  emails          EmailLink[]
+  stageHistory    StageChange[]
+  tags            OpportunityTag[]
+  documents       DealDocument[]
+  contacts        Contact[]
+  tasks           Task[]
+
+  @@index([stage])
+  @@index([priority])
+}
+
+enum ContactInterest {
+  UNKNOWN
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+model Contact {
+  id              String            @id @default(cuid())
+
+  opportunityId   String
+  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  name            String
+  email           String?
+  phone           String?
+  company         String?
+  role            String?
+
+  interestLevel   ContactInterest   @default(UNKNOWN)
+  isPrimary       Boolean           @default(false)
+  notes           String?           @db.Text
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([opportunityId])
+  @@index([email])
+}
+
+enum PipelineStage {
+  CONTACTING
+  INTERESTED
+  REQUESTED_CIM
+  SIGNED_NDA
+  DUE_DILIGENCE
+  OFFER_SENT
+  COUNTER_OFFER_RECEIVED
+  UNDER_CONTRACT
+  CLOSED_WON
+  CLOSED_LOST
+  ON_HOLD
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model StageChange {
+  id              String        @id @default(cuid())
+
+  opportunityId   String
+  opportunity     Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  fromStage       PipelineStage
+  toStage         PipelineStage
+  note            String?
+
+  createdAt       DateTime      @default(now())
+
+  @@index([opportunityId])
+}
+
+model Note {
+  id              String        @id @default(cuid())
+
+  content         String        @db.Text
+
+  listingId       String?
+  listing         Listing?      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  opportunityId   String?
+  opportunity     Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([listingId])
+  @@index([opportunityId])
+}
+
+// ─────────────────────────────────────────────
+// DEAL DOCUMENTS
+// ─────────────────────────────────────────────
+
+model DealDocument {
+  id              String            @id @default(cuid())
+
+  opportunityId   String
+  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  filePath        String
+  fileName        String
+  fileType        String
+  fileSize        Int?
+  category        DocumentCategory
+
+  importedAt      DateTime          @default(now())
+
+  @@index([opportunityId])
+  @@index([category])
+}
+
+enum DocumentCategory {
+  CIM
+  FINANCIAL_MODEL
+  FINANCIAL_STATEMENT
+  TAX_RETURN
+  LOI
+  NDA
+  VALUATION
+  OTHER
+}
+
+// ─────────────────────────────────────────────
+// EMAIL INTEGRATION
+// ─────────────────────────────────────────────
+
+model EmailAccount {
+  id              String        @id @default(cuid())
+
+  email           String        @unique
+  displayName     String?
+  provider        EmailProvider @default(MICROSOFT)
+
+  accessToken     String        @db.Text
+  refreshToken    String        @db.Text
+  tokenExpiresAt  DateTime
+
+  lastSyncAt      DateTime?
+  syncCursor      String?       @db.Text
+
+  isConnected     Boolean       @default(true)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  emails          Email[]
+}
+
+enum EmailProvider {
+  MICROSOFT
+  GMAIL
+}
+
+model Email {
+  id              String        @id @default(cuid())
+
+  emailAccountId  String?
+  emailAccount    EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: SetNull)
+
+  externalMessageId  String     @unique
+
+  /// Content-based hash for cross-account dedup: SHA256(fromAddress + subject + sentAt)
+  messageHash     String?
+
+  subject         String?
+  bodyPreview     String?       @db.Text
+  bodyHtml        String?       @db.Text
+  fromAddress     String
+  fromName        String?
+  toAddresses     String[]
+  ccAddresses     String[]
+
+  sentAt          DateTime?
+  receivedAt      DateTime?
+
+  conversationId  String?
+  isRead          Boolean       @default(false)
+  hasAttachments  Boolean       @default(false)
+  importance      String?
+  webLink         String?
+
+  isListingAlert       Boolean  @default(false)
+  listingAlertParsed   Boolean  @default(false)
+
+  createdAt       DateTime      @default(now())
+
+  links           EmailLink[]
+  attachments     EmailAttachment[]
+
+  @@index([emailAccountId])
+  @@index([fromAddress])
+  @@index([conversationId])
+  @@index([sentAt])
+  @@index([isListingAlert])
+  @@index([messageHash])
+}
+
+model EmailAttachment {
+  id              String        @id @default(cuid())
+
+  emailId         String
+  email           Email         @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  /// Gmail attachment ID (used to download the attachment content on demand)
+  externalAttachmentId  String?
+  filename        String
+  mimeType        String
+  size            Int           @default(0)
+
+  createdAt       DateTime      @default(now())
+
+  @@unique([emailId, filename])
+  @@index([emailId])
+}
+
+model EmailLink {
+  id              String        @id @default(cuid())
+
+  emailId         String
+  email           Email         @relation(fields: [emailId], references: [id], onDelete: Cascade)
+
+  opportunityId   String
+  opportunity     Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  linkedBy        String        @default("manual")
+
+  createdAt       DateTime      @default(now())
+
+  @@unique([emailId, opportunityId])
+  @@index([emailId])
+  @@index([opportunityId])
+}
+
+// ─────────────────────────────────────────────
+// SCRAPING INFRASTRUCTURE
+// ─────────────────────────────────────────────
+
+model PlatformCookie {
+  id              String        @id @default(cuid())
+
+  platform        Platform      @unique
+
+  cookieData      String        @db.Text
+  capturedAt      DateTime
+  expiresAt       DateTime?
+  isValid         Boolean       @default(true)
+  lastUsedAt      DateTime?
+  lastValidatedAt DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model ScrapeRun {
+  id              String        @id @default(cuid())
+
+  platform        Platform
+  triggeredBy     String
+
+  status          ScrapeStatus  @default(PENDING)
+
+  listingsFound   Int           @default(0)
+  listingsNew     Int           @default(0)
+  listingsUpdated Int           @default(0)
+  errors          Int           @default(0)
+
+  startedAt       DateTime?
+  completedAt     DateTime?
+  errorLog        String?       @db.Text
+
+  createdAt       DateTime      @default(now())
+
+  @@index([platform])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ScrapeStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model ScrapeSchedule {
+  id              String        @id @default(cuid())
+
+  platform        Platform      @unique
+  cronExpression  String
+  isEnabled       Boolean       @default(true)
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// TAGGING & CLASSIFICATION
+// ─────────────────────────────────────────────
+
+model Tag {
+  id              String            @id @default(cuid())
+  name            String            @unique
+  color           String?
+
+  listings        ListingTag[]
+  opportunities   OpportunityTag[]
+}
+
+model ListingTag {
+  listingId       String
+  listing         Listing           @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tagId           String
+  tag             Tag               @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([listingId, tagId])
+}
+
+model OpportunityTag {
+  opportunityId   String
+  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  tagId           String
+  tag             Tag               @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([opportunityId, tagId])
+}
+
+// ─────────────────────────────────────────────
+// FINANCIAL REFERENCE DATA
+// ─────────────────────────────────────────────
+
+model IndustryMultiple {
+  id              String        @id @default(cuid())
+
+  industry        String
+  category        String?
+
+  sdeLow          Float?
+  sdeMedian       Float?
+  sdeHigh         Float?
+
+  ebitdaLow       Float?
+  ebitdaMedian    Float?
+  ebitdaHigh      Float?
+
+  revenueLow      Float?
+  revenueMedian   Float?
+  revenueHigh     Float?
+
+  ebitdaMarginLow    Float?
+  ebitdaMarginMedian Float?
+  ebitdaMarginHigh   Float?
+
+  source          String?
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([industry, category])
+  @@index([industry])
+}
+
+// ─────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────
+
+model Notification {
+  id              String            @id @default(cuid())
+
+  type            NotificationType
+  title           String
+  message         String
+
+  listingId       String?
+  listing         Listing?          @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  isRead          Boolean           @default(false)
+
+  createdAt       DateTime          @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  NEW_LISTING
+  LISTING_UPDATED
+  LISTING_REMOVED
+  COOKIE_EXPIRED
+  SCRAPE_FAILED
+  DEDUP_CANDIDATE
+  EMAIL_RECEIVED
+  IMPORT
+}
+
+// ─────────────────────────────────────────────
+// APP SETTINGS
+// ─────────────────────────────────────────────
+
+model AppSetting {
+  key             String        @id
+  value           String        @db.Text
+  updatedAt       DateTime      @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// TASKS / REMINDERS
+// ─────────────────────────────────────────────
+
+model Task {
+  id              String        @id @default(cuid())
+
+  opportunityId   String?
+  opportunity     Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String?       @db.Text
+  dueDate         DateTime?
+  isCompleted     Boolean       @default(false)
+  completedAt     DateTime?
+  priority        String        @default("MEDIUM")
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([opportunityId])
+  @@index([dueDate])
+  @@index([isCompleted])
+}

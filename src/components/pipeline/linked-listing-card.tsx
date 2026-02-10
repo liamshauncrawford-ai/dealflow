@@ -1,0 +1,478 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import {
+  Building2,
+  Calendar,
+  ExternalLink,
+  Info,
+  Mail,
+  MapPin,
+  PenLine,
+  Phone,
+  Save,
+  TrendingDown,
+  TrendingUp,
+  X,
+  BarChart3,
+} from "lucide-react";
+import { useUpdateListing } from "@/hooks/use-listings";
+import { PLATFORMS, type PlatformKey } from "@/lib/constants";
+import { formatCurrency } from "@/lib/utils";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface LinkedListingCardProps {
+  listing: Record<string, any>;
+  offerPrice: number | null;
+  offerTerms: string | null;
+  industryMultiples: Record<string, any> | null;
+}
+
+export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMultiples }: LinkedListingCardProps) {
+  const updateListing = useUpdateListing();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState<Record<string, unknown>>({});
+
+  const startEditing = () => {
+    setEditData({
+      askingPrice: listing.askingPrice ? Number(listing.askingPrice) : "",
+      revenue: listing.revenue ? Number(listing.revenue) : "",
+      ebitda: listing.ebitda ? Number(listing.ebitda) : "",
+      sde: listing.sde ? Number(listing.sde) : "",
+      cashFlow: listing.cashFlow ? Number(listing.cashFlow) : "",
+      inventory: listing.inventory ? Number(listing.inventory) : "",
+      ffe: listing.ffe ? Number(listing.ffe) : "",
+      realEstate: listing.realEstate ? Number(listing.realEstate) : "",
+      industry: listing.industry || "",
+      city: listing.city || "",
+      state: listing.state || "",
+      employees: listing.employees || "",
+      established: listing.established || "",
+      brokerName: listing.brokerName || "",
+      brokerCompany: listing.brokerCompany || "",
+      brokerPhone: listing.brokerPhone || "",
+      brokerEmail: listing.brokerEmail || "",
+    });
+    setIsEditing(true);
+  };
+
+  const saveEdit = () => {
+    const payload: Record<string, unknown> = {};
+    const numericFields = ["askingPrice", "revenue", "ebitda", "sde", "cashFlow", "inventory", "ffe", "realEstate"];
+    const intFields = ["employees", "established"];
+    const stringFields = ["industry", "city", "state", "brokerName", "brokerCompany", "brokerPhone", "brokerEmail"];
+    for (const f of numericFields) {
+      const v = editData[f];
+      payload[f] = v === "" || v === null || v === undefined ? null : Number(v);
+    }
+    for (const f of intFields) {
+      const v = editData[f];
+      payload[f] = v === "" || v === null || v === undefined ? null : parseInt(String(v));
+    }
+    for (const f of stringFields) {
+      const v = editData[f];
+      payload[f] = v && String(v).trim() ? String(v).trim() : null;
+    }
+    updateListing.mutate(
+      { id: String(listing.id), data: payload },
+      { onSuccess: () => setIsEditing(false) }
+    );
+  };
+
+  const updateField = (field: string, value: unknown) => {
+    setEditData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  if (!listing) {
+    return (
+      <div className="rounded-lg border border-dashed bg-card p-8 text-center">
+        <Building2 className="mx-auto h-10 w-10 text-muted-foreground/30" />
+        <p className="mt-2 text-sm text-muted-foreground">
+          No listing linked to this opportunity
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border bg-card shadow-sm">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <h2 className="text-sm font-semibold">Linked Listing</h2>
+        <div className="flex items-center gap-2">
+          {!isEditing && (
+            <button
+              onClick={startEditing}
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              title="Edit listing data"
+            >
+              <PenLine className="h-3 w-3" />
+              Edit
+            </button>
+          )}
+          <Link
+            href={`/listings/${listing.id}`}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            View Listing
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+      </div>
+      <div className="p-4">
+        <h3 className="font-medium">{String(listing.title)}</h3>
+
+        {isEditing ? (
+          <div className="mt-3 space-y-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div>
+                <label className="text-xs text-muted-foreground">City</label>
+                <input type="text" value={String(editData.city || "")} onChange={(e) => updateField("city", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">State</label>
+                <input type="text" value={String(editData.state || "")} onChange={(e) => updateField("state", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Industry</label>
+                <input type="text" value={String(editData.industry || "")} onChange={(e) => updateField("industry", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Established</label>
+                <input type="number" value={editData.established === null || editData.established === undefined || editData.established === "" ? "" : String(editData.established)} onChange={(e) => updateField("established", e.target.value ? parseInt(e.target.value) : "")} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Financial Metrics</div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  { label: "Asking Price", field: "askingPrice" },
+                  { label: "Revenue", field: "revenue" },
+                  { label: "EBITDA", field: "ebitda" },
+                  { label: "SDE", field: "sde" },
+                  { label: "Cash Flow", field: "cashFlow" },
+                  { label: "Inventory", field: "inventory" },
+                  { label: "FF&E", field: "ffe" },
+                  { label: "Real Estate", field: "realEstate" },
+                ].map((item) => (
+                  <div key={item.field} className="rounded-md border p-2.5">
+                    <label className="text-xs text-muted-foreground">{item.label}</label>
+                    <div className="mt-1 flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">$</span>
+                      <input
+                        type="number"
+                        value={editData[item.field] === null || editData[item.field] === undefined || editData[item.field] === "" ? "" : String(editData[item.field])}
+                        onChange={(e) => updateField(item.field, e.target.value ? Number(e.target.value) : "")}
+                        className="w-full bg-background border rounded px-2 py-1 text-sm"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Broker / Contact</div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div>
+                  <label className="text-xs text-muted-foreground">Name</label>
+                  <input type="text" value={String(editData.brokerName || "")} onChange={(e) => updateField("brokerName", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Company</label>
+                  <input type="text" value={String(editData.brokerCompany || "")} onChange={(e) => updateField("brokerCompany", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Phone</label>
+                  <input type="text" value={String(editData.brokerPhone || "")} onChange={(e) => updateField("brokerPhone", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Email</label>
+                  <input type="email" value={String(editData.brokerEmail || "")} onChange={(e) => updateField("brokerEmail", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 border-t pt-3">
+              <button onClick={() => setIsEditing(false)} className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs hover:bg-muted">
+                <X className="h-3 w-3" /> Cancel
+              </button>
+              <button onClick={saveEdit} disabled={updateListing.isPending} className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs text-white hover:bg-primary/90 disabled:opacity-50">
+                <Save className="h-3 w-3" /> {updateListing.isPending ? "Saving..." : "Save Listing"}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {listing.city && listing.state && (
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {String(listing.city)}, {String(listing.state)}
+                </span>
+              )}
+              {listing.industry && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {String(listing.industry)}
+                </span>
+              )}
+              {listing.established && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Est. {String(listing.established)}
+                </span>
+              )}
+            </div>
+
+            {/* Row 1: Core Financial Metrics */}
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Asking Price", value: listing.askingPrice },
+                { label: "Revenue", value: listing.revenue },
+                { label: "EBITDA", value: listing.ebitda, inferred: listing.inferredEbitda, method: listing.inferenceMethod, confidence: listing.inferenceConfidence },
+                { label: "SDE", value: listing.sde, inferred: listing.inferredSde, method: listing.inferenceMethod, confidence: listing.inferenceConfidence },
+              ].map((item) => {
+                const displayValue = item.value ?? ("inferred" in item ? item.inferred : null);
+                const isInferred = !item.value && "inferred" in item && item.inferred;
+                return (
+                  <div key={item.label} className="rounded-md border bg-muted/20 p-2.5">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      {item.label}
+                      {isInferred && (
+                        <span className="inline-flex items-center rounded bg-amber-100 px-1 text-[10px] font-medium text-amber-700">
+                          est.
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-sm font-semibold">
+                      {displayValue ? formatCurrency(Number(displayValue)) : "N/A"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Row 2: Multiples & Cash Flow */}
+            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {(() => {
+                const askPrice = listing.askingPrice ? Number(listing.askingPrice) : null;
+                const ebitdaVal = listing.ebitda ? Number(listing.ebitda) : (listing.inferredEbitda ? Number(listing.inferredEbitda) : null);
+                const sdeVal = listing.sde ? Number(listing.sde) : (listing.inferredSde ? Number(listing.inferredSde) : null);
+                const revenueVal = listing.revenue ? Number(listing.revenue) : null;
+
+                const evEbitda = askPrice && ebitdaVal && ebitdaVal > 0 ? askPrice / ebitdaVal : null;
+                const priceSde = askPrice && sdeVal && sdeVal > 0 ? askPrice / sdeVal : null;
+                const priceRev = askPrice && revenueVal && revenueVal > 0 ? askPrice / revenueVal : null;
+
+                return [
+                  { label: "EV / EBITDA", value: evEbitda, format: "multiple" as const },
+                  { label: "Price / SDE", value: priceSde, format: "multiple" as const },
+                  { label: "Price / Revenue", value: priceRev, format: "multiple" as const },
+                  { label: "Cash Flow", value: listing.cashFlow ? Number(listing.cashFlow) : null, format: "currency" as const },
+                ].map((item) => (
+                  <div key={item.label} className="rounded-md border bg-muted/10 p-2.5">
+                    <div className="text-xs text-muted-foreground">{item.label}</div>
+                    <div className="mt-0.5 text-sm font-semibold">
+                      {item.value
+                        ? item.format === "multiple"
+                          ? `${item.value.toFixed(1)}x`
+                          : formatCurrency(item.value)
+                        : "N/A"}
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* Row 3: Inference & Asset Details */}
+            {(listing.inferenceMethod || listing.inventory || listing.ffe || listing.realEstate) && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {listing.inferenceMethod && (
+                  <div className="inline-flex items-center gap-1.5 rounded-md border bg-amber-50 px-2.5 py-1 text-xs">
+                    <Info className="h-3 w-3 text-amber-600" />
+                    <span className="text-amber-800">
+                      Inference: {String(listing.inferenceMethod).replace(/_/g, " ")}
+                    </span>
+                    {listing.inferenceConfidence != null && (
+                      <span className="font-medium text-amber-700">
+                        ({Math.round(Number(listing.inferenceConfidence) * 100)}% confidence)
+                      </span>
+                    )}
+                  </div>
+                )}
+                {listing.inventory && (
+                  <div className="inline-flex items-center gap-1 rounded-md border bg-muted/20 px-2.5 py-1 text-xs">
+                    <span className="text-muted-foreground">Inventory:</span>
+                    <span className="font-medium">{formatCurrency(Number(listing.inventory))}</span>
+                  </div>
+                )}
+                {listing.ffe && (
+                  <div className="inline-flex items-center gap-1 rounded-md border bg-muted/20 px-2.5 py-1 text-xs">
+                    <span className="text-muted-foreground">FF&E:</span>
+                    <span className="font-medium">{formatCurrency(Number(listing.ffe))}</span>
+                  </div>
+                )}
+                {listing.realEstate && (
+                  <div className="inline-flex items-center gap-1 rounded-md border bg-muted/20 px-2.5 py-1 text-xs">
+                    <span className="text-muted-foreground">Real Estate:</span>
+                    <span className="font-medium">{formatCurrency(Number(listing.realEstate))}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Industry Benchmark Comparison */}
+            {industryMultiples && (() => {
+              const benchmarks = industryMultiples;
+              const askPrice = listing.askingPrice ? Number(listing.askingPrice) : null;
+              const ebitdaVal = listing.ebitda ? Number(listing.ebitda) : (listing.inferredEbitda ? Number(listing.inferredEbitda) : null);
+              const sdeVal = listing.sde ? Number(listing.sde) : (listing.inferredSde ? Number(listing.inferredSde) : null);
+
+              const dealEbitdaMultiple = askPrice && ebitdaVal && ebitdaVal > 0 ? askPrice / ebitdaVal : null;
+              const dealSdeMultiple = askPrice && sdeVal && sdeVal > 0 ? askPrice / sdeVal : null;
+
+              const hasComparison = (dealEbitdaMultiple && benchmarks.ebitdaMedian) || (dealSdeMultiple && benchmarks.sdeMedian);
+              if (!hasComparison) return null;
+
+              return (
+                <div className="mt-3 rounded-md border bg-blue-50/50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-blue-800">
+                    <BarChart3 className="h-3.5 w-3.5" />
+                    Industry Benchmark: {String(benchmarks.industry)}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {dealEbitdaMultiple && benchmarks.ebitdaMedian && (
+                      <div>
+                        <div className="text-[10px] uppercase text-blue-600">EV/EBITDA</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold">{dealEbitdaMultiple.toFixed(1)}x</span>
+                          <span className="text-xs text-muted-foreground">vs</span>
+                          <span className="text-xs text-blue-700">
+                            {Number(benchmarks.ebitdaMedian).toFixed(1)}x median
+                          </span>
+                          {dealEbitdaMultiple < Number(benchmarks.ebitdaMedian) ? (
+                            <TrendingDown className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <TrendingUp className="h-3 w-3 text-amber-600" />
+                          )}
+                        </div>
+                        {benchmarks.ebitdaLow != null && benchmarks.ebitdaHigh != null && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Range: {Number(benchmarks.ebitdaLow).toFixed(1)}x - {Number(benchmarks.ebitdaHigh).toFixed(1)}x
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {dealSdeMultiple && benchmarks.sdeMedian && (
+                      <div>
+                        <div className="text-[10px] uppercase text-blue-600">Price/SDE</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-bold">{dealSdeMultiple.toFixed(1)}x</span>
+                          <span className="text-xs text-muted-foreground">vs</span>
+                          <span className="text-xs text-blue-700">
+                            {Number(benchmarks.sdeMedian).toFixed(1)}x median
+                          </span>
+                          {dealSdeMultiple < Number(benchmarks.sdeMedian) ? (
+                            <TrendingDown className="h-3 w-3 text-green-600" />
+                          ) : (
+                            <TrendingUp className="h-3 w-3 text-amber-600" />
+                          )}
+                        </div>
+                        {benchmarks.sdeLow != null && benchmarks.sdeHigh != null && (
+                          <div className="text-[10px] text-muted-foreground">
+                            Range: {Number(benchmarks.sdeLow).toFixed(1)}x - {Number(benchmarks.sdeHigh).toFixed(1)}x
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {benchmarks.ebitdaMarginMedian != null && (
+                      <div>
+                        <div className="text-[10px] uppercase text-blue-600">Ind. EBITDA Margin</div>
+                        <span className="text-sm font-bold">
+                          {(Number(benchmarks.ebitdaMarginMedian) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Offer terms */}
+            {offerPrice && (
+              <div className="mt-4 rounded-md border-l-4 border-primary bg-primary/5 p-3">
+                <div className="text-xs font-medium text-primary">Your Offer</div>
+                <div className="mt-0.5 text-lg font-bold">
+                  {formatCurrency(Number(offerPrice))}
+                </div>
+                {offerTerms && (
+                  <p className="mt-1 text-xs text-muted-foreground">{offerTerms}</p>
+                )}
+              </div>
+            )}
+
+            {/* Source badges */}
+            {listing.sources && listing.sources.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {listing.sources.map((s: { id: string; platform: string; sourceUrl: string }) => (
+                  <a
+                    key={s.id}
+                    href={s.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs text-white"
+                    style={{
+                      backgroundColor: PLATFORMS[s.platform as PlatformKey]?.color ?? "#6b7280",
+                    }}
+                  >
+                    {PLATFORMS[s.platform as PlatformKey]?.shortLabel ?? s.platform}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Broker info */}
+            {(listing.brokerName || listing.brokerCompany) && (
+              <div className="mt-4 border-t pt-3">
+                <div className="text-xs font-medium text-muted-foreground">Broker</div>
+                <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  {listing.brokerName && <span>{String(listing.brokerName)}</span>}
+                  {listing.brokerCompany && (
+                    <span className="text-muted-foreground">{String(listing.brokerCompany)}</span>
+                  )}
+                  {listing.brokerPhone && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Phone className="h-3 w-3" />
+                      {String(listing.brokerPhone)}
+                    </span>
+                  )}
+                  {listing.brokerEmail && (
+                    <span className="flex items-center gap-1 text-muted-foreground">
+                      <Mail className="h-3 w-3" />
+                      {String(listing.brokerEmail)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function NoListingPlaceholder() {
+  return (
+    <div className="rounded-lg border border-dashed bg-card p-8 text-center">
+      <Building2 className="mx-auto h-10 w-10 text-muted-foreground/30" />
+      <p className="mt-2 text-sm text-muted-foreground">
+        No listing linked to this opportunity
+      </p>
+    </div>
+  );
+}
