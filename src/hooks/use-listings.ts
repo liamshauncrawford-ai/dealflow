@@ -94,10 +94,11 @@ export function useUpdateListing() {
       if (!res.ok) throw new Error("Failed to update listing");
       return res.json();
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       toast.success("Listing updated");
+      // Immediately update the cache with the server response
+      queryClient.setQueryData(["listing", variables.id], data);
       queryClient.invalidateQueries({ queryKey: ["listings"] });
-      queryClient.invalidateQueries({ queryKey: ["listing", variables.id] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
     },
     onError: () => {
