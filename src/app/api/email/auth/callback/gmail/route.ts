@@ -5,6 +5,14 @@ import {
   saveGmailTokensToDb,
 } from "@/lib/email/gmail-client";
 
+/** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
+function baseUrl(request: NextRequest): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL ||
+    `${request.nextUrl.protocol}//${request.headers.get("host")}`
+  );
+}
+
 /**
  * GET /api/email/auth/callback/gmail?code=XXX
  *
@@ -13,6 +21,8 @@ import {
  * encrypt and persist the tokens, then redirect to settings.
  */
 export async function GET(request: NextRequest) {
+  const base = baseUrl(request);
+
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
@@ -24,14 +34,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           `/settings/email?error=${encodeURIComponent(error)}`,
-          request.url
+          base
         )
       );
     }
 
     if (!code) {
       return NextResponse.redirect(
-        new URL("/settings/email?error=missing_code", request.url)
+        new URL("/settings/email?error=missing_code", base)
       );
     }
 
@@ -40,7 +50,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenResponse.access_token) {
       return NextResponse.redirect(
-        new URL("/settings/email?error=token_exchange_failed", request.url)
+        new URL("/settings/email?error=token_exchange_failed", base)
       );
     }
 
@@ -49,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     if (!profile.email) {
       return NextResponse.redirect(
-        new URL("/settings/email?error=profile_fetch_failed", request.url)
+        new URL("/settings/email?error=profile_fetch_failed", base)
       );
     }
 
@@ -64,7 +74,7 @@ export async function GET(request: NextRequest) {
         "No refresh token returned by Google. Ensure access_type=offline and prompt=consent."
       );
       return NextResponse.redirect(
-        new URL("/settings/email?error=no_refresh_token", request.url)
+        new URL("/settings/email?error=no_refresh_token", base)
       );
     }
 
@@ -78,12 +88,12 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.redirect(
-      new URL("/settings/email?connected=true", request.url)
+      new URL("/settings/email?connected=true", base)
     );
   } catch (err) {
     console.error("Error handling Gmail OAuth callback:", err);
     return NextResponse.redirect(
-      new URL("/settings/email?error=callback_failed", request.url)
+      new URL("/settings/email?error=callback_failed", base)
     );
   }
 }
