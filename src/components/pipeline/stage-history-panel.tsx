@@ -11,7 +11,7 @@ import { PIPELINE_STAGES, type PipelineStageKey } from "@/lib/constants";
 import { cn, formatRelativeDate } from "@/lib/utils";
 
 const STAGE_ORDER: PipelineStageKey[] = [
-  "CONTACTING", "INTERESTED", "REQUESTED_CIM", "SIGNED_NDA",
+  "CONTACTING", "REQUESTED_CIM", "SIGNED_NDA",
   "DUE_DILIGENCE", "OFFER_SENT", "COUNTER_OFFER_RECEIVED",
   "UNDER_CONTRACT", "CLOSED_WON", "CLOSED_LOST", "ON_HOLD",
 ];

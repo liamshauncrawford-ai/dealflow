@@ -1,15 +1,14 @@
 export const PIPELINE_STAGES = {
   CONTACTING: { label: "Contacting", color: "bg-stage-contacting", order: 1 },
-  INTERESTED: { label: "Interested", color: "bg-stage-interested", order: 2 },
-  REQUESTED_CIM: { label: "Requested CIM", color: "bg-stage-cim", order: 3 },
-  SIGNED_NDA: { label: "Signed NDA", color: "bg-stage-nda", order: 4 },
-  DUE_DILIGENCE: { label: "Due Diligence", color: "bg-stage-diligence", order: 5 },
-  OFFER_SENT: { label: "Offer Sent", color: "bg-stage-offer", order: 6 },
-  COUNTER_OFFER_RECEIVED: { label: "Counter Offer", color: "bg-stage-counter", order: 7 },
-  UNDER_CONTRACT: { label: "Under Contract", color: "bg-stage-contract", order: 8 },
-  CLOSED_WON: { label: "Closed Won", color: "bg-stage-won", order: 9 },
-  CLOSED_LOST: { label: "Closed Lost", color: "bg-stage-lost", order: 10 },
-  ON_HOLD: { label: "On Hold", color: "bg-stage-hold", order: 11 },
+  REQUESTED_CIM: { label: "Requested CIM", color: "bg-stage-cim", order: 2 },
+  SIGNED_NDA: { label: "Signed NDA", color: "bg-stage-nda", order: 3 },
+  DUE_DILIGENCE: { label: "Due Diligence", color: "bg-stage-diligence", order: 4 },
+  OFFER_SENT: { label: "Offer Sent", color: "bg-stage-offer", order: 5 },
+  COUNTER_OFFER_RECEIVED: { label: "Counter Offer", color: "bg-stage-counter", order: 6 },
+  UNDER_CONTRACT: { label: "Under Contract", color: "bg-stage-contract", order: 7 },
+  CLOSED_WON: { label: "Closed Won", color: "bg-stage-won", order: 8 },
+  CLOSED_LOST: { label: "Closed Lost", color: "bg-stage-lost", order: 9 },
+  ON_HOLD: { label: "On Hold", color: "bg-stage-hold", order: 10 },
 } as const;
 
 export type PipelineStageKey = keyof typeof PIPELINE_STAGES;

@@ -22,19 +22,179 @@ import {
   getActivityDescription,
 } from "@/lib/activity-utils";
 
-// Active pipeline stages for the Kanban board (not closed/hold)
-const KANBAN_STAGES: PipelineStageKey[] = [
+// Pipeline stages split into two rows to eliminate horizontal scrolling
+const KANBAN_ROW_1: PipelineStageKey[] = [
   "CONTACTING",
-  "INTERESTED",
   "REQUESTED_CIM",
   "SIGNED_NDA",
   "DUE_DILIGENCE",
+];
+
+const KANBAN_ROW_2: PipelineStageKey[] = [
   "OFFER_SENT",
   "COUNTER_OFFER_RECEIVED",
   "UNDER_CONTRACT",
 ];
 
+// Combined for drag-and-drop lookups
+const ALL_KANBAN_STAGES = [...KANBAN_ROW_1, ...KANBAN_ROW_2];
+
 type ViewMode = "stage" | "activity";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function KanbanColumn({
+  stageKey,
+  opportunities: stageOpps,
+  draggedId,
+  dragOverStage,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+}: {
+  stageKey: PipelineStageKey;
+  opportunities: any[];
+  draggedId: string | null;
+  dragOverStage: string | null;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+  onDragOver: (e: React.DragEvent, stage: string) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent, stage: string) => void;
+}) {
+  const stage = PIPELINE_STAGES[stageKey];
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col rounded-lg border bg-muted/30",
+        dragOverStage === stageKey && "ring-2 ring-primary/50"
+      )}
+      onDragOver={(e) => onDragOver(e, stageKey)}
+      onDragLeave={onDragLeave}
+      onDrop={(e) => onDrop(e, stageKey)}
+    >
+      {/* Column Header */}
+      <div className="flex items-center gap-2 border-b px-3 py-2.5">
+        <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
+        <span className="text-sm font-medium">{stage.label}</span>
+        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+          {stageOpps.length}
+        </span>
+      </div>
+
+      {/* Cards */}
+      <div className="flex-1 space-y-2 p-2 max-h-[60vh] overflow-y-auto">
+        {stageOpps.length === 0 ? (
+          <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
+            Drop here
+          </div>
+        ) : (
+          stageOpps.map((opp: any) => (
+            <div
+              key={opp.id}
+              draggable
+              onDragStart={(e) => onDragStart(e, opp.id)}
+              className={cn(
+                "cursor-grab rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing",
+                draggedId === opp.id && "opacity-50"
+              )}
+            >
+              <div className="flex items-start gap-2">
+                <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/pipeline/${opp.id}`}
+                    className="text-sm font-medium text-foreground hover:text-primary hover:underline"
+                  >
+                    {opp.title}
+                  </Link>
+
+                  {opp.listing && (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                      {opp.listing.city && (
+                        <span>{opp.listing.city}, {opp.listing.state}</span>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-xs font-medium text-foreground">
+                        {opp.listing?.askingPrice
+                          ? formatCurrency(Number(opp.listing.askingPrice))
+                          : "Price N/A"}
+                      </span>
+                      {opp.offerPrice && (
+                        <span className="text-[10px] font-medium text-emerald-600">
+                          Offer: {formatCurrency(Number(opp.offerPrice))}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {opp.emails && opp.emails.length > 0 && (
+                        <span className="flex items-center gap-0.5">
+                          <Mail className="h-3 w-3" />
+                          {opp.emails.length}
+                        </span>
+                      )}
+                      {opp.notes && opp.notes.length > 0 && (
+                        <span className="flex items-center gap-0.5">
+                          <MessageSquare className="h-3 w-3" />
+                          {opp.notes.length}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-0.5">
+                        <Clock className="h-3 w-3" />
+                        {formatRelativeDate(opp.updatedAt)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Last email preview */}
+                  {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
+                    <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <Mail className="h-2.5 w-2.5 flex-shrink-0" />
+                      <span className="truncate">
+                        {opp.emails[0].email.subject || "(no subject)"}
+                      </span>
+                      {opp.emails[0].email.sentAt && (
+                        <span className="flex-shrink-0 ml-auto">
+                          {formatRelativeDate(opp.emails[0].email.sentAt)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Source badges */}
+                  {opp.listing?.sources && opp.listing.sources.length > 0 && (
+                    <div className="mt-2 flex gap-1">
+                      {opp.listing.sources
+                        .filter((s: { sourceUrl: string }) => !s.sourceUrl.startsWith("manual://"))
+                        .slice(0, 3)
+                        .map((s: { id: string; sourceUrl: string }) => (
+                          <a
+                            key={s.id}
+                            href={s.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded p-0.5 text-muted-foreground hover:text-primary"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function PipelinePage() {
   const { data, isLoading } = usePipeline();
@@ -157,144 +317,55 @@ export default function PipelinePage() {
         </div>
       ) : viewMode === "stage" ? (
         <>
-          {/* Kanban Board */}
-          <div className="flex gap-3 overflow-x-auto pb-4">
-            {KANBAN_STAGES.map((stageKey) => {
-              const stage = PIPELINE_STAGES[stageKey];
-              const stageOpps = getOpportunitiesByStage(stageKey);
+          {/* Kanban Board — Two-Row Grid Layout */}
+          <div className="space-y-4">
+            {/* Row 1: Early Pipeline */}
+            <div>
+              <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                Early Pipeline
+                <span className="h-px flex-1 bg-border" />
+              </h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {KANBAN_ROW_1.map((stageKey) => (
+                  <KanbanColumn
+                    key={stageKey}
+                    stageKey={stageKey}
+                    opportunities={getOpportunitiesByStage(stageKey)}
+                    draggedId={draggedId}
+                    dragOverStage={dragOverStage}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  />
+                ))}
+              </div>
+            </div>
 
-              return (
-                <div
-                  key={stageKey}
-                  className={cn(
-                    "flex min-w-[280px] flex-shrink-0 flex-col rounded-lg border bg-muted/30",
-                    dragOverStage === stageKey && "ring-2 ring-primary/50"
-                  )}
-                  onDragOver={(e) => handleDragOver(e, stageKey)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, stageKey)}
-                >
-                  {/* Column Header */}
-                  <div className="flex items-center gap-2 border-b px-3 py-2.5">
-                    <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
-                    <span className="text-sm font-medium">{stage.label}</span>
-                    <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                      {stageOpps.length}
-                    </span>
-                  </div>
-
-                  {/* Cards */}
-                  <div className="flex-1 space-y-2 p-2">
-                    {stageOpps.length === 0 ? (
-                      <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
-                        Drop here
-                      </div>
-                    ) : (
-                      stageOpps.map((opp) => (
-                        <div
-                          key={opp.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, opp.id)}
-                          className={cn(
-                            "cursor-grab rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing",
-                            draggedId === opp.id && "opacity-50"
-                          )}
-                        >
-                          <div className="flex items-start gap-2">
-                            <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
-                            <div className="min-w-0 flex-1">
-                              <Link
-                                href={`/pipeline/${opp.id}`}
-                                className="text-sm font-medium text-foreground hover:text-primary hover:underline"
-                              >
-                                {opp.title}
-                              </Link>
-
-                              {opp.listing && (
-                                <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                                  {opp.listing.city && (
-                                    <span>{opp.listing.city}, {opp.listing.state}</span>
-                                  )}
-                                </div>
-                              )}
-
-                              <div className="mt-2 flex items-center justify-between">
-                                <div className="flex flex-col gap-0.5">
-                                  <span className="text-xs font-medium text-foreground">
-                                    {opp.listing?.askingPrice
-                                      ? formatCurrency(Number(opp.listing.askingPrice))
-                                      : "Price N/A"}
-                                  </span>
-                                  {opp.offerPrice && (
-                                    <span className="text-[10px] font-medium text-emerald-600">
-                                      Offer: {formatCurrency(Number(opp.offerPrice))}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {opp.emails && opp.emails.length > 0 && (
-                                    <span className="flex items-center gap-0.5">
-                                      <Mail className="h-3 w-3" />
-                                      {opp.emails.length}
-                                    </span>
-                                  )}
-                                  {opp.notes && opp.notes.length > 0 && (
-                                    <span className="flex items-center gap-0.5">
-                                      <MessageSquare className="h-3 w-3" />
-                                      {opp.notes.length}
-                                    </span>
-                                  )}
-                                  <span className="flex items-center gap-0.5">
-                                    <Clock className="h-3 w-3" />
-                                    {formatRelativeDate(opp.updatedAt)}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Last email preview */}
-                              {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
-                                <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                                  <Mail className="h-2.5 w-2.5 flex-shrink-0" />
-                                  <span className="truncate">
-                                    {opp.emails[0].email.subject || "(no subject)"}
-                                  </span>
-                                  {opp.emails[0].email.sentAt && (
-                                    <span className="flex-shrink-0 ml-auto">
-                                      {formatRelativeDate(opp.emails[0].email.sentAt)}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Source badges */}
-                              {opp.listing?.sources && opp.listing.sources.length > 0 && (
-                                <div className="mt-2 flex gap-1">
-                                  {opp.listing.sources
-                                    .filter((s: { sourceUrl: string }) => !s.sourceUrl.startsWith("manual://"))
-                                    .slice(0, 3)
-                                    .map((s: { id: string; sourceUrl: string }) => (
-                                      <a
-                                        key={s.id}
-                                        href={s.sourceUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="rounded p-0.5 text-muted-foreground hover:text-primary"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+            {/* Row 2: Active Negotiation */}
+            <div>
+              <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                Active Negotiation
+                <span className="h-px flex-1 bg-border" />
+              </h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {KANBAN_ROW_2.map((stageKey) => (
+                  <KanbanColumn
+                    key={stageKey}
+                    stageKey={stageKey}
+                    opportunities={getOpportunitiesByStage(stageKey)}
+                    draggedId={draggedId}
+                    dragOverStage={dragOverStage}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Closed/Hold section */}

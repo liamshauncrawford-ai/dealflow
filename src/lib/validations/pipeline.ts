@@ -5,7 +5,7 @@ import { z } from "zod";
 // ─────────────────────────────────────────────
 
 const pipelineStages = [
-  "CONTACTING", "INTERESTED", "REQUESTED_CIM", "SIGNED_NDA",
+  "CONTACTING", "REQUESTED_CIM", "SIGNED_NDA",
   "DUE_DILIGENCE", "OFFER_SENT", "COUNTER_OFFER_RECEIVED",
   "UNDER_CONTRACT", "CLOSED_WON", "CLOSED_LOST", "ON_HOLD",
 ] as const;

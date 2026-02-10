@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils";
 
 const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
   CONTACTING: { label: "Contacting", color: "bg-gray-100 text-gray-700" },
-  INTERESTED: { label: "Interested", color: "bg-blue-100 text-blue-700" },
   REQUESTED_CIM: { label: "CIM Requested", color: "bg-indigo-100 text-indigo-700" },
   SIGNED_NDA: { label: "NDA Signed", color: "bg-purple-100 text-purple-700" },
   DUE_DILIGENCE: { label: "Due Diligence", color: "bg-amber-100 text-amber-700" },

@@ -12,7 +12,6 @@ import { cn, formatCurrency, formatRelativeDate } from "@/lib/utils";
 
 const STAGE_ORDER: PipelineStageKey[] = [
   "CONTACTING",
-  "INTERESTED",
   "REQUESTED_CIM",
   "SIGNED_NDA",
   "DUE_DILIGENCE",

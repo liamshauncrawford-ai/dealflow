@@ -272,7 +272,6 @@ model Contact {
 
 enum PipelineStage {
   CONTACTING
-  INTERESTED
   REQUESTED_CIM
   SIGNED_NDA
   DUE_DILIGENCE

@@ -268,14 +268,14 @@ function detectStage(files: ScannedFile[], flags: StageFlags): string {
     return "REQUESTED_CIM";
   }
 
-  // Check for financial model -> INTERESTED
+  // Check for financial model -> CONTACTING (with interest implied)
   if (
     flags.hasFinancialModel ||
     allText.includes("crawford acquisition") ||
     allText.includes("valuation") ||
     allText.includes("acquisition model")
   ) {
-    return "INTERESTED";
+    return "CONTACTING";
   }
 
   // Default
