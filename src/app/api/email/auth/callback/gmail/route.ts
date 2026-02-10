@@ -92,8 +92,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     console.error("Error handling Gmail OAuth callback:", err);
+    const message = err instanceof Error ? err.message : "callback_failed";
     return NextResponse.redirect(
-      new URL("/settings/email?error=callback_failed", base)
+      new URL(`/settings/email?error=${encodeURIComponent(message)}`, base)
     );
   }
 }
