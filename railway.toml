@@ -3,6 +3,6 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "node node_modules/prisma/build/index.js migrate deploy && PORT=${PORT:-3000} node server.js"
+startCommand = "sh start.sh"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
