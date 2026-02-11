@@ -70,6 +70,41 @@ model Listing {
   reasonForSale   String?           @db.Text
   facilities      String?           @db.Text
 
+  // ── Thesis-specific fields ──────────────────
+  website         String?
+  phone           String?           // Company phone (not broker phone)
+
+  // Trade classification
+  primaryTrade    PrimaryTrade?
+  secondaryTrades PrimaryTrade[]
+  sicCodes        String[]
+
+  // Revenue sourcing
+  revenueSource     String?
+  revenueConfidence RevenueConfidence?
+  employeeSource    String?
+
+  // Valuation targets
+  targetMultipleLow   Float?        @default(3.0)
+  targetMultipleHigh  Float?        @default(5.0)
+
+  // Certifications & licensing
+  certifications  String[]
+  licenseNumbers  String[]
+  bonded          Boolean?
+  insured         Boolean?
+
+  // Data center relevance
+  dcRelevanceScore  Int?            // 1-10 scale
+  dcExperience      Boolean?
+  dcClients         String[]
+  dcCertifications  String[]
+
+  // Tiering & scoring
+  tier                    Tier?
+  fitScore                Int?      // 0-100 composite score
+  disqualificationReason  String?   @db.Text
+
   // Status and visibility
   isHidden        Boolean           @default(false)
   isActive        Boolean           @default(true)
@@ -104,6 +139,9 @@ model Listing {
   @@index([dedupGroupId])
   @@index([lastSeenAt])
   @@index([metroArea])
+  @@index([tier])
+  @@index([fitScore])
+  @@index([primaryTrade])
 }
 
 model ListingSource {
@@ -143,6 +181,73 @@ enum Platform {
   LOOPNET
   BUSINESSBROKER
   MANUAL
+}
+
+// ─────────────────────────────────────────────
+// THESIS-SPECIFIC ENUMS
+// ─────────────────────────────────────────────
+
+enum PrimaryTrade {
+  STRUCTURED_CABLING
+  SECURITY_SURVEILLANCE
+  BUILDING_AUTOMATION_BMS
+  HVAC_CONTROLS
+  FIRE_ALARM
+  ELECTRICAL
+  AV_INTEGRATION
+  MANAGED_IT_SERVICES
+  OTHER
+}
+
+enum Tier {
+  TIER_1_ACTIVE
+  TIER_2_WATCH
+  TIER_3_DISQUALIFIED
+  OWNED
+}
+
+enum RevenueConfidence {
+  CONFIRMED
+  ESTIMATED
+  UNKNOWN
+}
+
+enum RevenueTrend {
+  GROWING
+  STABLE
+  DECLINING
+}
+
+enum IntegrationComplexity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum KeyPersonRisk {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum OutreachStatus {
+  NOT_CONTACTED
+  COLD_OUTREACH_SENT
+  WARM_INTRO_MADE
+  IN_DIALOGUE
+  LOI_STAGE
+  DUE_DILIGENCE
+  CLOSED
+  DEAD
+}
+
+enum ContactSentiment {
+  COLD
+  LUKEWARM
+  WARM
+  HOT
+  ENGAGED
+  COMMITTED
 }
 
 // ─────────────────────────────────────────────
@@ -223,6 +328,31 @@ model Opportunity {
   lostReason      String?
   lostCategory    String?
 
+  // ── Thesis-specific deal fields ─────────────
+  actualRevenue         Decimal?          @db.Decimal(14, 2)
+  actualEbitda          Decimal?          @db.Decimal(14, 2)
+  actualEbitdaMargin    Float?
+  revenueTrend          RevenueTrend?
+  recurringRevenuePct   Float?
+  customerConcentration Float?            // Top customer as % of revenue
+  backlog               Decimal?          @db.Decimal(14, 2)
+
+  // Deal structuring
+  offeredMultiple       Float?
+  dealStructure         String?           @db.Text
+  synergyEstimate       Decimal?          @db.Decimal(14, 2)
+
+  // Risk assessment
+  integrationComplexity     IntegrationComplexity?
+  keyPersonRisk             KeyPersonRisk?
+  certificationTransferRisk String?       @db.Text
+  customerRetentionRisk     String?       @db.Text
+
+  // Additional dates
+  loiDate               DateTime?
+  dueDiligenceStart     DateTime?
+  targetCloseDate       DateTime?
+
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
@@ -262,6 +392,24 @@ model Contact {
   interestLevel   ContactInterest   @default(UNKNOWN)
   isPrimary       Boolean           @default(false)
   notes           String?           @db.Text
+
+  // ── Thesis-specific contact fields ──────────
+  linkedinUrl         String?
+  estimatedAgeRange   String?         // e.g., "55-65"
+  yearsInIndustry     Int?
+  yearsAtCompany      Int?
+  foundedCompany      Boolean?
+  ownershipPct        Float?
+  hasPartner          Boolean?
+  partnerName         String?
+  hasSuccessor        Boolean?
+  successorName       String?
+  familyBusiness      Boolean?
+  education           String?
+  priorEmployers      String[]
+  outreachStatus      OutreachStatus?
+  sentiment           ContactSentiment?
+  nextFollowUpDate    DateTime?
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt

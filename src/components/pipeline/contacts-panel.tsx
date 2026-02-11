@@ -147,7 +147,42 @@ export function ContactsPanel({ opportunityId }: ContactsPanelProps) {
                           {contact.phone}
                         </a>
                       )}
+                      {contact.linkedinUrl && (
+                        <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                          LinkedIn
+                        </a>
+                      )}
                     </div>
+                    {/* Thesis contact details */}
+                    {(contact.estimatedAgeRange || contact.yearsInIndustry || contact.foundedCompany || contact.sentiment) && (
+                      <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                        {contact.estimatedAgeRange && (
+                          <span className="rounded bg-muted px-1 py-0.5">Age: {contact.estimatedAgeRange}</span>
+                        )}
+                        {contact.yearsInIndustry && (
+                          <span className="rounded bg-muted px-1 py-0.5">{contact.yearsInIndustry}yr industry</span>
+                        )}
+                        {contact.foundedCompany && (
+                          <span className="rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-1 py-0.5">Founder</span>
+                        )}
+                        {contact.ownershipPct !== null && contact.ownershipPct !== undefined && (
+                          <span className="rounded bg-muted px-1 py-0.5">{Math.round(contact.ownershipPct * 100)}% owner</span>
+                        )}
+                        {contact.hasSuccessor === false && (
+                          <span className="rounded bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-1 py-0.5">No successor</span>
+                        )}
+                        {contact.hasSuccessor === true && (
+                          <span className="rounded bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-1 py-0.5">
+                            Successor: {contact.successorName || "Yes"}
+                          </span>
+                        )}
+                        {contact.sentiment && (
+                          <span className="rounded bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 px-1 py-0.5">
+                            {contact.sentiment}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", INTEREST_COLORS[contact.interestLevel] || INTEREST_COLORS.UNKNOWN)}>

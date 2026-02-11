@@ -9,11 +9,24 @@ const platforms = [
   "LOOPNET", "BUSINESSBROKER", "MANUAL",
 ] as const;
 
+const primaryTrades = [
+  "STRUCTURED_CABLING", "SECURITY_SURVEILLANCE", "BUILDING_AUTOMATION_BMS",
+  "HVAC_CONTROLS", "FIRE_ALARM", "ELECTRICAL", "AV_INTEGRATION",
+  "MANAGED_IT_SERVICES", "OTHER",
+] as const;
+
+const tiers = [
+  "TIER_1_ACTIVE", "TIER_2_WATCH", "TIER_3_DISQUALIFIED", "OWNED",
+] as const;
+
+const revenueConfidences = ["CONFIRMED", "ESTIMATED", "UNKNOWN"] as const;
+
 const validSortFields = [
   "title", "askingPrice", "revenue", "ebitda", "sde", "cashFlow",
   "inferredEbitda", "inferredSde", "city", "state", "industry",
   "brokerName", "brokerCompany", "employees", "established",
   "firstSeenAt", "lastSeenAt", "listingDate", "createdAt",
+  "tier", "fitScore", "primaryTrade",
 ] as const;
 
 // ─────────────────────────────────────────────
@@ -42,6 +55,10 @@ export const listingQuerySchema = z.object({
   maxSde: z.coerce.number().min(0).optional(),
   minRevenue: z.coerce.number().min(0).optional(),
   maxRevenue: z.coerce.number().min(0).optional(),
+  // Thesis filters
+  tier: z.enum(tiers).optional(),
+  primaryTrade: z.enum(primaryTrades).optional(),
+  minFitScore: z.coerce.number().int().min(0).max(100).optional(),
 });
 
 // ─────────────────────────────────────────────
@@ -78,6 +95,28 @@ export const createListingSchema = z.object({
   facilities: z.string().max(5000).nullable().optional(),
   sourceUrl: z.string().url().max(2000).optional(),
   platform: z.enum(platforms).optional(),
+  // Thesis fields
+  website: z.string().max(500).nullable().optional(),
+  phone: z.string().max(50).nullable().optional(),
+  primaryTrade: z.enum(primaryTrades).nullable().optional(),
+  secondaryTrades: z.array(z.enum(primaryTrades)).optional(),
+  sicCodes: z.array(z.string().max(20)).optional(),
+  revenueSource: z.string().max(200).nullable().optional(),
+  revenueConfidence: z.enum(revenueConfidences).nullable().optional(),
+  employeeSource: z.string().max(200).nullable().optional(),
+  targetMultipleLow: z.number().min(0).nullable().optional(),
+  targetMultipleHigh: z.number().min(0).nullable().optional(),
+  certifications: z.array(z.string().max(200)).optional(),
+  licenseNumbers: z.array(z.string().max(100)).optional(),
+  bonded: z.boolean().nullable().optional(),
+  insured: z.boolean().nullable().optional(),
+  dcRelevanceScore: z.number().int().min(1).max(10).nullable().optional(),
+  dcExperience: z.boolean().nullable().optional(),
+  dcClients: z.array(z.string().max(200)).optional(),
+  dcCertifications: z.array(z.string().max(200)).optional(),
+  tier: z.enum(tiers).nullable().optional(),
+  fitScore: z.number().int().min(0).max(100).nullable().optional(),
+  disqualificationReason: z.string().max(5000).nullable().optional(),
 });
 
 // ─────────────────────────────────────────────
@@ -120,6 +159,28 @@ export const updateListingSchema = z.object({
   inferredSde: z.number().nullable().optional(),
   inferenceMethod: z.string().max(100).nullable().optional(),
   inferenceConfidence: z.number().min(0).max(1).nullable().optional(),
+  // Thesis fields
+  website: z.string().max(500).nullable().optional(),
+  phone: z.string().max(50).nullable().optional(),
+  primaryTrade: z.enum(primaryTrades).nullable().optional(),
+  secondaryTrades: z.array(z.enum(primaryTrades)).optional(),
+  sicCodes: z.array(z.string().max(20)).optional(),
+  revenueSource: z.string().max(200).nullable().optional(),
+  revenueConfidence: z.enum(revenueConfidences).nullable().optional(),
+  employeeSource: z.string().max(200).nullable().optional(),
+  targetMultipleLow: z.number().min(0).nullable().optional(),
+  targetMultipleHigh: z.number().min(0).nullable().optional(),
+  certifications: z.array(z.string().max(200)).optional(),
+  licenseNumbers: z.array(z.string().max(100)).optional(),
+  bonded: z.boolean().nullable().optional(),
+  insured: z.boolean().nullable().optional(),
+  dcRelevanceScore: z.number().int().min(1).max(10).nullable().optional(),
+  dcExperience: z.boolean().nullable().optional(),
+  dcClients: z.array(z.string().max(200)).optional(),
+  dcCertifications: z.array(z.string().max(200)).optional(),
+  tier: z.enum(tiers).nullable().optional(),
+  fitScore: z.number().int().min(0).max(100).nullable().optional(),
+  disqualificationReason: z.string().max(5000).nullable().optional(),
 });
 
 // ─────────────────────────────────────────────

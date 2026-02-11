@@ -19,6 +19,8 @@ export async function GET() {
       lostCount,
       avgDealValue,
       lostReasonBreakdown,
+      tierBreakdown,
+      avgFitScore,
     ] = await Promise.all([
       // Total active listings meeting threshold
       prisma.listing.count({
@@ -105,6 +107,19 @@ export async function GET() {
         where: { stage: "CLOSED_LOST", lostCategory: { not: null } },
         _count: { id: true },
       }),
+
+      // Tier breakdown
+      prisma.listing.groupBy({
+        by: ["tier"],
+        where: { isActive: true, tier: { not: null } },
+        _count: { id: true },
+      }),
+
+      // Average fit score
+      prisma.listing.aggregate({
+        where: { isActive: true, fitScore: { not: null } },
+        _avg: { fitScore: true },
+      }),
     ]);
 
     const winRate = (wonCount + lostCount) > 0
@@ -137,6 +152,13 @@ export async function GET() {
         category: r.lostCategory,
         count: r._count.id,
       })),
+      tierBreakdown: tierBreakdown.map((t) => ({
+        tier: t.tier,
+        count: t._count.id,
+      })),
+      avgFitScore: avgFitScore._avg.fitScore
+        ? Math.round(avgFitScore._avg.fitScore)
+        : null,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

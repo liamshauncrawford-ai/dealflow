@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
       metroArea, platform, showHidden, showInactive, meetsThreshold,
       minPrice, maxPrice, minEbitda, maxEbitda, minSde, maxSde,
       minRevenue, maxRevenue,
+      tier, primaryTrade, minFitScore,
     } = parsed.data;
 
     const skip = (page - 1) * pageSize;
@@ -107,6 +108,11 @@ export async function GET(request: NextRequest) {
         ...(maxRevenue !== undefined ? { lte: maxRevenue } : {}),
       };
     }
+
+    // Thesis filters
+    if (tier) where.tier = tier;
+    if (primaryTrade) where.primaryTrade = primaryTrade;
+    if (minFitScore !== undefined) where.fitScore = { gte: minFitScore };
 
     // Threshold filter: only show listings that meet $600K EBITDA/SDE threshold
     if (meetsThreshold) {

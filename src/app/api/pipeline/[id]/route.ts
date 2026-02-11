@@ -115,10 +115,14 @@ export async function PATCH(
     // Build update data from validated fields (excluding stageNote which is stage-history only)
     const { stageNote: _, ...fields } = body;
     const updateData: Record<string, unknown> = {};
+    const dateFields = [
+      "contactedAt", "cimRequestedAt", "ndaSignedAt", "offerSentAt",
+      "underContractAt", "closedAt", "loiDate", "dueDiligenceStart", "targetCloseDate",
+    ];
     for (const [key, value] of Object.entries(fields)) {
       if (value !== undefined) {
         // Handle date fields
-        if (key.endsWith("At") && typeof value === "string") {
+        if (dateFields.includes(key) && typeof value === "string") {
           updateData[key] = new Date(value);
         } else {
           updateData[key] = value;

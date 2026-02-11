@@ -16,6 +16,8 @@ import {
 import { usePipeline, useUpdateOpportunity } from "@/hooks/use-pipeline";
 import { PIPELINE_STAGES, PRIORITY_LEVELS, type PipelineStageKey } from "@/lib/constants";
 import { cn, formatCurrency, formatRelativeDate } from "@/lib/utils";
+import { TierBadge } from "@/components/listings/tier-badge";
+import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
 import {
   getLastActivityDate,
   getActivityGroup,
@@ -110,9 +112,13 @@ function KanbanColumn({
                   </Link>
 
                   {opp.listing && (
-                    <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                       {opp.listing.city && (
                         <span>{opp.listing.city}, {opp.listing.state}</span>
+                      )}
+                      {opp.listing.tier && <TierBadge tier={opp.listing.tier} size="sm" />}
+                      {opp.listing.fitScore !== null && opp.listing.fitScore !== undefined && (
+                        <FitScoreGauge score={opp.listing.fitScore} size="sm" showLabel={false} />
                       )}
                     </div>
                   )}

@@ -14,6 +14,17 @@ const priorities = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
 const contactInterestLevels = ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "VERY_HIGH"] as const;
 
+const revenueTrends = ["GROWING", "STABLE", "DECLINING"] as const;
+const integrationComplexities = ["LOW", "MEDIUM", "HIGH"] as const;
+const keyPersonRisks = ["LOW", "MEDIUM", "HIGH"] as const;
+const outreachStatuses = [
+  "NOT_CONTACTED", "COLD_OUTREACH_SENT", "WARM_INTRO_MADE",
+  "IN_DIALOGUE", "LOI_STAGE", "DUE_DILIGENCE", "CLOSED", "DEAD",
+] as const;
+const contactSentiments = [
+  "COLD", "LUKEWARM", "WARM", "HOT", "ENGAGED", "COMMITTED",
+] as const;
+
 // ─────────────────────────────────────────────
 // Pipeline / Opportunity
 // ─────────────────────────────────────────────
@@ -54,6 +65,24 @@ export const updateOpportunitySchema = z.object({
   lostCategory: z.string().max(100).nullable().optional(),
   winProbability: z.number().min(0).max(1).nullable().optional(),
   dealValue: z.number().min(0).nullable().optional(),
+  // Thesis deal fields
+  actualRevenue: z.number().min(0).nullable().optional(),
+  actualEbitda: z.number().nullable().optional(),
+  actualEbitdaMargin: z.number().min(0).max(1).nullable().optional(),
+  revenueTrend: z.enum(revenueTrends).nullable().optional(),
+  recurringRevenuePct: z.number().min(0).max(1).nullable().optional(),
+  customerConcentration: z.number().min(0).max(1).nullable().optional(),
+  backlog: z.number().min(0).nullable().optional(),
+  offeredMultiple: z.number().min(0).nullable().optional(),
+  dealStructure: z.string().max(5000).nullable().optional(),
+  synergyEstimate: z.number().min(0).nullable().optional(),
+  integrationComplexity: z.enum(integrationComplexities).nullable().optional(),
+  keyPersonRisk: z.enum(keyPersonRisks).nullable().optional(),
+  certificationTransferRisk: z.string().max(5000).nullable().optional(),
+  customerRetentionRisk: z.string().max(5000).nullable().optional(),
+  loiDate: optionalDateString,
+  dueDiligenceStart: optionalDateString,
+  targetCloseDate: optionalDateString,
 }).refine(
   (data) => Object.keys(data).length > 0,
   { message: "At least one field must be provided" },
@@ -104,6 +133,24 @@ export const createContactSchema = z.object({
   interestLevel: z.enum(contactInterestLevels).default("UNKNOWN"),
   isPrimary: z.boolean().default(false),
   notes: z.string().max(5000).nullable().optional(),
+  // Thesis contact fields
+  linkedinUrl: z.string().max(500).nullable().optional(),
+  estimatedAgeRange: z.string().max(50).nullable().optional(),
+  yearsInIndustry: z.number().int().min(0).nullable().optional(),
+  yearsAtCompany: z.number().int().min(0).nullable().optional(),
+  foundedCompany: z.boolean().nullable().optional(),
+  ownershipPct: z.number().min(0).max(1).nullable().optional(),
+  hasPartner: z.boolean().nullable().optional(),
+  partnerName: z.string().max(200).nullable().optional(),
+  hasSuccessor: z.boolean().nullable().optional(),
+  successorName: z.string().max(200).nullable().optional(),
+  familyBusiness: z.boolean().nullable().optional(),
+  education: z.string().max(500).nullable().optional(),
+  priorEmployers: z.array(z.string().max(200)).optional(),
+  outreachStatus: z.enum(outreachStatuses).nullable().optional(),
+  sentiment: z.enum(contactSentiments).nullable().optional(),
+  nextFollowUpDate: z.string().datetime({ offset: true }).nullable().optional()
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}/).nullable().optional()),
 });
 
 export const updateContactSchema = z.object({
@@ -115,6 +162,24 @@ export const updateContactSchema = z.object({
   interestLevel: z.enum(contactInterestLevels).optional(),
   isPrimary: z.boolean().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  // Thesis contact fields
+  linkedinUrl: z.string().max(500).nullable().optional(),
+  estimatedAgeRange: z.string().max(50).nullable().optional(),
+  yearsInIndustry: z.number().int().min(0).nullable().optional(),
+  yearsAtCompany: z.number().int().min(0).nullable().optional(),
+  foundedCompany: z.boolean().nullable().optional(),
+  ownershipPct: z.number().min(0).max(1).nullable().optional(),
+  hasPartner: z.boolean().nullable().optional(),
+  partnerName: z.string().max(200).nullable().optional(),
+  hasSuccessor: z.boolean().nullable().optional(),
+  successorName: z.string().max(200).nullable().optional(),
+  familyBusiness: z.boolean().nullable().optional(),
+  education: z.string().max(500).nullable().optional(),
+  priorEmployers: z.array(z.string().max(200)).optional(),
+  outreachStatus: z.enum(outreachStatuses).nullable().optional(),
+  sentiment: z.enum(contactSentiments).nullable().optional(),
+  nextFollowUpDate: z.string().datetime({ offset: true }).nullable().optional()
+    .or(z.string().regex(/^\d{4}-\d{2}-\d{2}/).nullable().optional()),
 });
 
 // ─────────────────────────────────────────────

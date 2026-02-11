@@ -205,6 +205,623 @@ async function main() {
   }
 
   console.log(`Seeded ${platforms.length} scrape schedules.`);
+
+  // ─── Thesis Target Companies ───────────────────────────────
+  console.log("Seeding thesis target companies...");
+
+  // Helper to compute fit score
+  const { computeFitScore } = await import("../src/lib/scoring/fit-score-engine");
+
+  // 1. OWNED — PMS Commercial Division
+  const pms = await prisma.listing.upsert({
+    where: { id: "seed-pms-commercial" },
+    update: {},
+    create: {
+      id: "seed-pms-commercial",
+      title: "PMS Commercial Division",
+      businessName: "PMS Commercial Division",
+      description: "Existing platform company. Security, surveillance, and AV integration for commercial and data center clients across the Denver Metro area.",
+      city: "Denver",
+      state: "CO",
+      metroArea: "Denver Metro",
+      industry: "Construction / Low Voltage",
+      category: "Security & AV Integration",
+      revenue: 1_400_000,
+      employees: 7,
+      established: 2018,
+      isManualEntry: true,
+      primaryTrade: "SECURITY_SURVEILLANCE",
+      secondaryTrades: ["AV_INTEGRATION"],
+      tier: "OWNED",
+      website: "https://pmscommercial.com",
+      certifications: ["Licensed", "Bonded", "Insured"],
+      bonded: true,
+      insured: true,
+      dcExperience: true,
+      dcRelevanceScore: 8,
+      targetMultipleLow: 3.0,
+      targetMultipleHigh: 5.0,
+      fitScore: 0, // Will compute below
+      sources: { create: { platform: "MANUAL", sourceUrl: "manual://seed-pms" } },
+    },
+  });
+
+  // 2. TIER 1 — SPC Communications
+  const spc = await prisma.listing.upsert({
+    where: { id: "seed-spc-communications" },
+    update: {},
+    create: {
+      id: "seed-spc-communications",
+      title: "SPC Communications",
+      businessName: "SPC Communications LLC",
+      description: "Full-service structured cabling contractor specializing in data center infrastructure, campus fiber optics, and commercial low-voltage systems. Established reputation in Denver Metro serving enterprise and government clients.",
+      city: "Aurora",
+      state: "CO",
+      metroArea: "Denver Metro",
+      industry: "Construction / Low Voltage",
+      category: "Structured Cabling",
+      revenue: 5_000_000,
+      revenueSource: "BBB / Estimate",
+      revenueConfidence: "ESTIMATED",
+      employees: 30,
+      established: 1993,
+      isManualEntry: true,
+      primaryTrade: "STRUCTURED_CABLING",
+      secondaryTrades: ["SECURITY_SURVEILLANCE"],
+      tier: "TIER_1_ACTIVE",
+      website: "https://spccommunications.com",
+      certifications: ["MBE/WBE", "GSA Schedule", "BiCSI RCDD", "BBB A+"],
+      dcCertifications: ["BiCSI RCDD"],
+      bonded: true,
+      insured: true,
+      dcExperience: true,
+      dcRelevanceScore: 9,
+      targetMultipleLow: 3.0,
+      targetMultipleHigh: 5.0,
+      sources: { create: { platform: "MANUAL", sourceUrl: "manual://seed-spc" } },
+    },
+  });
+
+  // Create opportunity for SPC
+  const spcOpp = await prisma.opportunity.upsert({
+    where: { id: "seed-opp-spc" },
+    update: {},
+    create: {
+      id: "seed-opp-spc",
+      title: "SPC Communications Acquisition",
+      listingId: spc.id,
+      stage: "CONTACTING",
+      priority: "HIGH",
+      keyPersonRisk: "HIGH",
+      recurringRevenuePct: 0.15,
+    },
+  });
+
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-spc-kenny" },
+    update: {},
+    create: {
+      id: "seed-contact-spc-kenny",
+      opportunityId: spcOpp.id,
+      name: "Kenny Som",
+      role: "President / Founder",
+      isPrimary: true,
+      estimatedAgeRange: "55-70",
+      yearsInIndustry: 30,
+      foundedCompany: true,
+      ownershipPct: 1.0,
+      hasSuccessor: false,
+      familyBusiness: false,
+      outreachStatus: "NOT_CONTACTED",
+      sentiment: "COLD",
+    },
+  });
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-spc-sue" },
+    update: {},
+    create: {
+      id: "seed-contact-spc-sue",
+      opportunityId: spcOpp.id,
+      name: "Sue Tran",
+      role: "Office Manager",
+      isPrimary: false,
+    },
+  });
+
+  // 3. TIER 1 — ISI Technology
+  const isi = await prisma.listing.upsert({
+    where: { id: "seed-isi-technology" },
+    update: {},
+    create: {
+      id: "seed-isi-technology",
+      title: "ISI Technology",
+      businessName: "ISI Technology Inc",
+      description: "Structured cabling and security integration firm in Lakewood, CO. Dual-owner partnership with complementary skills (sales/ops and project management). Serves commercial, government, and data center clients.",
+      city: "Lakewood",
+      state: "CO",
+      metroArea: "Denver Metro",
+      industry: "Construction / Low Voltage",
+      category: "Structured Cabling & Security",
+      revenue: 6_000_000,
+      revenueSource: "RocketReach / Estimate",
+      revenueConfidence: "ESTIMATED",
+      employees: 25,
+      established: 1996,
+      isManualEntry: true,
+      primaryTrade: "STRUCTURED_CABLING",
+      secondaryTrades: ["SECURITY_SURVEILLANCE"],
+      tier: "TIER_1_ACTIVE",
+      website: "https://isitechnology.com",
+      certifications: ["BBB A+"],
+      bonded: true,
+      insured: true,
+      dcExperience: true,
+      dcRelevanceScore: 8,
+      targetMultipleLow: 3.5,
+      targetMultipleHigh: 5.0,
+      sources: { create: { platform: "MANUAL", sourceUrl: "manual://seed-isi" } },
+    },
+  });
+
+  const isiOpp = await prisma.opportunity.upsert({
+    where: { id: "seed-opp-isi" },
+    update: {},
+    create: {
+      id: "seed-opp-isi",
+      title: "ISI Technology Acquisition",
+      listingId: isi.id,
+      stage: "CONTACTING",
+      priority: "HIGH",
+      keyPersonRisk: "MEDIUM",
+      recurringRevenuePct: 0.10,
+    },
+  });
+
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-isi-marty" },
+    update: {},
+    create: {
+      id: "seed-contact-isi-marty",
+      opportunityId: isiOpp.id,
+      name: "Marty Wedel",
+      role: "President / Co-Founder",
+      isPrimary: true,
+      estimatedAgeRange: "55-65",
+      yearsInIndustry: 28,
+      foundedCompany: true,
+      ownershipPct: 0.5,
+      hasPartner: true,
+      partnerName: "Walter Tew",
+      hasSuccessor: false,
+      familyBusiness: false,
+      outreachStatus: "NOT_CONTACTED",
+      sentiment: "COLD",
+    },
+  });
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-isi-walter" },
+    update: {},
+    create: {
+      id: "seed-contact-isi-walter",
+      opportunityId: isiOpp.id,
+      name: "Walter Tew",
+      role: "Partner / Project Manager",
+      isPrimary: false,
+      ownershipPct: 0.5,
+      hasPartner: true,
+      partnerName: "Marty Wedel",
+    },
+  });
+
+  // 4. TIER 1 — Mechanical Solutions Inc
+  const msi = await prisma.listing.upsert({
+    where: { id: "seed-mechanical-solutions" },
+    update: {},
+    create: {
+      id: "seed-mechanical-solutions",
+      title: "Mechanical Solutions Inc",
+      businessName: "Mechanical Solutions Inc",
+      description: "Building automation and HVAC controls specialist. Distech Controls factory authorized dealer. Serves commercial buildings, hospitals, and data centers in the Denver Metro area. Deep technical expertise in BMS integration.",
+      city: "Denver",
+      state: "CO",
+      metroArea: "Denver Metro",
+      industry: "Construction / HVAC & Controls",
+      category: "Building Automation / BMS",
+      revenue: 5_000_000,
+      revenueSource: "Industry Estimate",
+      revenueConfidence: "ESTIMATED",
+      employees: 20,
+      established: 1998,
+      isManualEntry: true,
+      primaryTrade: "BUILDING_AUTOMATION_BMS",
+      secondaryTrades: ["HVAC_CONTROLS"],
+      tier: "TIER_1_ACTIVE",
+      website: "https://msicontrols.com",
+      certifications: ["Distech Controls Factory Certified", "Licensed", "Bonded"],
+      dcCertifications: ["BMS Integration"],
+      bonded: true,
+      insured: true,
+      dcExperience: true,
+      dcRelevanceScore: 9,
+      targetMultipleLow: 3.0,
+      targetMultipleHigh: 5.0,
+      sources: { create: { platform: "MANUAL", sourceUrl: "manual://seed-msi" } },
+    },
+  });
+
+  const msiOpp = await prisma.opportunity.upsert({
+    where: { id: "seed-opp-msi" },
+    update: {},
+    create: {
+      id: "seed-opp-msi",
+      title: "Mechanical Solutions Acquisition",
+      listingId: msi.id,
+      stage: "CONTACTING",
+      priority: "HIGH",
+      keyPersonRisk: "MEDIUM",
+      recurringRevenuePct: 0.25,
+    },
+  });
+
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-msi-john" },
+    update: {},
+    create: {
+      id: "seed-contact-msi-john",
+      opportunityId: msiOpp.id,
+      name: "John (President)",
+      role: "President / Co-Founder",
+      isPrimary: true,
+      estimatedAgeRange: "65-75",
+      yearsInIndustry: 40,
+      foundedCompany: true,
+      ownershipPct: 0.5,
+      hasPartner: true,
+      partnerName: "Al (CFO)",
+      hasSuccessor: false,
+      familyBusiness: false,
+      outreachStatus: "NOT_CONTACTED",
+      sentiment: "COLD",
+    },
+  });
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-msi-al" },
+    update: {},
+    create: {
+      id: "seed-contact-msi-al",
+      opportunityId: msiOpp.id,
+      name: "Al (CFO)",
+      role: "CFO / Co-Founder / CPA",
+      isPrimary: false,
+      estimatedAgeRange: "60-70",
+      yearsInIndustry: 30,
+      foundedCompany: true,
+      ownershipPct: 0.5,
+      education: "CPA",
+    },
+  });
+
+  // 5. TIER 2 — Colorado Controls
+  const coControls = await prisma.listing.upsert({
+    where: { id: "seed-colorado-controls" },
+    update: {},
+    create: {
+      id: "seed-colorado-controls",
+      title: "Colorado Controls",
+      businessName: "Colorado Controls LLC",
+      description: "Building automation and HVAC controls company in Fort Collins. Reliable Controls factory authorized dealer. Small team with deep technical expertise in commercial BMS systems.",
+      city: "Fort Collins",
+      state: "CO",
+      metroArea: "Front Range",
+      industry: "Construction / HVAC & Controls",
+      category: "Building Automation / BMS",
+      revenue: 2_000_000,
+      revenueSource: "Industry Estimate",
+      revenueConfidence: "ESTIMATED",
+      employees: 8,
+      established: 2013,
+      isManualEntry: true,
+      primaryTrade: "BUILDING_AUTOMATION_BMS",
+      secondaryTrades: ["HVAC_CONTROLS"],
+      tier: "TIER_2_WATCH",
+      certifications: ["Reliable Controls Factory Authorized", "ABC Member", "AGC Member"],
+      bonded: true,
+      insured: true,
+      dcExperience: false,
+      dcRelevanceScore: 6,
+      targetMultipleLow: 3.0,
+      targetMultipleHigh: 4.0,
+      sources: { create: { platform: "MANUAL", sourceUrl: "manual://seed-cocontrols" } },
+    },
+  });
+
+  const coControlsOpp = await prisma.opportunity.upsert({
+    where: { id: "seed-opp-cocontrols" },
+    update: {},
+    create: {
+      id: "seed-opp-cocontrols",
+      title: "Colorado Controls Acquisition",
+      listingId: coControls.id,
+      stage: "CONTACTING",
+      priority: "MEDIUM",
+      keyPersonRisk: "HIGH",
+      recurringRevenuePct: 0.20,
+    },
+  });
+
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-cocontrols-founder" },
+    update: {},
+    create: {
+      id: "seed-contact-cocontrols-founder",
+      opportunityId: coControlsOpp.id,
+      name: "Founder (Unknown Name)",
+      role: "Founder / Owner",
+      isPrimary: true,
+      estimatedAgeRange: "55-65",
+      yearsInIndustry: 40,
+      foundedCompany: true,
+      ownershipPct: 1.0,
+      hasSuccessor: false,
+      outreachStatus: "NOT_CONTACTED",
+      sentiment: "COLD",
+    },
+  });
+
+  // 6. TIER 2 — Anchor Network Solutions
+  const anchor = await prisma.listing.upsert({
+    where: { id: "seed-anchor-network" },
+    update: {},
+    create: {
+      id: "seed-anchor-network",
+      title: "Anchor Network Solutions",
+      businessName: "Anchor Network Solutions Inc",
+      description: "Managed IT services and structured cabling company in Lone Tree, CO. Serves small-to-medium businesses with IT infrastructure, cabling, and network management.",
+      city: "Lone Tree",
+      state: "CO",
+      metroArea: "Denver Metro",
+      industry: "Construction / IT Services",
+      category: "Managed IT & Cabling",
+      revenue: 3_000_000,
+      revenueSource: "Industry Estimate",
+      revenueConfidence: "ESTIMATED",
+      employees: 15,
+      established: 2002,
+      isManualEntry: true,
+      primaryTrade: "MANAGED_IT_SERVICES",
+      secondaryTrades: ["STRUCTURED_CABLING"],
+      tier: "TIER_2_WATCH",
+      bonded: true,
+      insured: true,
+      dcExperience: false,
+      dcRelevanceScore: 5,
+      targetMultipleLow: 3.0,
+      targetMultipleHigh: 4.5,
+      sources: { create: { platform: "MANUAL", sourceUrl: "manual://seed-anchor" } },
+    },
+  });
+
+  const anchorOpp = await prisma.opportunity.upsert({
+    where: { id: "seed-opp-anchor" },
+    update: {},
+    create: {
+      id: "seed-opp-anchor",
+      title: "Anchor Network Solutions Acquisition",
+      listingId: anchor.id,
+      stage: "CONTACTING",
+      priority: "MEDIUM",
+      keyPersonRisk: "MEDIUM",
+    },
+  });
+
+  await prisma.contact.upsert({
+    where: { id: "seed-contact-anchor-mike" },
+    update: {},
+    create: {
+      id: "seed-contact-anchor-mike",
+      opportunityId: anchorOpp.id,
+      name: "Mike Stewart",
+      role: "Managing Director",
+      isPrimary: true,
+      outreachStatus: "NOT_CONTACTED",
+      sentiment: "COLD",
+    },
+  });
+
+  // TIER 3 (Disqualified) — Listings only
+  const tier3Targets = [
+    {
+      id: "seed-control-systems-inc",
+      title: "Control Systems Inc",
+      city: "Denver",
+      state: "CO",
+      primaryTrade: "BUILDING_AUTOMATION_BMS" as const,
+      reason: "Multi-state platform, likely PE-backed. Too large for bolt-on acquisition.",
+      employees: 200,
+    },
+    {
+      id: "seed-electricians-llc",
+      title: "The Electricians LLC",
+      city: "Colorado Springs",
+      state: "CO",
+      primaryTrade: "ELECTRICAL" as const,
+      reason: "Founded 2020, only 5 years in business. Still growing, not mature enough.",
+      established: 2020,
+      employees: 12,
+    },
+    {
+      id: "seed-townsend-mechanical",
+      title: "Townsend Mechanical",
+      city: "Greeley",
+      state: "CO",
+      primaryTrade: "HVAC_CONTROLS" as const,
+      reason: "Residential HVAC, not commercial BMS. Wrong trade fit for data center thesis.",
+      employees: 15,
+    },
+    {
+      id: "seed-climate-centennial",
+      title: "Climate Engineering / Centennial Controls",
+      city: "Denver",
+      state: "CO",
+      primaryTrade: "HVAC_CONTROLS" as const,
+      reason: "ABM/Linc Service franchise territory. Too entangled with franchisor agreements.",
+      employees: 40,
+    },
+    {
+      id: "seed-ikm-building",
+      title: "IKM Building Solutions",
+      city: "Milwaukee",
+      state: "WI",
+      primaryTrade: "BUILDING_AUTOMATION_BMS" as const,
+      reason: "Wisconsin-based, 114 employees, EMCOR-owned. Too large and geographically wrong.",
+      employees: 114,
+    },
+  ];
+
+  for (const t3 of tier3Targets) {
+    await prisma.listing.upsert({
+      where: { id: t3.id },
+      update: {},
+      create: {
+        id: t3.id,
+        title: t3.title,
+        businessName: t3.title,
+        city: t3.city,
+        state: t3.state,
+        industry: "Construction / Low Voltage",
+        isManualEntry: true,
+        primaryTrade: t3.primaryTrade,
+        tier: "TIER_3_DISQUALIFIED",
+        disqualificationReason: t3.reason,
+        employees: t3.employees,
+        established: t3.established,
+        dcRelevanceScore: 3,
+        sources: { create: { platform: "MANUAL", sourceUrl: `manual://${t3.id}` } },
+      },
+    });
+  }
+
+  // Compute fit scores for Tier 1 & Tier 2 targets
+  const scorableListings = [spc, isi, msi, coControls, anchor, pms];
+  const oppMap: Record<string, typeof spcOpp> = {
+    [spc.id]: spcOpp,
+    [isi.id]: isiOpp,
+    [msi.id]: msiOpp,
+    [coControls.id]: coControlsOpp,
+    [anchor.id]: anchorOpp,
+  };
+
+  for (const listing of scorableListings) {
+    const opp = oppMap[listing.id];
+    // Get primary contact for owner age scoring
+    const primaryContact = opp
+      ? await prisma.contact.findFirst({
+          where: { opportunityId: opp.id, isPrimary: true },
+        })
+      : null;
+
+    const { fitScore } = computeFitScore({
+      primaryTrade: listing.primaryTrade,
+      secondaryTrades: listing.secondaryTrades as string[],
+      revenue: listing.revenue ? Number(listing.revenue) : null,
+      established: listing.established,
+      state: listing.state,
+      metroArea: listing.metroArea,
+      certifications: listing.certifications as string[],
+      dcCertifications: listing.dcCertifications as string[],
+      dcRelevanceScore: listing.dcRelevanceScore,
+      askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
+      ebitda: listing.ebitda ? Number(listing.ebitda) : null,
+      inferredEbitda: listing.inferredEbitda ? Number(listing.inferredEbitda) : null,
+      targetMultipleLow: listing.targetMultipleLow,
+      targetMultipleHigh: listing.targetMultipleHigh,
+      estimatedAgeRange: primaryContact?.estimatedAgeRange ?? null,
+      keyPersonRisk: opp?.keyPersonRisk ?? null,
+      recurringRevenuePct: opp?.recurringRevenuePct ?? null,
+    });
+
+    await prisma.listing.update({
+      where: { id: listing.id },
+      data: { fitScore },
+    });
+    console.log(`  ${listing.title}: fitScore = ${fitScore}`);
+  }
+
+  // Seed email templates as AppSettings
+  const emailTemplates = [
+    {
+      key: "email_template_direct_outreach",
+      value: `Subject: Confidential Inquiry — [Company Name]
+
+Dear [Owner Name],
+
+I hope this letter finds you well. My name is Liam Crawford, and I lead a Colorado-based investment group focused on building a premier data center and commercial technology services platform along the Front Range.
+
+Your company's reputation for quality [trade] work caught our attention, and I'm reaching out to explore whether you might be open to a conversation about your long-term plans for the business.
+
+We are not a private equity firm looking to strip costs — we're operators who want to preserve the culture, retain the team, and invest in growth. Our model is simple: keep the people who built the business, add resources and back-office support, and create career paths for technicians.
+
+If you've ever considered what comes next — whether that's retirement, a partner buyout, or simply having a strategic conversation — I'd welcome the chance to meet for coffee and learn more about what you've built.
+
+No brokers, no pressure, completely confidential.
+
+Best regards,
+Liam Crawford`,
+    },
+    {
+      key: "email_template_broker_inquiry",
+      value: `Subject: Buyer Registration — Colorado Low-Voltage / Data Center Trades
+
+Dear [Broker Name],
+
+I am actively acquiring Colorado-based businesses in the low-voltage, structured cabling, building automation, and security integration trades. My group operates an existing platform in the Denver Metro area and we're looking to add complementary capabilities through acquisition.
+
+Our target profile:
+• Revenue: $1M – $15M
+• Location: Colorado (Front Range preferred)
+• Trades: Structured cabling, security/surveillance, BMS/HVAC controls, fire alarm, electrical
+• Structure: We can close quickly (60-90 days) with flexible deal structures
+
+I'd appreciate being added to your distribution list for relevant listings. Please feel free to contact me at your convenience to discuss any current or upcoming opportunities.
+
+Best regards,
+Liam Crawford`,
+    },
+    {
+      key: "email_template_referral_request",
+      value: `Subject: Introduction Request — Colorado Data Center Trades
+
+Dear [Contact Name],
+
+I hope you're doing well. I'm reaching out because of your deep connections in the Colorado [industry] community.
+
+My group is building a platform of complementary data center and commercial technology service providers along the Front Range. We recently acquired our first company and are now looking for our next 2-3 bolt-on acquisitions.
+
+I'm specifically interested in meeting owners of:
+• Structured cabling / fiber optic companies
+• Building automation / BMS firms
+• Security and surveillance integrators
+• HVAC controls specialists
+
+If you know of any business owners who might be thinking about succession planning or an eventual exit, I would greatly appreciate an introduction. All conversations are completely confidential.
+
+Thank you for your time, and please don't hesitate to reach out if I can be of help in return.
+
+Best regards,
+Liam Crawford`,
+    },
+  ];
+
+  for (const template of emailTemplates) {
+    await prisma.appSetting.upsert({
+      where: { key: template.key },
+      update: { value: template.value },
+      create: { key: template.key, value: template.value },
+    });
+  }
+
+  console.log(`Seeded ${emailTemplates.length} email templates.`);
+  console.log("Thesis seed data complete.");
 }
 
 main()

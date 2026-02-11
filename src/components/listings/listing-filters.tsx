@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, Filter, X } from "lucide-react";
 import { cn, formatCurrency } from "@/lib/utils";
-import { PLATFORMS, type PlatformKey } from "@/lib/constants";
+import { PLATFORMS, PRIMARY_TRADES, TIERS, type PlatformKey } from "@/lib/constants";
 import type { ListingFilters } from "@/types/listing";
 
 interface ListingFiltersProps {
@@ -108,6 +108,50 @@ export function ListingFiltersPanel({ filters, onFiltersChange }: ListingFilters
                   <option key={key} value={key}>{p.label}</option>
                 ))}
               </select>
+            </div>
+
+            {/* Tier */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Tier</label>
+              <select
+                value={filters.tier || ""}
+                onChange={(e) => updateFilter("tier", e.target.value)}
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">All Tiers</option>
+                {Object.entries(TIERS).map(([key, t]) => (
+                  <option key={key} value={key}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Primary Trade */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Trade</label>
+              <select
+                value={filters.primaryTrade || ""}
+                onChange={(e) => updateFilter("primaryTrade", e.target.value)}
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="">All Trades</option>
+                {Object.entries(PRIMARY_TRADES).map(([key, t]) => (
+                  <option key={key} value={key}>{t.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Min Fit Score */}
+            <div>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Min Fit Score</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={filters.minFitScore ?? ""}
+                onChange={(e) => updateFilter("minFitScore", e.target.value ? Number(e.target.value) : undefined)}
+                placeholder="0"
+                className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             {/* Price Range */}

@@ -37,6 +37,10 @@ export interface ListingFilters {
   showInactive?: boolean;
   hasInferredFinancials?: boolean;
   meetsThreshold?: boolean;
+  // Thesis filters
+  tier?: string;
+  primaryTrade?: string;
+  minFitScore?: number;
 }
 
 export interface ListingSortConfig {

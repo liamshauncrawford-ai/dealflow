@@ -16,6 +16,23 @@ interface Contact {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  // Thesis fields
+  linkedinUrl: string | null;
+  estimatedAgeRange: string | null;
+  yearsInIndustry: number | null;
+  yearsAtCompany: number | null;
+  foundedCompany: boolean | null;
+  ownershipPct: number | null;
+  hasPartner: boolean | null;
+  partnerName: string | null;
+  hasSuccessor: boolean | null;
+  successorName: string | null;
+  familyBusiness: boolean | null;
+  education: string | null;
+  priorEmployers: string[];
+  outreachStatus: string | null;
+  sentiment: string | null;
+  nextFollowUpDate: string | null;
 }
 
 interface ContactsResponse {

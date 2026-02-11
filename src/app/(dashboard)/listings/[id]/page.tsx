@@ -12,12 +12,16 @@ import {
   MapPin,
   Building2,
   Users,
-  Clock,
   Phone,
   Mail,
   PenLine,
   X,
   Save,
+  RefreshCw,
+  Shield,
+  Award,
+  Globe,
+  UserCheck,
 } from "lucide-react";
 import {
   useListing,
@@ -27,9 +31,13 @@ import {
 } from "@/hooks/use-listings";
 import { FinancialSummary } from "@/components/listings/financial-summary";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
+import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
+import { TierBadge } from "@/components/listings/tier-badge";
+import { TradeBadges } from "@/components/listings/trade-badges";
 import { PromoteDialog } from "@/components/promote-dialog";
 import { formatCurrency, formatDate, formatRelativeDate } from "@/lib/utils";
-import { PIPELINE_STAGES } from "@/lib/constants";
+import { PIPELINE_STAGES, PRIMARY_TRADES, TIERS, type PrimaryTradeKey, type TierKey } from "@/lib/constants";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function ListingDetailPage({
   params,
@@ -41,11 +49,23 @@ export default function ListingDetailPage({
   const updateListing = useUpdateListing();
   const toggleHidden = useToggleHidden();
   const promoteToPipeline = usePromoteToPipeline();
+  const queryClient = useQueryClient();
 
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
+
+  const recomputeScore = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/listings/${id}/score`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to recompute score");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["listing", id] });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -65,6 +85,11 @@ export default function ListingDetailPage({
       </div>
     );
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const primaryContact = (listing as any).opportunity?.contacts?.find((c: { isPrimary: boolean }) => c.isPrimary)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    || (listing as any).opportunity?.contacts?.[0];
 
   const startEditing = () => {
     setEditData({
@@ -94,41 +119,57 @@ export default function ListingDetailPage({
       brokerCompany: listing.brokerCompany || "",
       brokerPhone: listing.brokerPhone || "",
       brokerEmail: listing.brokerEmail || "",
+      // Thesis fields
+      website: listing.website || "",
+      phone: listing.phone || "",
+      primaryTrade: listing.primaryTrade || "",
+      secondaryTrades: listing.secondaryTrades || [],
+      tier: listing.tier || "",
+      targetMultipleLow: listing.targetMultipleLow ?? 3.0,
+      targetMultipleHigh: listing.targetMultipleHigh ?? 5.0,
+      certifications: listing.certifications || [],
+      dcCertifications: listing.dcCertifications || [],
+      bonded: listing.bonded,
+      insured: listing.insured,
+      dcRelevanceScore: listing.dcRelevanceScore || "",
+      dcExperience: listing.dcExperience,
+      disqualificationReason: listing.disqualificationReason || "",
     });
     setIsEditing(true);
   };
 
   const handleSave = () => {
-    // Build update payload — only include changed, non-empty values
     const payload: Record<string, unknown> = {};
     const numericFields = [
       "askingPrice", "revenue", "ebitda", "sde", "cashFlow",
       "inventory", "ffe", "realEstate",
     ];
-    const intFields = ["employees", "established"];
+    const floatFields = ["targetMultipleLow", "targetMultipleHigh"];
+    const intFields = ["employees", "established", "dcRelevanceScore"];
     const stringFields = [
       "title", "businessName", "description", "city", "state",
       "metroArea", "zipCode", "industry", "category",
       "reasonForSale", "facilities",
       "brokerName", "brokerCompany", "brokerPhone", "brokerEmail",
+      "website", "phone", "disqualificationReason",
     ];
+    const booleanFields = ["sellerFinancing", "bonded", "insured", "dcExperience"];
+    const enumFields = ["primaryTrade", "tier"];
+    const arrayFields = ["secondaryTrades", "certifications", "dcCertifications"];
 
     for (const field of numericFields) {
       const val = editData[field];
-      if (val === "" || val === null || val === undefined) {
-        payload[field] = null;
-      } else {
-        payload[field] = Number(val);
-      }
+      payload[field] = (val === "" || val === null || val === undefined) ? null : Number(val);
+    }
+
+    for (const field of floatFields) {
+      const val = editData[field];
+      payload[field] = (val === "" || val === null || val === undefined) ? null : Number(val);
     }
 
     for (const field of intFields) {
       const val = editData[field];
-      if (val === "" || val === null || val === undefined) {
-        payload[field] = null;
-      } else {
-        payload[field] = parseInt(String(val));
-      }
+      payload[field] = (val === "" || val === null || val === undefined) ? null : parseInt(String(val));
     }
 
     for (const field of stringFields) {
@@ -136,11 +177,22 @@ export default function ListingDetailPage({
       payload[field] = val && String(val).trim() ? String(val).trim() : null;
     }
 
-    // Special handling for sellerFinancing (boolean | null)
-    if (editData.sellerFinancing === true || editData.sellerFinancing === false) {
-      payload.sellerFinancing = editData.sellerFinancing;
-    } else {
-      payload.sellerFinancing = null;
+    for (const field of booleanFields) {
+      if (editData[field] === true || editData[field] === false) {
+        payload[field] = editData[field];
+      } else {
+        payload[field] = null;
+      }
+    }
+
+    for (const field of enumFields) {
+      const val = editData[field];
+      payload[field] = val && String(val).trim() ? String(val) : null;
+    }
+
+    for (const field of arrayFields) {
+      const val = editData[field];
+      payload[field] = Array.isArray(val) ? val : [];
     }
 
     updateListing.mutate(
@@ -159,6 +211,17 @@ export default function ListingDetailPage({
   const updateField = (field: string, value: unknown) => {
     setEditData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Compute implied enterprise value range
+  const effectiveEbitda = listing.ebitda
+    ? Number(listing.ebitda)
+    : listing.inferredEbitda
+      ? Number(listing.inferredEbitda)
+      : null;
+  const multLow = listing.targetMultipleLow ?? 3.0;
+  const multHigh = listing.targetMultipleHigh ?? 5.0;
+  const evLow = effectiveEbitda ? effectiveEbitda * multLow : null;
+  const evHigh = effectiveEbitda ? effectiveEbitda * multHigh : null;
 
   return (
     <div className="space-y-6">
@@ -195,7 +258,10 @@ export default function ListingDetailPage({
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-semibold text-foreground">{listing.title}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-semibold text-foreground">{listing.title}</h1>
+                <TierBadge tier={listing.tier} />
+              </div>
               {listing.businessName && listing.businessName !== listing.title && (
                 <p className="text-muted-foreground">{listing.businessName}</p>
               )}
@@ -206,6 +272,17 @@ export default function ListingDetailPage({
             <span className="text-sm text-muted-foreground">
               First seen {formatRelativeDate(listing.firstSeenAt)}
             </span>
+            {listing.website && (
+              <a
+                href={listing.website.startsWith("http") ? listing.website : `https://${listing.website}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              >
+                <Globe className="h-3 w-3" />
+                Website
+              </a>
+            )}
           </div>
         </div>
 
@@ -282,6 +359,223 @@ export default function ListingDetailPage({
         </div>
       </div>
 
+      {/* ─── Thesis: Tier & Fit Score Bar ─────────────────────────── */}
+      <div className="rounded-lg border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div>
+              <span className="text-xs font-medium uppercase text-muted-foreground">Fit Score</span>
+              <div className="mt-1">
+                <FitScoreGauge score={listing.fitScore} size="lg" />
+              </div>
+            </div>
+            {listing.dcRelevanceScore && (
+              <div>
+                <span className="text-xs font-medium uppercase text-muted-foreground">DC Relevance</span>
+                <div className="mt-1 text-lg font-semibold">{listing.dcRelevanceScore}/10</div>
+              </div>
+            )}
+            {isEditing && (
+              <div className="flex items-center gap-4">
+                <div>
+                  <label className="text-xs text-muted-foreground">Tier</label>
+                  <select
+                    value={String(editData.tier || "")}
+                    onChange={(e) => updateField("tier", e.target.value || null)}
+                    className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                  >
+                    <option value="">No tier</option>
+                    {Object.entries(TIERS).map(([key, config]) => (
+                      <option key={key} value={key}>{config.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">DC Relevance (1-10)</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={editData.dcRelevanceScore === null || editData.dcRelevanceScore === undefined ? "" : String(editData.dcRelevanceScore)}
+                    onChange={(e) => updateField("dcRelevanceScore", e.target.value ? parseInt(e.target.value) : "")}
+                    className="mt-1 block w-24 rounded-md border bg-background px-3 py-1.5 text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          {!isEditing && (
+            <button
+              onClick={() => recomputeScore.mutate()}
+              disabled={recomputeScore.isPending}
+              className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`h-4 w-4 ${recomputeScore.isPending ? "animate-spin" : ""}`} />
+              {recomputeScore.isPending ? "Computing..." : "Recompute Score"}
+            </button>
+          )}
+        </div>
+        {listing.disqualificationReason && (
+          <div className="mt-3 rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200">
+            <strong>Disqualified:</strong> {listing.disqualificationReason}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Thesis: Trade & Certifications ─────────────────────── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border bg-card p-5">
+          <h2 className="mb-4 text-lg font-medium flex items-center gap-2">
+            <Shield className="h-5 w-5 text-muted-foreground" />
+            Trade Classification
+          </h2>
+          {isEditing ? (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Primary Trade</label>
+                <select
+                  value={String(editData.primaryTrade || "")}
+                  onChange={(e) => updateField("primaryTrade", e.target.value || null)}
+                  className="mt-1 w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                >
+                  <option value="">Select trade...</option>
+                  {Object.entries(PRIMARY_TRADES).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Secondary Trades</label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {Object.entries(PRIMARY_TRADES).map(([key, config]) => {
+                    const selected = (editData.secondaryTrades as string[] || []).includes(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          const current = editData.secondaryTrades as string[] || [];
+                          updateField(
+                            "secondaryTrades",
+                            selected ? current.filter((t: string) => t !== key) : [...current, key]
+                          );
+                        }}
+                        className={`rounded-md px-2 py-0.5 text-xs font-medium border transition-colors ${
+                          selected ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+                        }`}
+                      >
+                        {config.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex gap-4">
+                <BooleanToggle
+                  label="DC Experience"
+                  value={editData.dcExperience as boolean | null | undefined}
+                  onChange={(v) => updateField("dcExperience", v)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {listing.primaryTrade ? (
+                <TradeBadges
+                  primaryTrade={listing.primaryTrade}
+                  secondaryTrades={listing.secondaryTrades as string[]}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">No trade classification set</p>
+              )}
+              {listing.dcExperience && (
+                <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                  <Award className="h-4 w-4" />
+                  Data center experience
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border bg-card p-5">
+          <h2 className="mb-4 text-lg font-medium flex items-center gap-2">
+            <Award className="h-5 w-5 text-muted-foreground" />
+            Certifications & Qualifications
+          </h2>
+          {isEditing ? (
+            <div className="space-y-3">
+              <EditField
+                label="Certifications (comma-separated)"
+                value={(editData.certifications as string[] || []).join(", ")}
+                onChange={(v) => updateField("certifications", v.split(",").map((s: string) => s.trim()).filter(Boolean))}
+              />
+              <EditField
+                label="DC Certifications (comma-separated)"
+                value={(editData.dcCertifications as string[] || []).join(", ")}
+                onChange={(v) => updateField("dcCertifications", v.split(",").map((s: string) => s.trim()).filter(Boolean))}
+              />
+              <div className="flex gap-4">
+                <BooleanToggle
+                  label="Bonded"
+                  value={editData.bonded as boolean | null | undefined}
+                  onChange={(v) => updateField("bonded", v)}
+                />
+                <BooleanToggle
+                  label="Insured"
+                  value={editData.insured as boolean | null | undefined}
+                  onChange={(v) => updateField("insured", v)}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {listing.certifications?.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {(listing.certifications as string[]).map((cert: string) => (
+                    <span
+                      key={cert}
+                      className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300"
+                    >
+                      {cert}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No certifications listed</p>
+              )}
+              {listing.dcCertifications?.length > 0 && (
+                <div>
+                  <span className="text-xs text-muted-foreground">DC Certifications:</span>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {(listing.dcCertifications as string[]).map((cert: string) => (
+                      <span
+                        key={cert}
+                        className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300"
+                      >
+                        {cert}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-4 text-sm">
+                {listing.bonded !== null && (
+                  <span className={listing.bonded ? "text-emerald-600" : "text-muted-foreground"}>
+                    {listing.bonded ? "✓ Bonded" : "✗ Not Bonded"}
+                  </span>
+                )}
+                {listing.insured !== null && (
+                  <span className={listing.insured ? "text-emerald-600" : "text-muted-foreground"}>
+                    {listing.insured ? "✓ Insured" : "✗ Not Insured"}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Financial Summary */}
       {isEditing ? (
         <div>
@@ -335,6 +629,66 @@ export default function ListingDetailPage({
         </div>
       )}
 
+      {/* ─── Thesis: Valuation Range ────────────────────────────── */}
+      <div className="rounded-lg border bg-card p-5">
+        <h2 className="mb-4 text-lg font-medium">Valuation Range</h2>
+        {isEditing ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <label className="text-xs text-muted-foreground">Target Multiple (Low)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={editData.targetMultipleLow === null || editData.targetMultipleLow === undefined ? "" : String(editData.targetMultipleLow)}
+                onChange={(e) => updateField("targetMultipleLow", e.target.value ? Number(e.target.value) : "")}
+                className="mt-1 w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                placeholder="3.0"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">Target Multiple (High)</label>
+              <input
+                type="number"
+                step="0.1"
+                value={editData.targetMultipleHigh === null || editData.targetMultipleHigh === undefined ? "" : String(editData.targetMultipleHigh)}
+                onChange={(e) => updateField("targetMultipleHigh", e.target.value ? Number(e.target.value) : "")}
+                className="mt-1 w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+                placeholder="5.0"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <span className="text-xs font-medium uppercase text-muted-foreground">Target Multiple</span>
+              <p className="mt-1 text-lg font-semibold">{multLow}x – {multHigh}x</p>
+            </div>
+            {effectiveEbitda && (
+              <>
+                <div>
+                  <span className="text-xs font-medium uppercase text-muted-foreground">Effective EBITDA</span>
+                  <p className="mt-1 text-lg font-semibold">{formatCurrency(effectiveEbitda)}</p>
+                  {listing.inferredEbitda && !listing.ebitda && (
+                    <span className="text-xs text-muted-foreground">(inferred)</span>
+                  )}
+                </div>
+                <div>
+                  <span className="text-xs font-medium uppercase text-muted-foreground">Implied EV Range</span>
+                  <p className="mt-1 text-lg font-semibold">
+                    {evLow && evHigh ? `${formatCurrency(evLow)} – ${formatCurrency(evHigh)}` : "—"}
+                  </p>
+                </div>
+              </>
+            )}
+            {!effectiveEbitda && (
+              <div className="col-span-2">
+                <p className="text-sm text-muted-foreground">No EBITDA data available to compute enterprise value range</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Details grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Business Details */}
@@ -350,6 +704,8 @@ export default function ListingDetailPage({
               </div>
               <EditField label="Metro Area" value={editData.metroArea} onChange={(v) => updateField("metroArea", v)} />
               <EditField label="ZIP Code" value={editData.zipCode} onChange={(v) => updateField("zipCode", v)} />
+              <EditField label="Website" value={editData.website} onChange={(v) => updateField("website", v)} />
+              <EditField label="Phone" value={editData.phone} onChange={(v) => updateField("phone", v)} />
               <EditField label="Employees" value={editData.employees} onChange={(v) => updateField("employees", v)} type="number" />
               <EditField label="Established" value={editData.established} onChange={(v) => updateField("established", v)} type="number" />
               <div>
@@ -375,6 +731,7 @@ export default function ListingDetailPage({
                 <DetailRow icon={MapPin} label="Location" value={[listing.city, listing.state].filter(Boolean).join(", ")} />
               )}
               {listing.metroArea && <DetailRow icon={MapPin} label="Metro Area" value={listing.metroArea} />}
+              {listing.phone && <DetailRow icon={Phone} label="Phone" value={listing.phone} />}
               {listing.employees && <DetailRow icon={Users} label="Employees" value={String(listing.employees)} />}
               {listing.established && <DetailRow icon={Calendar} label="Established" value={String(listing.established)} />}
               {listing.sellerFinancing !== null && (
@@ -411,17 +768,96 @@ export default function ListingDetailPage({
         </div>
       </div>
 
+      {/* ─── Thesis: Owner / Succession Panel ───────────────────── */}
+      {primaryContact && (
+        <div className="rounded-lg border bg-card p-5">
+          <h2 className="mb-4 text-lg font-medium flex items-center gap-2">
+            <UserCheck className="h-5 w-5 text-muted-foreground" />
+            Owner / Succession
+          </h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div>
+              <span className="text-xs font-medium uppercase text-muted-foreground">Primary Contact</span>
+              <p className="mt-1 font-medium">{primaryContact.name}</p>
+              {primaryContact.role && (
+                <p className="text-sm text-muted-foreground">{primaryContact.role}</p>
+              )}
+            </div>
+            {primaryContact.estimatedAgeRange && (
+              <div>
+                <span className="text-xs font-medium uppercase text-muted-foreground">Age Range</span>
+                <p className="mt-1 font-medium">{primaryContact.estimatedAgeRange}</p>
+              </div>
+            )}
+            {primaryContact.yearsInIndustry && (
+              <div>
+                <span className="text-xs font-medium uppercase text-muted-foreground">Years in Industry</span>
+                <p className="mt-1 font-medium">{primaryContact.yearsInIndustry}</p>
+              </div>
+            )}
+            {primaryContact.ownershipPct !== null && primaryContact.ownershipPct !== undefined && (
+              <div>
+                <span className="text-xs font-medium uppercase text-muted-foreground">Ownership</span>
+                <p className="mt-1 font-medium">{Math.round(primaryContact.ownershipPct * 100)}%</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm">
+            {primaryContact.foundedCompany && (
+              <span className="text-emerald-600 dark:text-emerald-400">Founder</span>
+            )}
+            {primaryContact.hasSuccessor !== null && (
+              <span className={primaryContact.hasSuccessor ? "text-emerald-600" : "text-amber-600"}>
+                {primaryContact.hasSuccessor
+                  ? `Successor: ${primaryContact.successorName || "Yes"}`
+                  : "No successor identified"}
+              </span>
+            )}
+            {primaryContact.familyBusiness && (
+              <span className="text-blue-600 dark:text-blue-400">Family business</span>
+            )}
+            {primaryContact.sentiment && (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+                {primaryContact.sentiment}
+              </span>
+            )}
+            {primaryContact.linkedinUrl && (
+              <a
+                href={primaryContact.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                LinkedIn
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Description */}
       <div className="rounded-lg border bg-card p-5">
         <h2 className="mb-3 text-lg font-medium">Description</h2>
         {isEditing ? (
-          <textarea
-            value={String(editData.description || "")}
-            onChange={(e) => updateField("description", e.target.value)}
-            rows={6}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            placeholder="Business description..."
-          />
+          <>
+            <textarea
+              value={String(editData.description || "")}
+              onChange={(e) => updateField("description", e.target.value)}
+              rows={6}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder="Business description..."
+            />
+            {isEditing && (
+              <div className="mt-3">
+                <EditField
+                  label="Disqualification Reason"
+                  value={editData.disqualificationReason}
+                  onChange={(v) => updateField("disqualificationReason", v)}
+                />
+              </div>
+            )}
+          </>
         ) : listing.description ? (
           <div className="prose prose-sm max-w-none text-foreground">
             <p className="whitespace-pre-wrap">{listing.description}</p>
@@ -597,6 +1033,33 @@ function EditField({
         className="mt-1 w-full rounded-md border bg-background px-3 py-1.5 text-sm"
         placeholder={label}
       />
+    </div>
+  );
+}
+
+function BooleanToggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean | null | undefined;
+  onChange: (v: boolean | null) => void;
+}) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground">{label}</label>
+      <select
+        value={value === true ? "true" : value === false ? "false" : ""}
+        onChange={(e) =>
+          onChange(e.target.value === "" ? null : e.target.value === "true")
+        }
+        className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+      >
+        <option value="">Unknown</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
+      </select>
     </div>
   );
 }

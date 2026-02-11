@@ -16,8 +16,9 @@ import {
 import { useStats } from "@/hooks/use-pipeline";
 import { useScrapingStatus } from "@/hooks/use-scraping";
 import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
-import { PIPELINE_STAGES, PLATFORMS, type PlatformKey } from "@/lib/constants";
+import { PIPELINE_STAGES, PLATFORMS, TIERS, type PlatformKey, type TierKey } from "@/lib/constants";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
+import { Target } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useStats();
@@ -178,6 +179,38 @@ export default function DashboardPage() {
             )}
           </div>
         </div>
+
+        {/* Tier Breakdown — Thesis KPI */}
+        {stats?.tierBreakdown?.length > 0 && (
+          <div className="rounded-lg border bg-card">
+            <div className="flex items-center justify-between border-b px-5 py-3">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                <h2 className="font-medium">Target Tier Breakdown</h2>
+              </div>
+              {stats?.avgFitScore !== null && stats?.avgFitScore !== undefined && (
+                <span className="text-xs text-muted-foreground">
+                  Avg Fit Score: <strong className="text-foreground">{stats.avgFitScore}</strong>/100
+                </span>
+              )}
+            </div>
+            <div className="p-5">
+              <div className="space-y-2">
+                {stats.tierBreakdown.map((t: { tier: string; count: number }) => {
+                  const tier = TIERS[t.tier as TierKey];
+                  if (!tier) return null;
+                  return (
+                    <div key={t.tier} className="flex items-center gap-3">
+                      <div className={`h-2.5 w-2.5 rounded-full ${tier.dotColor}`} />
+                      <span className="flex-1 text-sm">{tier.label}</span>
+                      <span className="text-sm font-medium">{t.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Platform Breakdown */}
         <div className="rounded-lg border bg-card">
