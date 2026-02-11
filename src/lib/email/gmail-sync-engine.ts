@@ -554,6 +554,11 @@ function isLikelyListingAlert(
       "listing alert",
       "saved search",
       "new results",
+      "search genius",           // DealStream Search Genius alerts
+      "today's new listings",    // DealStream daily digest
+      "just posted",             // DealStream "new listings that were just posted"
+      "price reduced",           // Price drop alerts
+      "businesses for sale",     // Common listing digest subject
     ];
     if (alertPatterns.some((pattern) => lowerSubject.includes(pattern))) {
       return true;

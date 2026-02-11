@@ -4,10 +4,18 @@
  * Parses HTML bodies from BizBuySell, BizQuest, DealStream, Transworld,
  * and other listing platforms to extract deal data and feed through the
  * standard post-processor pipeline.
+ *
+ * Enhanced extraction: pulls EBITDA, SDE, broker info, industry/category,
+ * description, employees, and other fields from email context when available.
  */
 
 import { prisma } from "@/lib/db";
-import { parsePrice, parseLocation } from "@/lib/scrapers/parser-utils";
+import {
+  parsePrice,
+  parseLocation,
+  extractEmails,
+  extractPhones,
+} from "@/lib/scrapers/parser-utils";
 import { processScrapedListings } from "@/lib/scrapers/post-processor";
 import type { RawListing, ScrapeResult } from "@/lib/scrapers/base-scraper";
 import type { Platform } from "@prisma/client";
@@ -29,9 +37,20 @@ interface ExtractedAlertListing {
   askingPrice: number | null;
   cashFlow: number | null;
   revenue: number | null;
+  ebitda: number | null;
+  sde: number | null;
   city: string | null;
   state: string | null;
   description: string | null;
+  industry: string | null;
+  category: string | null;
+  brokerName: string | null;
+  brokerCompany: string | null;
+  brokerPhone: string | null;
+  brokerEmail: string | null;
+  employees: number | null;
+  established: number | null;
+  sellerFinancing: boolean | null;
   platform: string;
 }
 
@@ -176,8 +195,9 @@ function parseAlertEmailHtml(
 function parseBizBuySellAlert(html: string): ExtractedAlertListing[] {
   const listings: ExtractedAlertListing[] = [];
 
+  // Match both /Business-Opportunity/ and /businesses-for-sale/ URL patterns
   const linkPattern =
-    /href=["'](https?:\/\/(?:www\.)?bizbuysell\.com\/Business-Opportunity\/[^"']+)["'][^>]*>([^<]+)/gi;
+    /href=["'](https?:\/\/(?:www\.)?bizbuysell\.com\/(?:Business-Opportunity|businesses-for-sale)\/[^"']+)["'][^>]*>([^<]+)/gi;
 
   let match;
   while ((match = linkPattern.exec(html)) !== null) {
@@ -187,32 +207,17 @@ function parseBizBuySellAlert(html: string): ExtractedAlertListing[] {
     if (!title || title.length < 5) continue;
     if (isJunkTitle(title)) continue;
 
+    // Expanded context window for richer extraction
     const startIdx = match.index;
-    const context = html.substring(startIdx, startIdx + 800);
+    const context = html.substring(startIdx, startIdx + 1500);
 
-    const askingPrice = extractMoneyFromContext(context, [
-      "asking price",
-      "price",
-      "listed at",
-    ]);
-    const cashFlow = extractMoneyFromContext(context, [
-      "cash flow",
-      "discretionary",
-    ]);
-    const revenue = extractMoneyFromContext(context, ["revenue", "sales"]);
-    const location = extractLocationFromContext(context);
-
-    listings.push({
+    const listing = extractFullListingFromContext(context, {
       title,
       sourceUrl,
-      askingPrice,
-      cashFlow,
-      revenue,
-      city: location?.city ?? null,
-      state: location?.state ?? null,
-      description: null,
       platform: "BIZBUYSELL",
     });
+
+    listings.push(listing);
   }
 
   return listings;
@@ -225,8 +230,9 @@ function parseBizBuySellAlert(html: string): ExtractedAlertListing[] {
 function parseBizQuestAlert(html: string): ExtractedAlertListing[] {
   const listings: ExtractedAlertListing[] = [];
 
+  // Match both /listing-detail/ and /listing/ URL patterns
   const linkPattern =
-    /href=["'](https?:\/\/(?:www\.)?bizquest\.com\/listing-detail\/[^"']+)["'][^>]*>([^<]+)/gi;
+    /href=["'](https?:\/\/(?:www\.)?bizquest\.com\/(?:listing-detail|listing)\/[^"']+)["'][^>]*>([^<]+)/gi;
 
   let match;
   while ((match = linkPattern.exec(html)) !== null) {
@@ -236,31 +242,17 @@ function parseBizQuestAlert(html: string): ExtractedAlertListing[] {
     if (!title || title.length < 5) continue;
     if (isJunkTitle(title)) continue;
 
+    // Expanded context window
     const startIdx = match.index;
-    const context = html.substring(startIdx, startIdx + 800);
+    const context = html.substring(startIdx, startIdx + 1500);
 
-    const askingPrice = extractMoneyFromContext(context, [
-      "asking price",
-      "price",
-    ]);
-    const cashFlow = extractMoneyFromContext(context, [
-      "cash flow",
-      "discretionary",
-    ]);
-    const revenue = extractMoneyFromContext(context, ["revenue", "sales"]);
-    const location = extractLocationFromContext(context);
-
-    listings.push({
+    const listing = extractFullListingFromContext(context, {
       title,
       sourceUrl,
-      askingPrice,
-      cashFlow,
-      revenue,
-      city: location?.city ?? null,
-      state: location?.state ?? null,
-      description: null,
       platform: "BIZQUEST",
     });
+
+    listings.push(listing);
   }
 
   return listings;
@@ -285,15 +277,10 @@ function parseDealStreamAlert(
   const listings: ExtractedAlertListing[] = [];
 
   // Extract listing titles from HTML structure.
-  // DealStream emails have listing titles as standalone text nodes between tags.
-  // We extract all visible text segments from the HTML.
   const textNodes = extractTextNodes(html);
 
-  // Filter for listing titles: they appear after "Today's New Listings" or
-  // after category headers like "Businesses For Sale - Construction".
-  // Strategy: collect text nodes that look like listing titles (capitalized,
-  // reasonable length, not junk).
   let inListingSection = false;
+  let currentCategory: string | null = null;
   const seenTitles = new Set<string>();
 
   for (let i = 0; i < textNodes.length; i++) {
@@ -305,8 +292,10 @@ function parseDealStreamAlert(
       continue;
     }
 
-    // Skip category headers
-    if (text.match(/^Businesses For Sale\s*-/i)) {
+    // Capture category headers like "Businesses For Sale - Construction"
+    const categoryMatch = text.match(/^Businesses For Sale\s*-\s*(.+)/i);
+    if (categoryMatch) {
+      currentCategory = categoryMatch[1].trim();
       continue;
     }
 
@@ -323,15 +312,49 @@ function parseDealStreamAlert(
       const normalizedTitle = text.replace(/\s+/g, " ");
       if (!seenTitles.has(normalizedTitle.toLowerCase())) {
         seenTitles.add(normalizedTitle.toLowerCase());
+
+        // Look for price in nearby text nodes (within next 3 nodes)
+        let askingPrice: number | null = null;
+        let location: { city: string; state: string } | null = null;
+
+        for (let j = i + 1; j < textNodes.length && j <= i + 5; j++) {
+          const nearby = textNodes[j].trim();
+          // Look for price patterns
+          if (!askingPrice) {
+            const priceMatch = nearby.match(/\$[\d,]+(?:\.\d{2})?/);
+            if (priceMatch) {
+              askingPrice = parsePrice(priceMatch[0]);
+            }
+          }
+          // Look for location patterns (City, ST)
+          if (!location) {
+            const locMatch = nearby.match(/^([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})$/);
+            if (locMatch) {
+              location = { city: locMatch[1], state: locMatch[2] };
+            }
+          }
+        }
+
         listings.push({
           title: normalizedTitle,
           sourceUrl: `https://www.dealstream.com/search?q=${encodeURIComponent(normalizedTitle)}`,
-          askingPrice: null,
+          askingPrice,
           cashFlow: null,
           revenue: null,
-          city: null,
-          state: null,
+          ebitda: null,
+          sde: null,
+          city: location?.city ?? null,
+          state: location?.state ?? null,
           description: null,
+          industry: null,
+          category: currentCategory,
+          brokerName: null,
+          brokerCompany: null,
+          brokerPhone: null,
+          brokerEmail: null,
+          employees: null,
+          established: null,
+          sellerFinancing: null,
           platform: "DEALSTREAM",
         });
       }
@@ -347,15 +370,35 @@ function parseDealStreamAlert(
     const title = subject.trim();
     if (title.length >= 10 && !isJunkTitle(title)) {
       const plainText = stripHtml(html);
+
+      // Extract more data from the email body
+      const askingPrice = extractPriceNearTitle(plainText, "asking price") ??
+        extractPriceNearTitle(plainText, "price");
+      const revenue = extractPriceNearTitle(plainText, "revenue");
+      const ebitda = extractPriceNearTitle(plainText, "ebitda");
+      const cashFlow = extractPriceNearTitle(plainText, "cash flow");
+      const location = extractLocationFromContext(html);
+
       listings.push({
         title,
         sourceUrl: `https://www.dealstream.com/search?q=${encodeURIComponent(title)}`,
-        askingPrice: extractPriceNearTitle(plainText, "asking price"),
-        cashFlow: null,
-        revenue: null,
-        city: null,
-        state: null,
+        askingPrice,
+        cashFlow,
+        revenue,
+        ebitda,
+        sde: null,
+        city: location?.city ?? null,
+        state: location?.state ?? null,
         description: plainText.length > 100 ? plainText.substring(0, 500) : null,
+        industry: null,
+        category: null,
+        brokerName: null,
+        brokerCompany: null,
+        brokerPhone: null,
+        brokerEmail: null,
+        employees: null,
+        established: null,
+        sellerFinancing: null,
         platform: "DEALSTREAM",
       });
     }
@@ -373,14 +416,10 @@ function parseDealStreamAlert(
  * - Title text (e.g., "High-Value Contracted Supply Platform With Proven Execution")
  * - "Price: $X,XXX,XXX"
  * - "VIEW LISTING" link
- *
- * The links go to transworld.com listing pages.
  */
 function parseTransworldAlert(html: string): ExtractedAlertListing[] {
   const listings: ExtractedAlertListing[] = [];
 
-  // Extract text nodes to find listing titles from the HTML structure.
-  // Transworld emails have: Title → "Price: $X" → "VIEW LISTING"
   const textNodes = extractTextNodes(html);
   const seenTitles = new Set<string>();
 
@@ -403,15 +442,42 @@ function parseTransworldAlert(html: string): ExtractedAlertListing[] {
       if (title && !seenTitles.has(title.toLowerCase())) {
         seenTitles.add(title.toLowerCase());
         const askingPrice = parsePrice(`$${priceMatch[1]}`);
+
+        // Look for location in nearby text nodes
+        let city: string | null = null;
+        let state: string | null = "CO"; // Default for Transworld CO office
+
+        for (let j = i - 4; j <= i + 3 && j < textNodes.length; j++) {
+          if (j < 0 || j === i) continue;
+          const nearby = textNodes[j].trim();
+          const locMatch = nearby.match(/^([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})$/);
+          if (locMatch) {
+            city = locMatch[1];
+            state = locMatch[2];
+            break;
+          }
+        }
+
         listings.push({
           title,
           sourceUrl: `https://www.tworld.com/search?q=${encodeURIComponent(title)}`,
           askingPrice,
           cashFlow: null,
           revenue: null,
-          city: null,
-          state: "CO", // Transworld CO office emails are Colorado-focused
+          ebitda: null,
+          sde: null,
+          city,
+          state,
           description: null,
+          industry: null,
+          category: null,
+          brokerName: null,
+          brokerCompany: null,
+          brokerPhone: null,
+          brokerEmail: null,
+          employees: null,
+          established: null,
+          sellerFinancing: null,
           platform: "TRANSWORLD",
         });
       }
@@ -431,23 +497,246 @@ function parseTransworldAlert(html: string): ExtractedAlertListing[] {
     if (listings.some((l) => l.title === title)) continue;
 
     const startIdx = linkMatch.index;
-    const context = html.substring(startIdx, startIdx + 500);
-    const askingPrice = extractMoneyFromContext(context, ["price"]);
+    const context = html.substring(startIdx, startIdx + 1000);
 
-    listings.push({
+    const listing = extractFullListingFromContext(context, {
       title,
       sourceUrl,
-      askingPrice,
-      cashFlow: null,
-      revenue: null,
-      city: null,
-      state: "CO",
-      description: null,
       platform: "TRANSWORLD",
     });
+    listing.state = listing.state ?? "CO"; // Default for Transworld CO office
+    listings.push(listing);
   }
 
   return listings;
+}
+
+// ─────────────────────────────────────────────
+// Enhanced context extraction
+// ─────────────────────────────────────────────
+
+/**
+ * Extract all available listing fields from the HTML context around a listing link.
+ * This is the enhanced extraction that pulls EBITDA, SDE, broker info, etc.
+ */
+function extractFullListingFromContext(
+  context: string,
+  base: { title: string; sourceUrl: string; platform: string }
+): ExtractedAlertListing {
+  const plainText = stripHtml(context);
+
+  // Financial fields
+  const askingPrice = extractMoneyFromContext(context, [
+    "asking price",
+    "price",
+    "listed at",
+  ]);
+  const cashFlow = extractMoneyFromContext(context, [
+    "cash flow",
+    "discretionary cash flow",
+    "discretionary",
+  ]);
+  const revenue = extractMoneyFromContext(context, [
+    "gross revenue",
+    "revenue",
+    "annual revenue",
+    "sales",
+  ]);
+  const ebitda = extractMoneyFromContext(context, ["ebitda"]);
+  const sde = extractMoneyFromContext(context, [
+    "sde",
+    "seller's discretionary earnings",
+    "seller discretionary earnings",
+    "seller's discretionary",
+  ]);
+
+  // Location
+  const location = extractLocationFromContext(context);
+
+  // Broker info from context
+  const brokerInfo = extractBrokerFromContext(context);
+
+  // Description: grab a clean text snippet (first substantive paragraph near the listing)
+  const description = extractDescriptionFromContext(plainText, base.title);
+
+  // Industry / category from context
+  const industry = extractLabelValue(plainText, [
+    "industry",
+    "business type",
+    "type",
+  ]);
+  const category = extractLabelValue(plainText, [
+    "category",
+    "sub-category",
+    "subcategory",
+  ]);
+
+  // Employees
+  const employeesText = extractLabelValue(plainText, [
+    "employees",
+    "number of employees",
+    "# of employees",
+    "staff",
+  ]);
+  const employees = employeesText
+    ? parseInt(employeesText.replace(/\D/g, ""), 10) || null
+    : null;
+
+  // Year established
+  const establishedText = extractLabelValue(plainText, [
+    "established",
+    "year established",
+    "founded",
+  ]);
+  const established = establishedText
+    ? parseInt(establishedText.replace(/\D/g, ""), 10) || null
+    : null;
+
+  // Seller financing
+  const financingText = extractLabelValue(plainText, [
+    "seller financing",
+    "owner financing",
+    "financing",
+  ]);
+  const sellerFinancing = financingText
+    ? /yes|available|offered|true/i.test(financingText)
+    : null;
+
+  return {
+    title: base.title,
+    sourceUrl: base.sourceUrl,
+    askingPrice,
+    cashFlow,
+    revenue,
+    ebitda,
+    sde,
+    city: location?.city ?? null,
+    state: location?.state ?? null,
+    description,
+    industry,
+    category,
+    brokerName: brokerInfo.name,
+    brokerCompany: brokerInfo.company,
+    brokerPhone: brokerInfo.phone,
+    brokerEmail: brokerInfo.email,
+    employees,
+    established,
+    sellerFinancing,
+    platform: base.platform,
+  };
+}
+
+/**
+ * Extract broker information from the HTML context.
+ * Looks for broker sections, contact info patterns, and email/phone.
+ */
+function extractBrokerFromContext(context: string): {
+  name: string | null;
+  company: string | null;
+  phone: string | null;
+  email: string | null;
+} {
+  const plainText = stripHtml(context);
+
+  // Try to find broker name from labeled patterns
+  const brokerName = extractLabelValue(plainText, [
+    "broker",
+    "listed by",
+    "contact",
+    "intermediary",
+    "agent",
+  ]);
+
+  // Try to find company
+  const brokerCompany = extractLabelValue(plainText, [
+    "brokerage",
+    "firm",
+    "company",
+    "intermediary firm",
+  ]);
+
+  // Extract phone numbers from the context (prefer broker section)
+  const phones = extractPhones(plainText);
+  const brokerPhone = phones[0] || null;
+
+  // Extract email addresses
+  const emails = extractEmails(plainText);
+  // Filter out common non-broker emails
+  const brokerEmail = emails.find(
+    (e) =>
+      !e.includes("noreply") &&
+      !e.includes("no-reply") &&
+      !e.includes("support@") &&
+      !e.includes("info@bizbuysell") &&
+      !e.includes("info@bizquest") &&
+      !e.includes("unsubscribe")
+  ) ?? null;
+
+  return {
+    name: brokerName,
+    company: brokerCompany,
+    phone: brokerPhone,
+    email: brokerEmail,
+  };
+}
+
+/**
+ * Extract a clean description snippet from the plain text near the listing title.
+ */
+function extractDescriptionFromContext(
+  plainText: string,
+  title: string
+): string | null {
+  const titleIdx = plainText.indexOf(title);
+  if (titleIdx === -1) return null;
+
+  // Get text after the title
+  const afterTitle = plainText.substring(titleIdx + title.length).trim();
+
+  // Take first 300 chars, stopping at a sentence boundary if possible
+  if (afterTitle.length < 20) return null;
+
+  const snippet = afterTitle.substring(0, 300);
+  const sentenceEnd = snippet.lastIndexOf(".");
+  const cleaned = sentenceEnd > 50
+    ? snippet.substring(0, sentenceEnd + 1).trim()
+    : snippet.trim();
+
+  // Filter out junk descriptions
+  if (cleaned.length < 20) return null;
+  if (/^(view|click|browse|learn|contact|call|email)/i.test(cleaned)) return null;
+
+  return cleaned;
+}
+
+/**
+ * Extract a value that follows a label in plain text.
+ * Example: "Industry: Manufacturing" → "Manufacturing"
+ */
+function extractLabelValue(
+  plainText: string,
+  labels: string[]
+): string | null {
+  for (const label of labels) {
+    // Pattern: "Label: Value" or "Label Value" (with colon optional)
+    const pattern = new RegExp(
+      `${escapeRegex(label)}[:\\s]+([^\\n$]{2,50})`,
+      "i"
+    );
+    const match = plainText.match(pattern);
+    if (match) {
+      const value = match[1].trim();
+      // Don't return values that look like more labels or junk
+      if (value.length > 1 && value.length < 50 && !/^[\d$]/.test(value)) {
+        return value;
+      }
+    }
+  }
+  return null;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // ─────────────────────────────────────────────
@@ -602,21 +891,21 @@ function alertToRawListing(alert: ExtractedAlertListing): RawListing | null {
     askingPrice: alert.askingPrice,
     revenue: alert.revenue,
     cashFlow: alert.cashFlow,
-    ebitda: null,
-    sde: null,
-    industry: null,
-    category: null,
+    ebitda: alert.ebitda,
+    sde: alert.sde,
+    industry: alert.industry,
+    category: alert.category,
     city: alert.city,
     state: alert.state,
     zipCode: null,
     description: alert.description,
-    brokerName: null,
-    brokerCompany: null,
-    brokerPhone: null,
-    brokerEmail: null,
-    employees: null,
-    established: null,
-    sellerFinancing: null,
+    brokerName: alert.brokerName,
+    brokerCompany: alert.brokerCompany,
+    brokerPhone: alert.brokerPhone,
+    brokerEmail: alert.brokerEmail,
+    employees: alert.employees,
+    established: alert.established,
+    sellerFinancing: alert.sellerFinancing,
     inventory: null,
     ffe: null,
     realEstate: null,

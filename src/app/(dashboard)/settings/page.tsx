@@ -3,9 +3,9 @@ import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen } from "lucide-re
 
 const settingsSections = [
   {
-    title: "Scraping Configuration",
+    title: "Listing Sources",
     description:
-      "Manage platform cookies, scraping schedules, and trigger manual scrapes",
+      "Manage email alert subscriptions and listing discovery from each platform",
     href: "/settings/scraping",
     icon: Bot,
     color: "text-primary",

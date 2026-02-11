@@ -3,25 +3,19 @@
 import { useState } from "react";
 import Link from "next/link";
 import {
-  RefreshCw,
   CheckCircle2,
   XCircle,
   AlertCircle,
   Clock,
-  Cookie,
+  Mail,
   Play,
-  Trash2,
   Loader2,
+  ExternalLink,
+  Info,
 } from "lucide-react";
-import {
-  useScrapingStatus,
-  useTriggerScrape,
-  useSaveCookies,
-  useDeleteCookies,
-  useUpdateSchedule,
-} from "@/hooks/use-scraping";
+import { useScrapingStatus } from "@/hooks/use-scraping";
 import { PLATFORMS, type PlatformKey } from "@/lib/constants";
-import { cn, formatDate, formatRelativeDate } from "@/lib/utils";
+import { cn, formatRelativeDate } from "@/lib/utils";
 
 const SCRAPING_PLATFORMS: PlatformKey[] = [
   "BIZBUYSELL",
@@ -32,59 +26,77 @@ const SCRAPING_PLATFORMS: PlatformKey[] = [
   "BUSINESSBROKER",
 ];
 
+const PLATFORM_ALERT_SETUP: Record<string, { hasAlerts: boolean; signupUrl: string; instructions: string }> = {
+  BIZBUYSELL: {
+    hasAlerts: true,
+    signupUrl: "https://www.bizbuysell.com/saved-searches/",
+    instructions: "Create a saved search to receive email alerts for new listings",
+  },
+  BIZQUEST: {
+    hasAlerts: true,
+    signupUrl: "https://www.bizquest.com/saved-searches/",
+    instructions: "Set up saved search alerts to get listings emailed to you",
+  },
+  DEALSTREAM: {
+    hasAlerts: true,
+    signupUrl: "https://www.dealstream.com/search-genius",
+    instructions: "Enable 'Search Genius' alerts to receive daily listing digests",
+  },
+  TRANSWORLD: {
+    hasAlerts: true,
+    signupUrl: "https://www.tworld.com/",
+    instructions: "Subscribe to listing alerts for your target criteria",
+  },
+  LOOPNET: {
+    hasAlerts: true,
+    signupUrl: "https://www.loopnet.com/",
+    instructions: "Create saved searches for commercial property alerts",
+  },
+  BUSINESSBROKER: {
+    hasAlerts: false,
+    signupUrl: "https://www.businessbroker.net/",
+    instructions: "Email alerts not currently available for this platform",
+  },
+};
+
 export default function ScrapingSettingsPage() {
   const { data: status, isLoading } = useScrapingStatus();
-  const triggerScrape = useTriggerScrape();
-  const saveCookies = useSaveCookies();
-  const deleteCookies = useDeleteCookies();
-  const updateSchedule = useUpdateSchedule();
-  const [cookieInput, setCookieInput] = useState<{ platform: string; value: string } | null>(null);
-
-  const getSchedule = (platform: string) =>
-    status?.schedules?.find((s) => s.platform === platform);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    synced?: number;
+    newListingsFound?: number;
+    error?: string;
+  } | null>(null);
 
   const getLatestRun = (platform: string) =>
     status?.recentRuns?.find((r) => r.platform === platform);
 
-  const isRunning = (platform: string) =>
-    status?.runningRuns?.some((r) => r.platform === platform);
-
-  const handleSaveCookies = async (platform: string) => {
-    if (!cookieInput?.value) return;
-
+  const handleSyncAndParse = async () => {
+    setSyncing(true);
+    setSyncResult(null);
     try {
-      // Parse the pasted cookie JSON
-      const cookies = JSON.parse(cookieInput.value);
-      if (!Array.isArray(cookies)) {
-        alert("Cookies must be a JSON array");
+      // First, trigger email sync (which auto-parses listing alerts)
+      const emailRes = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: "cmle1bm1y0000v6ud3b0kh2z0" }),
+      });
+
+      if (!emailRes.ok) {
+        const err = await emailRes.json();
+        setSyncResult({ error: err.error || "Email sync failed" });
         return;
       }
-      await saveCookies.mutateAsync({ platform, cookies });
-      setCookieInput(null);
+
+      const data = await emailRes.json();
+      setSyncResult({
+        synced: data.synced?.synced ?? 0,
+        newListingsFound: data.newListingsFound ?? 0,
+      });
     } catch (err) {
-      // If it's not JSON, try parsing as a cookie header string (name=value; name=value)
-      try {
-        const cookieStr = cookieInput.value;
-        const cookies = cookieStr.split(";").map((c) => {
-          const [name, ...rest] = c.trim().split("=");
-          return {
-            name: name.trim(),
-            value: rest.join("=").trim(),
-            domain: getDomainForPlatform(platform),
-            path: "/",
-          };
-        }).filter((c) => c.name && c.value);
-
-        if (cookies.length === 0) {
-          alert("Could not parse cookies. Please paste a JSON array or cookie header string.");
-          return;
-        }
-
-        await saveCookies.mutateAsync({ platform, cookies });
-        setCookieInput(null);
-      } catch {
-        alert("Could not parse cookies. Please paste a JSON array or a cookie header string (name=value; name=value).");
-      }
+      setSyncResult({ error: err instanceof Error ? err.message : "Sync failed" });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -96,40 +108,75 @@ export default function ScrapingSettingsPage() {
         <span>/</span>
         <Link href="/settings" className="hover:text-foreground">Settings</Link>
         <span>/</span>
-        <span className="font-medium text-foreground">Scraping Configuration</span>
+        <span className="font-medium text-foreground">Listing Sources</span>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Scraping Configuration</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Listing Sources</h1>
           <p className="text-sm text-muted-foreground">
-            Manage platform logins, scrape schedules, and trigger manual scrapes
+            Manage how listings are discovered from each platform
           </p>
         </div>
-          <button
-            onClick={() => triggerScrape.mutate(undefined)}
-            disabled={triggerScrape.isPending}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {triggerScrape.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-            Scrape All Platforms
-          </button>
+        <button
+          onClick={handleSyncAndParse}
+          disabled={syncing}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          {syncing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Mail className="h-4 w-4" />
+          )}
+          Sync Gmail &amp; Parse Alerts
+        </button>
       </div>
+
+      {/* Sync result toast */}
+      {syncResult && (
+        <div className={cn(
+          "rounded-lg border p-3 text-sm",
+          syncResult.error
+            ? "border-destructive/30 bg-destructive/5 text-destructive"
+            : "border-success/30 bg-success/5 text-success"
+        )}>
+          {syncResult.error ? (
+            <p>{syncResult.error}</p>
+          ) : (
+            <p>
+              Synced {syncResult.synced} emails
+              {syncResult.newListingsFound
+                ? ` — found ${syncResult.newListingsFound} new listings`
+                : " — no new listings found"}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* How It Works */}
       <div className="rounded-lg border border-info/30 bg-info/5 p-4">
-        <h3 className="text-sm font-medium text-info">How Cookie Authentication Works</h3>
-        <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-muted-foreground">
-          <li>Open the platform website in your normal browser and log in</li>
-          <li>Open DevTools (Cmd+Opt+I), go to Application &gt; Cookies</li>
-          <li>Copy the cookie data (JSON export or as header string)</li>
-          <li>Paste it below for the corresponding platform</li>
-          <li>The scraper will use these cookies to access authenticated content</li>
-        </ol>
+        <div className="flex items-start gap-2">
+          <Info className="mt-0.5 h-4 w-4 text-info shrink-0" />
+          <div>
+            <h3 className="text-sm font-medium text-info">How Listing Discovery Works</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Listings are discovered through your email alert subscriptions. Set up
+              saved searches on each platform below — when they email you new listings,
+              DealFlow automatically syncs and parses them into your pipeline.
+            </p>
+            <ol className="mt-2 list-inside list-decimal space-y-1 text-sm text-muted-foreground">
+              <li>Sign up for email alerts on each platform (links below)</li>
+              <li>Connect your Gmail account in{" "}
+                <Link href="/settings/email" className="text-info hover:underline">Email Settings</Link>
+              </li>
+              <li>Click &quot;Sync Gmail &amp; Parse Alerts&quot; or wait for automatic sync</li>
+              <li>New listings appear in your{" "}
+                <Link href="/listings" className="text-info hover:underline">Listings</Link>
+                {" "}page
+              </li>
+            </ol>
+          </div>
+        </div>
       </div>
 
       {/* Platform Cards */}
@@ -141,9 +188,8 @@ export default function ScrapingSettingsPage() {
         <div className="space-y-4">
           {SCRAPING_PLATFORMS.map((platformKey) => {
             const platform = PLATFORMS[platformKey];
-            const schedule = getSchedule(platformKey);
             const latestRun = getLatestRun(platformKey);
-            const running = isRunning(platformKey);
+            const alertSetup = PLATFORM_ALERT_SETUP[platformKey];
 
             return (
               <div
@@ -158,120 +204,36 @@ export default function ScrapingSettingsPage() {
                       style={{ backgroundColor: platform.color }}
                     />
                     <h3 className="font-medium">{platform.label}</h3>
-                    <CookieStatusBadge platform={platformKey} />
+                    <DataSourceBadge hasAlerts={alertSetup?.hasAlerts ?? false} />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => triggerScrape.mutate(platformKey)}
-                      disabled={running || triggerScrape.isPending}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
-                        running
-                          ? "bg-warning/10 text-warning"
-                          : "border hover:bg-muted"
-                      )}
+                  {alertSetup?.hasAlerts && (
+                    <a
+                      href={alertSetup.signupUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
                     >
-                      {running ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Scraping...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-3.5 w-3.5" />
-                          Scrape Now
-                        </>
-                      )}
-                    </button>
-                  </div>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Set Up Alerts
+                    </a>
+                  )}
                 </div>
 
                 {/* Platform body */}
                 <div className="px-5 py-4">
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    {/* Cookie management */}
+                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                    {/* Alert setup info */}
                     <div>
                       <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                        Cookies
+                        Email Alert Status
                       </h4>
-                      {cookieInput?.platform === platformKey ? (
-                        <div className="space-y-2">
-                          <textarea
-                            value={cookieInput.value}
-                            onChange={(e) =>
-                              setCookieInput({ ...cookieInput, value: e.target.value })
-                            }
-                            placeholder='Paste cookies here... (JSON array or "name=value; name=value" format)'
-                            rows={3}
-                            className="w-full rounded-md border bg-background px-3 py-2 text-xs font-mono outline-none focus:ring-1 focus:ring-primary"
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleSaveCookies(platformKey)}
-                              disabled={saveCookies.isPending}
-                              className="rounded-md bg-primary px-3 py-1 text-xs text-primary-foreground hover:bg-primary/90"
-                            >
-                              {saveCookies.isPending ? "Saving..." : "Save"}
-                            </button>
-                            <button
-                              onClick={() => setCookieInput(null)}
-                              className="rounded-md border px-3 py-1 text-xs hover:bg-muted"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
+                      {alertSetup?.hasAlerts ? (
+                        <p className="text-sm text-muted-foreground">
+                          {alertSetup.instructions}
+                        </p>
                       ) : (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() =>
-                              setCookieInput({ platform: platformKey, value: "" })
-                            }
-                            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs hover:bg-muted transition-colors"
-                          >
-                            <Cookie className="h-3 w-3" />
-                            Paste Cookies
-                          </button>
-                          <button
-                            onClick={() => deleteCookies.mutate(platformKey)}
-                            className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs text-destructive hover:bg-destructive/5 transition-colors"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Clear
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Schedule */}
-                    <div>
-                      <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                        Schedule
-                      </h4>
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={schedule?.isEnabled ?? false}
-                            onChange={(e) =>
-                              updateSchedule.mutate({
-                                platform: platformKey,
-                                isEnabled: e.target.checked,
-                              })
-                            }
-                            className="rounded"
-                          />
-                          Enabled
-                        </label>
-                        {schedule && (
-                          <span className="text-xs text-muted-foreground">
-                            ({schedule.cronExpression})
-                          </span>
-                        )}
-                      </div>
-                      {schedule?.lastRunAt && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Last: {formatRelativeDate(schedule.lastRunAt)}
+                        <p className="text-sm text-muted-foreground italic">
+                          {alertSetup?.instructions ?? "No email alerts available"}
                         </p>
                       )}
                     </div>
@@ -279,7 +241,7 @@ export default function ScrapingSettingsPage() {
                     {/* Latest Run */}
                     <div>
                       <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                        Latest Run
+                        Latest Scrape Run
                       </h4>
                       {latestRun ? (
                         <div className="space-y-1">
@@ -322,6 +284,20 @@ export default function ScrapingSettingsPage() {
           })}
         </div>
       )}
+
+      {/* Apify Integration — Coming Soon */}
+      <div className="rounded-lg border border-dashed bg-muted/30 p-5">
+        <div className="flex items-center gap-3">
+          <Play className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium text-muted-foreground">Direct Scraping (Coming Soon)</h3>
+            <p className="text-sm text-muted-foreground">
+              Apify integration for direct scraping of BizBuySell, BizQuest, and other platforms.
+              This will enable on-demand scraping without requiring email alerts.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Recent Runs Table */}
       {status?.recentRuns && status.recentRuns.length > 0 && (
@@ -386,10 +362,20 @@ export default function ScrapingSettingsPage() {
   );
 }
 
-function CookieStatusBadge({ platform }: { platform: string }) {
-  // We'll just show a simple inline status — the parent component handles the actual data
-  // This is a placeholder that could be enhanced with useCookieStatus hook
-  return null; // Cookie status is shown in the card body
+function DataSourceBadge({ hasAlerts }: { hasAlerts: boolean }) {
+  if (hasAlerts) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-info/10 px-2 py-0.5 text-xs text-info">
+        <Mail className="h-3 w-3" />
+        Email Alerts
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+      No Alerts
+    </span>
+  );
 }
 
 function RunStatusIcon({ status }: { status: string }) {
@@ -405,16 +391,4 @@ function RunStatusIcon({ status }: { status: string }) {
     default:
       return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
   }
-}
-
-function getDomainForPlatform(platform: string): string {
-  const domains: Record<string, string> = {
-    BIZBUYSELL: ".bizbuysell.com",
-    BIZQUEST: ".bizquest.com",
-    DEALSTREAM: ".dealstream.com",
-    TRANSWORLD: ".tworld.com",
-    LOOPNET: ".loopnet.com",
-    BUSINESSBROKER: ".businessbroker.net",
-  };
-  return domains[platform] || "";
 }
