@@ -49,6 +49,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
+# Copy full node_modules for serverExternalPackages (@azure/msal-node + deps)
+# Next.js standalone doesn't auto-trace external packages, so they need to be
+# explicitly available at runtime
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 
 USER nextjs
