@@ -12,13 +12,16 @@ import {
   AlertCircle,
   Clock,
   Loader2,
+  Target,
+  AlertTriangle,
+  CalendarClock,
+  Wallet,
 } from "lucide-react";
 import { useStats } from "@/hooks/use-pipeline";
 import { useScrapingStatus } from "@/hooks/use-scraping";
 import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
 import { PIPELINE_STAGES, PLATFORMS, TIERS, type PlatformKey, type TierKey } from "@/lib/constants";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
-import { Target } from "lucide-react";
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useStats();
@@ -57,18 +60,60 @@ export default function DashboardPage() {
         />
         <StatCard
           icon={DollarSign}
-          label="Avg. Asking Price"
+          label="Pipeline Value"
           value={
             isLoading
               ? "..."
-              : stats?.avgAskingPrice
-              ? formatCurrency(stats.avgAskingPrice)
+              : stats?.pipelineValueLow && stats?.pipelineValueHigh
+              ? `${formatCurrency(stats.pipelineValueLow)} – ${formatCurrency(stats.pipelineValueHigh)}`
               : "N/A"
           }
-          description="Across active listings"
+          description="Tier 1 target EV range"
           color="text-warning"
         />
       </div>
+
+      {/* Thesis KPI Cards - Only show if any values exist */}
+      {!isLoading && (stats?.capitalDeployed || stats?.platformRevenue || stats?.platformEbitda || stats?.targetMoic) && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {stats.capitalDeployed !== null && stats.capitalDeployed !== undefined && (
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Capital Deployed</p>
+              </div>
+              <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.capitalDeployed)}</p>
+            </div>
+          )}
+          {stats.platformRevenue !== null && stats.platformRevenue !== undefined && (
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Platform Revenue</p>
+              </div>
+              <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.platformRevenue)}</p>
+            </div>
+          )}
+          {stats.platformEbitda !== null && stats.platformEbitda !== undefined && (
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Platform EBITDA</p>
+              </div>
+              <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.platformEbitda)}</p>
+            </div>
+          )}
+          {stats.targetMoic !== null && stats.targetMoic !== undefined && (
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Target MOIC</p>
+              </div>
+              <p className="mt-1 text-xl font-semibold">{stats.targetMoic.toFixed(1)}x</p>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Recent Listings */}
@@ -205,6 +250,111 @@ export default function DashboardPage() {
                       <span className="flex-1 text-sm">{tier.label}</span>
                       <span className="text-sm font-medium">{t.count}</span>
                     </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Follow-Ups */}
+        <div className="rounded-lg border bg-card">
+          <div className="flex items-center justify-between border-b px-5 py-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-medium">Upcoming Follow-Ups</h2>
+            </div>
+          </div>
+          <div className="p-5">
+            {isLoading ? (
+              <p className="text-center text-sm text-muted-foreground">Loading...</p>
+            ) : stats?.upcomingFollowUps?.length > 0 ? (
+              <div className="space-y-2">
+                {stats.upcomingFollowUps.map((followUp: {
+                  contactName: string;
+                  opportunityId: string;
+                  opportunityTitle: string;
+                  followUpDate: string;
+                }) => {
+                  const followUpDate = new Date(followUp.followUpDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  followUpDate.setHours(0, 0, 0, 0);
+                  const isUrgent = followUpDate <= today;
+
+                  return (
+                    <Link
+                      key={followUp.opportunityId}
+                      href={`/pipeline/${followUp.opportunityId}`}
+                      className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/50 transition-colors"
+                    >
+                      {isUrgent && (
+                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{followUp.contactName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{followUp.opportunityTitle}</p>
+                      </div>
+                      <span className={`text-xs whitespace-nowrap ${isUrgent ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
+                        {formatRelativeDate(followUp.followUpDate)}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-4 text-center">
+                <p className="text-sm text-muted-foreground">No follow-ups scheduled this week</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Stale Contacts Warning */}
+        {!isLoading && stats?.staleT1Contacts?.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
+            <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                <h2 className="font-medium text-amber-900 dark:text-amber-100">Stale Tier 1 Contacts</h2>
+              </div>
+              <span className="text-xs text-amber-700 dark:text-amber-400">
+                {stats.staleT1Contacts.length} contact{stats.staleT1Contacts.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="p-5">
+              <div className="space-y-2">
+                {stats.staleT1Contacts.map((contact: {
+                  contactName: string;
+                  opportunityId: string;
+                  opportunityTitle: string;
+                  daysSinceContact: number | null;
+                }) => {
+                  const isNeverContacted = contact.daysSinceContact === null;
+                  const isVeryStale = contact.daysSinceContact && contact.daysSinceContact > 60;
+
+                  return (
+                    <Link
+                      key={contact.opportunityId}
+                      href={`/pipeline/${contact.opportunityId}`}
+                      className="flex items-start gap-2 rounded-md p-2 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate">
+                          {contact.contactName}
+                        </p>
+                        <p className="text-xs text-amber-700 dark:text-amber-400 truncate">
+                          {contact.opportunityTitle}
+                        </p>
+                      </div>
+                      <span className={`text-xs whitespace-nowrap font-medium ${
+                        isNeverContacted || isVeryStale
+                          ? 'text-red-600 dark:text-red-500'
+                          : 'text-amber-600 dark:text-amber-500'
+                      }`}>
+                        {isNeverContacted ? 'Never contacted' : `${contact.daysSinceContact}d ago`}
+                      </span>
+                    </Link>
                   );
                 })}
               </div>

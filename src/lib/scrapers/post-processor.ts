@@ -1,9 +1,10 @@
-import { Prisma, Platform } from "@prisma/client";
+import { Prisma, Platform, PrimaryTrade } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { RawListing, ScrapeResult } from "./base-scraper";
 import { isDenverMetro } from "./parser-utils";
 import { inferFinancials } from "../financial/inference-engine";
 import { DEFAULT_METRO_AREA } from "@/lib/constants";
+import { computeFitScore } from "../scoring/fit-score-engine";
 
 // ─────────────────────────────────────────────
 // Types
@@ -13,6 +14,47 @@ interface PostProcessResult {
   newCount: number;
   updatedCount: number;
   errors: string[];
+}
+
+// ─────────────────────────────────────────────
+// Thesis trade detection
+// ─────────────────────────────────────────────
+
+const TRADE_KEYWORDS: Array<{ trade: PrimaryTrade; patterns: RegExp }> = [
+  { trade: "STRUCTURED_CABLING", patterns: /structured cabling|data cabling|fiber optic|cat[56e]|network cabling|telecommunications contractor|low.?voltage.*cable/i },
+  { trade: "SECURITY_SURVEILLANCE", patterns: /security system|surveillance|access control|cctv|intrusion detection|alarm system|security integrat/i },
+  { trade: "BUILDING_AUTOMATION_BMS", patterns: /building automation|bms|building management|bac(net)?|energy management system|distech|reliable controls|tridium|niagara/i },
+  { trade: "HVAC_CONTROLS", patterns: /hvac control|hvac system|mechanical control|ddc|direct digital control|pneumatic.*control/i },
+  { trade: "FIRE_ALARM", patterns: /fire alarm|fire protection|fire suppression|life safety|fire detection/i },
+  { trade: "ELECTRICAL", patterns: /electrical contractor|electrician|electrical service|power distribution/i },
+  { trade: "AV_INTEGRATION", patterns: /av integrat|audio.?visual|conference room.*system|digital signage|display system/i },
+  { trade: "MANAGED_IT_SERVICES", patterns: /managed (it|service)|msp|it (support|service)|network (management|infrastructure)/i },
+];
+
+const DC_KEYWORDS = /data.?cent(er|re)|colocation|colo facility|server room|mission.?critical|uptime|tier.?(iii|iv|3|4)|hot.?aisle|cold.?aisle|raised floor|ups system/i;
+
+/**
+ * Auto-detect primary trade from listing text content.
+ */
+function detectPrimaryTrade(title: string, description: string | null, industry: string | null, category: string | null): PrimaryTrade | null {
+  const text = [title, description, industry, category].filter(Boolean).join(" ");
+  for (const { trade, patterns } of TRADE_KEYWORDS) {
+    if (patterns.test(text)) return trade;
+  }
+  return null;
+}
+
+/**
+ * Detect DC relevance (1-10) based on keyword density.
+ */
+function detectDcRelevance(title: string, description: string | null): number {
+  const text = [title, description].filter(Boolean).join(" ");
+  const matches = text.match(new RegExp(DC_KEYWORDS.source, "gi"));
+  if (!matches) return 1;
+  if (matches.length >= 5) return 10;
+  if (matches.length >= 3) return 8;
+  if (matches.length >= 2) return 6;
+  return 4;
 }
 
 // ─────────────────────────────────────────────
@@ -250,6 +292,62 @@ async function processOneListing(
           inferredSde: inferenceResult.inferredSde,
           inferenceMethod: inferenceResult.inferenceMethod,
           inferenceConfidence: inferenceResult.inferenceConfidence,
+        },
+      });
+    }
+  }
+
+  // ── Step 4: Auto-classify thesis fields for new listings ─────
+  if (isNew) {
+    const freshListing = await prisma.listing.findUniqueOrThrow({
+      where: { id: listingId },
+    });
+
+    const detectedTrade = detectPrimaryTrade(
+      freshListing.title,
+      freshListing.description,
+      freshListing.industry,
+      freshListing.category,
+    );
+    const dcScore = detectDcRelevance(freshListing.title, freshListing.description);
+    const isColorado = freshListing.state?.toUpperCase() === "CO";
+
+    // Only set thesis fields if we detected a relevant trade
+    if (detectedTrade) {
+      const fitResult = computeFitScore({
+        primaryTrade: detectedTrade,
+        secondaryTrades: [],
+        revenue: decimalToNumber(freshListing.revenue),
+        established: freshListing.established,
+        state: freshListing.state,
+        metroArea: freshListing.metroArea,
+        certifications: [],
+        dcCertifications: [],
+        dcRelevanceScore: dcScore,
+        askingPrice: decimalToNumber(freshListing.askingPrice),
+        ebitda: decimalToNumber(freshListing.ebitda),
+        inferredEbitda: decimalToNumber(freshListing.inferredEbitda as Prisma.Decimal | null),
+        targetMultipleLow: 3.0,
+        targetMultipleHigh: 5.0,
+        estimatedAgeRange: null,
+        keyPersonRisk: null,
+        recurringRevenuePct: null,
+      });
+
+      await prisma.listing.update({
+        where: { id: listingId },
+        data: {
+          primaryTrade: detectedTrade,
+          dcRelevanceScore: dcScore,
+          dcExperience: dcScore >= 6,
+          fitScore: fitResult.fitScore,
+          tier: isColorado && fitResult.fitScore >= 60
+            ? "TIER_1_ACTIVE"
+            : isColorado && fitResult.fitScore >= 40
+              ? "TIER_2_WATCH"
+              : "TIER_3_DISQUALIFIED",
+          targetMultipleLow: 3.0,
+          targetMultipleHigh: 5.0,
         },
       });
     }

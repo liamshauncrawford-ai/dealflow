@@ -10,6 +10,7 @@
 import { prisma } from "@/lib/db";
 import { getValidGmailAccessToken } from "./gmail-client";
 import { computeMessageHash } from "./sync-engine";
+import { categorizeEmail, TARGET_DOMAINS, BROKER_DOMAINS } from "@/lib/email-categorizer";
 
 // ─────────────────────────────────────────────
 // Types
@@ -358,13 +359,32 @@ async function upsertGmailEmail(message: GmailMessage, emailAccountId: string): 
     isListingAlert,
   };
 
+  // Categorize email for deal pipeline
+  const category = categorizeEmail(
+    {
+      fromAddress: data.fromAddress,
+      toAddresses: data.toAddresses,
+      subject: data.subject,
+      bodyPreview: data.bodyPreview,
+    },
+    {
+      userDomain: "gmail.com",
+      targetDomains: [...TARGET_DOMAINS],
+      brokerDomains: [...BROKER_DOMAINS],
+    }
+  );
+
   const email = await prisma.email.upsert({
     where: { externalMessageId: message.id },
     create: {
       externalMessageId: message.id,
       ...data,
+      emailCategory: category,
     },
-    update: data,
+    update: {
+      ...data,
+      emailCategory: category,
+    },
   });
 
   // Extract and store attachment metadata

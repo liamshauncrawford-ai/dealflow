@@ -6,6 +6,8 @@ export async function GET() {
   try {
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const [
       totalActive,
@@ -21,6 +23,12 @@ export async function GET() {
       lostReasonBreakdown,
       tierBreakdown,
       avgFitScore,
+      // Thesis KPIs
+      tier1Listings,
+      ownedListings,
+      closedWonOpps,
+      upcomingFollowUps,
+      tier1PrimaryContacts,
     ] = await Promise.all([
       // Total active listings meeting threshold
       prisma.listing.count({
@@ -120,11 +128,101 @@ export async function GET() {
         where: { isActive: true, fitScore: { not: null } },
         _avg: { fitScore: true },
       }),
+
+      // ── Thesis KPIs ──
+
+      // Pipeline Value: Tier 1 listings for valuation sum
+      prisma.listing.findMany({
+        where: { isActive: true, tier: "TIER_1_ACTIVE" },
+        select: { ebitda: true, inferredEbitda: true, targetMultipleLow: true, targetMultipleHigh: true },
+      }),
+
+      // Platform: OWNED listings
+      prisma.listing.findMany({
+        where: { isActive: true, tier: "OWNED" },
+        select: { revenue: true, ebitda: true, inferredEbitda: true },
+      }),
+
+      // Closed Won opportunities (capital deployed + platform metrics)
+      prisma.opportunity.findMany({
+        where: { stage: "CLOSED_WON" },
+        include: { listing: { select: { revenue: true, ebitda: true, inferredEbitda: true } } },
+      }),
+
+      // Upcoming follow-ups (next 7 days)
+      prisma.contact.findMany({
+        where: {
+          nextFollowUpDate: { gte: now, lte: sevenDaysFromNow },
+        },
+        include: { opportunity: { select: { id: true, title: true } } },
+        orderBy: { nextFollowUpDate: "asc" },
+        take: 10,
+      }),
+
+      // Tier 1 primary contacts for "days since last contact" alert
+      prisma.contact.findMany({
+        where: {
+          isPrimary: true,
+          opportunity: { listing: { tier: "TIER_1_ACTIVE" } },
+        },
+        include: { opportunity: { select: { id: true, title: true, updatedAt: true } } },
+      }),
     ]);
 
     const winRate = (wonCount + lostCount) > 0
       ? wonCount / (wonCount + lostCount)
       : null;
+
+    // Pipeline Value (sum of implied EV ranges for Tier 1 targets)
+    let pipelineValueLow = 0;
+    let pipelineValueHigh = 0;
+    for (const l of tier1Listings) {
+      const ebitdaVal = l.ebitda ? Number(l.ebitda) : (l.inferredEbitda ? Number(l.inferredEbitda) : 0);
+      if (ebitdaVal > 0) {
+        pipelineValueLow += ebitdaVal * (l.targetMultipleLow ?? 3.0);
+        pipelineValueHigh += ebitdaVal * (l.targetMultipleHigh ?? 5.0);
+      }
+    }
+
+    // Platform Revenue/EBITDA (owned + closed won)
+    let platformRevenue = 0;
+    let platformEbitda = 0;
+    for (const l of ownedListings) {
+      platformRevenue += l.revenue ? Number(l.revenue) : 0;
+      platformEbitda += l.ebitda ? Number(l.ebitda) : (l.inferredEbitda ? Number(l.inferredEbitda) : 0);
+    }
+    let capitalDeployed = 0;
+    for (const opp of closedWonOpps) {
+      capitalDeployed += opp.offerPrice ? Number(opp.offerPrice) : 0;
+      if (opp.listing) {
+        platformRevenue += opp.listing.revenue ? Number(opp.listing.revenue) : 0;
+        platformEbitda += opp.listing.ebitda ? Number(opp.listing.ebitda) : (opp.listing.inferredEbitda ? Number(opp.listing.inferredEbitda) : 0);
+      }
+    }
+
+    // Implied Platform Multiple & MOIC
+    const impliedPlatformMultiple = platformEbitda > 0 && capitalDeployed > 0
+      ? capitalDeployed / platformEbitda
+      : null;
+    const platformValuation7x = platformEbitda * 7;
+    const targetMoic = capitalDeployed > 0
+      ? platformValuation7x / capitalDeployed
+      : null;
+
+    // Stale Tier 1 contacts (>30 days since last activity)
+    const staleT1Contacts = tier1PrimaryContacts
+      .filter((c) => {
+        const lastActivity = c.lastInteractionDate ?? c.opportunity?.updatedAt;
+        return !lastActivity || new Date(lastActivity) < thirtyDaysAgo;
+      })
+      .map((c) => ({
+        contactName: c.name,
+        opportunityId: c.opportunity?.id,
+        opportunityTitle: c.opportunity?.title,
+        daysSinceContact: c.lastInteractionDate
+          ? Math.floor((now.getTime() - new Date(c.lastInteractionDate).getTime()) / (1000 * 60 * 60 * 24))
+          : null,
+      }));
 
     return NextResponse.json({
       totalActive,
@@ -159,6 +257,28 @@ export async function GET() {
       avgFitScore: avgFitScore._avg.fitScore
         ? Math.round(avgFitScore._avg.fitScore)
         : null,
+
+      // Thesis KPIs
+      pipelineValueLow,
+      pipelineValueHigh,
+      capitalDeployed,
+      platformRevenue,
+      platformEbitda,
+      impliedPlatformMultiple: impliedPlatformMultiple
+        ? Math.round(impliedPlatformMultiple * 10) / 10
+        : null,
+      platformValuation7x,
+      platformValuation10x: platformEbitda * 10,
+      targetMoic: targetMoic
+        ? Math.round(targetMoic * 10) / 10
+        : null,
+      upcomingFollowUps: upcomingFollowUps.map((c) => ({
+        contactName: c.name,
+        opportunityId: c.opportunity?.id,
+        opportunityTitle: c.opportunity?.title,
+        followUpDate: c.nextFollowUpDate,
+      })),
+      staleT1Contacts,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

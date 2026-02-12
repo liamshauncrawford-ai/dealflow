@@ -15,6 +15,9 @@ interface KeyDatesPanelProps {
     offerSentAt: string | null;
     underContractAt: string | null;
     closedAt: string | null;
+    loiDate: string | null;
+    dueDiligenceStart: string | null;
+    targetCloseDate: string | null;
   };
 }
 
@@ -23,8 +26,11 @@ const DATE_FIELDS = [
   { label: "Contacted", field: "contactedAt", editable: true },
   { label: "CIM Requested", field: "cimRequestedAt", editable: true },
   { label: "NDA Signed", field: "ndaSignedAt", editable: true },
+  { label: "LOI Date", field: "loiDate", editable: true },
+  { label: "DD Start", field: "dueDiligenceStart", editable: true },
   { label: "Offer Sent", field: "offerSentAt", editable: true },
   { label: "Under Contract", field: "underContractAt", editable: true },
+  { label: "Target Close", field: "targetCloseDate", editable: true },
   { label: "Closed", field: "closedAt", editable: true },
 ] as const;
 

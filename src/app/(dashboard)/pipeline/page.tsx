@@ -12,9 +12,11 @@ import {
   List,
   Mail,
   Flag,
+  User,
+  CalendarClock,
 } from "lucide-react";
 import { usePipeline, useUpdateOpportunity } from "@/hooks/use-pipeline";
-import { PIPELINE_STAGES, PRIORITY_LEVELS, type PipelineStageKey } from "@/lib/constants";
+import { PIPELINE_STAGES, PRIORITY_LEVELS, PRIMARY_TRADES, type PipelineStageKey, type PrimaryTradeKey } from "@/lib/constants";
 import { cn, formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { TierBadge } from "@/components/listings/tier-badge";
 import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
@@ -111,8 +113,16 @@ function KanbanColumn({
                     {opp.title}
                   </Link>
 
+                  {/* Owner name */}
+                  {opp.contacts?.[0]?.name && (
+                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <User className="h-2.5 w-2.5" />
+                      <span>{opp.contacts[0].name}</span>
+                    </div>
+                  )}
+
                   {opp.listing && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                       {opp.listing.city && (
                         <span>{opp.listing.city}, {opp.listing.state}</span>
                       )}
@@ -120,16 +130,36 @@ function KanbanColumn({
                       {opp.listing.fitScore !== null && opp.listing.fitScore !== undefined && (
                         <FitScoreGauge score={opp.listing.fitScore} size="sm" showLabel={false} />
                       )}
+                      {opp.listing.primaryTrade && (
+                        <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                          {PRIMARY_TRADES[opp.listing.primaryTrade as PrimaryTradeKey]?.label ?? opp.listing.primaryTrade}
+                        </span>
+                      )}
                     </div>
                   )}
 
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-xs font-medium text-foreground">
-                        {opp.listing?.askingPrice
-                          ? formatCurrency(Number(opp.listing.askingPrice))
-                          : "Price N/A"}
-                      </span>
+                      {/* Implied EV or asking price */}
+                      {(() => {
+                        const ebitdaVal = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
+                        const multLow = opp.listing?.targetMultipleLow ?? 3.0;
+                        const multHigh = opp.listing?.targetMultipleHigh ?? 5.0;
+                        if (ebitdaVal && ebitdaVal > 0) {
+                          return (
+                            <span className="text-xs font-medium text-foreground" title={`EBITDA × ${multLow}–${multHigh}x`}>
+                              {formatCurrency(ebitdaVal * multLow)} – {formatCurrency(ebitdaVal * multHigh)}
+                            </span>
+                          );
+                        }
+                        return (
+                          <span className="text-xs font-medium text-foreground">
+                            {opp.listing?.askingPrice
+                              ? formatCurrency(Number(opp.listing.askingPrice))
+                              : "Price N/A"}
+                          </span>
+                        );
+                      })()}
                       {opp.offerPrice && (
                         <span className="text-[10px] font-medium text-emerald-600">
                           Offer: {formatCurrency(Number(opp.offerPrice))}
@@ -149,12 +179,34 @@ function KanbanColumn({
                           {opp.notes.length}
                         </span>
                       )}
-                      <span className="flex items-center gap-0.5">
-                        <Clock className="h-3 w-3" />
-                        {formatRelativeDate(opp.updatedAt)}
-                      </span>
+                      {/* Days in current stage */}
+                      {opp.stageHistory?.[0]?.createdAt && (
+                        <span className="flex items-center gap-0.5" title="Days in current stage">
+                          <Clock className="h-3 w-3" />
+                          {Math.max(0, Math.floor((Date.now() - new Date(opp.stageHistory[0].createdAt).getTime()) / (1000 * 60 * 60 * 24)))}d
+                        </span>
+                      )}
+                      {!opp.stageHistory?.[0]?.createdAt && (
+                        <span className="flex items-center gap-0.5">
+                          <Clock className="h-3 w-3" />
+                          {formatRelativeDate(opp.updatedAt)}
+                        </span>
+                      )}
                     </div>
                   </div>
+
+                  {/* Next follow-up date */}
+                  {opp.contacts?.[0]?.nextFollowUpDate && (
+                    <div className={cn(
+                      "mt-1.5 flex items-center gap-1 text-[10px]",
+                      new Date(opp.contacts[0].nextFollowUpDate) < new Date()
+                        ? "text-red-600 font-medium"
+                        : "text-muted-foreground"
+                    )}>
+                      <CalendarClock className="h-2.5 w-2.5" />
+                      Follow-up: {new Date(opp.contacts[0].nextFollowUpDate).toLocaleDateString()}
+                    </div>
+                  )}
 
                   {/* Last email preview */}
                   {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
@@ -325,15 +377,15 @@ export default function PipelinePage() {
         <>
           {/* Kanban Board — Two-Row Grid Layout */}
           <div className="space-y-4">
-            {/* Row 1: Early Pipeline */}
+            {/* Row 1: Active Negotiation */}
             <div>
               <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                Early Pipeline
+                Active Negotiation
                 <span className="h-px flex-1 bg-border" />
               </h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {KANBAN_ROW_1.map((stageKey) => (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {KANBAN_ROW_2.map((stageKey) => (
                   <KanbanColumn
                     key={stageKey}
                     stageKey={stageKey}
@@ -349,15 +401,15 @@ export default function PipelinePage() {
               </div>
             </div>
 
-            {/* Row 2: Active Negotiation */}
+            {/* Row 2: Early Pipeline */}
             <div>
               <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                Active Negotiation
+                Early Pipeline
                 <span className="h-px flex-1 bg-border" />
               </h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {KANBAN_ROW_2.map((stageKey) => (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {KANBAN_ROW_1.map((stageKey) => (
                   <KanbanColumn
                     key={stageKey}
                     stageKey={stageKey}

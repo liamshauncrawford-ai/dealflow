@@ -821,6 +821,90 @@ Liam Crawford`,
   }
 
   console.log(`Seeded ${emailTemplates.length} email templates.`);
+
+  // Seed keyword search sets
+  const primaryKeywords = [
+    '"structured cabling" AND (Colorado OR Denver OR "Front Range")',
+    '"low voltage contractor" AND (Colorado OR Denver)',
+    '"low voltage" AND (Colorado OR Denver) AND ("for sale" OR "acquisition" OR "business opportunity")',
+    '"building automation" AND (Colorado OR Denver)',
+    '"BAS controls" AND (Colorado OR Denver)',
+    '"security systems installer" AND (Colorado OR Denver)',
+    '"security integrator" AND (Colorado OR Denver)',
+    '"fire alarm contractor" AND (Colorado OR Denver)',
+    '"HVAC controls" AND (Colorado OR Denver)',
+    '"access control" AND contractor AND (Colorado OR Denver)',
+    '"electrical contractor" AND (Denver OR Colorado) AND ("for sale" OR "retirement" OR "succession")',
+  ];
+
+  const secondaryKeywords = [
+    '"telecommunications contractor" AND Colorado',
+    '"IT services" AND Colorado AND ("for sale" OR "acquisition")',
+    '"data cabling" AND Colorado',
+    '"fiber optic" AND contractor AND Colorado',
+    '"surveillance" AND installer AND Colorado',
+    '"network infrastructure" AND (Colorado OR Denver)',
+    '"AV integrator" AND (Colorado OR Denver)',
+    '"building controls" AND (Colorado OR Denver)',
+    '"BMS" AND contractor AND Colorado',
+    '"Distech" OR "Reliable Controls" OR "Tridium" OR "Niagara" AND Colorado',
+    '"energy management" AND HVAC AND Colorado AND ("for sale" OR "business")',
+  ];
+
+  await prisma.appSetting.upsert({
+    where: { key: "search_keywords_primary" },
+    update: { value: JSON.stringify(primaryKeywords) },
+    create: { key: "search_keywords_primary", value: JSON.stringify(primaryKeywords) },
+  });
+
+  await prisma.appSetting.upsert({
+    where: { key: "search_keywords_secondary" },
+    update: { value: JSON.stringify(secondaryKeywords) },
+    create: { key: "search_keywords_secondary", value: JSON.stringify(secondaryKeywords) },
+  });
+
+  console.log(`Seeded ${primaryKeywords.length} primary keywords and ${secondaryKeywords.length} secondary keywords.`);
+
+  // Seed broker contacts
+  const brokerContacts = [
+    { name: "Sunbelt Business Brokers", office: "Denver", specialty: "General lower middle market", registered: false },
+    { name: "Transworld Business Advisors", office: "Multiple CO locations", specialty: "Franchise + independent businesses", registered: false },
+    { name: "Murphy Business Sales", office: "Colorado", specialty: "Construction/trades specialty", registered: false },
+    { name: "LINK Business Brokers", office: "National", specialty: "International network with CO deals", registered: false },
+  ];
+
+  await prisma.appSetting.upsert({
+    where: { key: "broker_contacts" },
+    update: { value: JSON.stringify(brokerContacts) },
+    create: { key: "broker_contacts", value: JSON.stringify(brokerContacts) },
+  });
+
+  console.log(`Seeded ${brokerContacts.length} broker contacts.`);
+
+  // Seed target email domains
+  const targetEmailDomains = [
+    "structuredplus.com",
+    "intsysinst.com",
+    "msicolorado.com",
+    "colorado-controls.com",
+    "anchornetworksolutions.com",
+    "sunbeltnetwork.com",
+    "tworld.com",
+    "murphybusiness.com",
+    "linkbusiness.com",
+    "bicsi.org",
+    "ashrae.org",
+    "abcrmc.org",
+    "agccolorado.org",
+  ];
+
+  await prisma.appSetting.upsert({
+    where: { key: "target_email_domains" },
+    update: { value: JSON.stringify(targetEmailDomains) },
+    create: { key: "target_email_domains", value: JSON.stringify(targetEmailDomains) },
+  });
+
+  console.log(`Seeded ${targetEmailDomains.length} target email domains.`);
   console.log("Thesis seed data complete.");
 }
 

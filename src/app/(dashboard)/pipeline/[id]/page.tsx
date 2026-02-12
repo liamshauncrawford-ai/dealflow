@@ -17,6 +17,7 @@ import {
   ContactsPanel,
   EmailsPanel,
   TasksPanel,
+  DealAnalysisPanel,
 } from "@/components/pipeline";
 
 export default function OpportunityDetailPage({
@@ -91,6 +92,10 @@ export default function OpportunityDetailPage({
         <div className="space-y-6">
           <ErrorBoundary>
             <TasksPanel opportunityId={opportunity.id} />
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <DealAnalysisPanel opportunity={opportunity} />
           </ErrorBoundary>
 
           <ErrorBoundary>

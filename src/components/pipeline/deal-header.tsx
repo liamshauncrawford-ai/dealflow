@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PenLine, Trash2, X, Save } from "lucide-react";
 import { useUpdateOpportunity, useDeleteOpportunity } from "@/hooks/use-pipeline";
+import { TierBadge } from "@/components/listings/tier-badge";
+import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface DealHeaderProps {
   opportunity: {
     id: string;
@@ -13,6 +16,7 @@ interface DealHeaderProps {
     description: string | null;
     offerPrice: number | null;
     offerTerms: string | null;
+    listing?: Record<string, any> | null;
   };
 }
 
@@ -127,7 +131,15 @@ export function DealHeader({ opportunity }: DealHeaderProps) {
               </div>
             ) : (
               <>
-                <h1 className="text-2xl font-bold">{opportunity.title}</h1>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl font-bold">{opportunity.title}</h1>
+                  {opportunity.listing?.tier && (
+                    <TierBadge tier={opportunity.listing.tier} size="sm" />
+                  )}
+                  {opportunity.listing?.fitScore !== null && opportunity.listing?.fitScore !== undefined && (
+                    <FitScoreGauge score={opportunity.listing.fitScore} size="sm" showLabel={false} />
+                  )}
+                </div>
                 {opportunity.description && (
                   <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
                     {opportunity.description}

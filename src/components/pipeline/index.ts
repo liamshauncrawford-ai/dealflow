@@ -9,3 +9,4 @@ export { TagsPanel } from "./tags-panel";
 export { ContactsPanel } from "./contacts-panel";
 export { EmailsPanel } from "./emails-panel";
 export { TasksPanel } from "./tasks-panel";
+export { DealAnalysisPanel } from "./deal-analysis-panel";

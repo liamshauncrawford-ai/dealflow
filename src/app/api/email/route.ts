@@ -76,6 +76,49 @@ export async function POST(request: NextRequest) {
     const { autoLinkEmails } = await import("@/lib/email/sync-engine");
     const linkResult = await autoLinkEmails(accountId);
 
+    // Categorize any uncategorized emails (backfill)
+    let categorized = 0;
+    try {
+      const { categorizeEmail, TARGET_DOMAINS, BROKER_DOMAINS } = await import(
+        "@/lib/email-categorizer"
+      );
+      const uncategorized = await prisma.email.findMany({
+        where: { emailCategory: null },
+        select: {
+          id: true,
+          fromAddress: true,
+          toAddresses: true,
+          subject: true,
+          bodyPreview: true,
+        },
+      });
+
+      for (const email of uncategorized) {
+        const category = categorizeEmail(
+          {
+            fromAddress: email.fromAddress,
+            toAddresses: email.toAddresses,
+            subject: email.subject,
+            bodyPreview: email.bodyPreview,
+          },
+          {
+            userDomain: "gmail.com",
+            targetDomains: [...TARGET_DOMAINS],
+            brokerDomains: [...BROKER_DOMAINS],
+          }
+        );
+        if (category) {
+          await prisma.email.update({
+            where: { id: email.id },
+            data: { emailCategory: category },
+          });
+          categorized++;
+        }
+      }
+    } catch (err) {
+      console.error("Error categorizing emails:", err);
+    }
+
     // Parse listing alert emails (for both providers)
     let alertResult = null;
     let newListingsFound = 0;
@@ -92,6 +135,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       synced: syncResult,
       linked: linkResult,
+      categorized,
       newListingsFound,
       ...(alertResult ? { alerts: alertResult } : {}),
     });

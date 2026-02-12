@@ -6,20 +6,27 @@ import {
   Building2,
   Calendar,
   ExternalLink,
+  Globe,
   Info,
   Mail,
   MapPin,
   PenLine,
   Phone,
   Save,
+  Shield,
+  Award,
+  Target,
   TrendingDown,
   TrendingUp,
   X,
   BarChart3,
 } from "lucide-react";
 import { useUpdateListing } from "@/hooks/use-listings";
-import { PLATFORMS, type PlatformKey } from "@/lib/constants";
+import { PLATFORMS, PRIMARY_TRADES, type PlatformKey, type PrimaryTradeKey } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
+import { TierBadge } from "@/components/listings/tier-badge";
+import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
+import { TradeBadges } from "@/components/listings/trade-badges";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface LinkedListingCardProps {
@@ -457,6 +464,120 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                     </span>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ── Thesis: Tier, Fit Score, Trade ── */}
+            {(listing.tier || listing.fitScore !== null || listing.primaryTrade) && (
+              <div className="mt-4 border-t pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Thesis Analysis</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {listing.tier && <TierBadge tier={listing.tier} size="sm" />}
+                  {listing.fitScore !== null && listing.fitScore !== undefined && (
+                    <FitScoreGauge score={listing.fitScore} size="sm" />
+                  )}
+                  {listing.dcRelevanceScore !== null && listing.dcRelevanceScore !== undefined && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">
+                      DC Relevance: {listing.dcRelevanceScore}/10
+                    </span>
+                  )}
+                </div>
+                {listing.primaryTrade && (
+                  <div className="mt-2">
+                    <TradeBadges
+                      primaryTrade={listing.primaryTrade}
+                      secondaryTrades={listing.secondaryTrades || []}
+                      size="sm"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Certifications & Qualifications ── */}
+            {((listing.certifications?.length > 0) || (listing.dcCertifications?.length > 0) || listing.bonded || listing.insured) && (
+              <div className="mt-3 border-t pt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Award className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Certifications</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {listing.certifications?.map((cert: string) => (
+                    <span key={cert} className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300">
+                      {cert}
+                    </span>
+                  ))}
+                  {listing.dcCertifications?.map((cert: string) => (
+                    <span key={cert} className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-xs text-purple-700 dark:text-purple-300">
+                      {cert}
+                    </span>
+                  ))}
+                  {listing.bonded && (
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                      <Shield className="h-2.5 w-2.5" /> Bonded
+                    </span>
+                  )}
+                  {listing.insured && (
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 text-xs text-emerald-700 dark:text-emerald-300">
+                      <Shield className="h-2.5 w-2.5" /> Insured
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Implied Valuation Range ── */}
+            {(() => {
+              const ebitdaVal = listing.ebitda ? Number(listing.ebitda) : (listing.inferredEbitda ? Number(listing.inferredEbitda) : null);
+              const multLow = listing.targetMultipleLow ? Number(listing.targetMultipleLow) : 3.0;
+              const multHigh = listing.targetMultipleHigh ? Number(listing.targetMultipleHigh) : 5.0;
+              if (!ebitdaVal || ebitdaVal <= 0) return null;
+              const evLow = ebitdaVal * multLow;
+              const evHigh = ebitdaVal * multHigh;
+              return (
+                <div className="mt-3 rounded-md border bg-gradient-to-r from-emerald-50/50 to-blue-50/50 dark:from-emerald-900/10 dark:to-blue-900/10 p-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Implied Enterprise Value</div>
+                  <div className="text-lg font-bold text-foreground">
+                    {formatCurrency(evLow)} — {formatCurrency(evHigh)}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground">
+                    EBITDA ({formatCurrency(ebitdaVal)}) × {multLow.toFixed(1)}x – {multHigh.toFixed(1)}x target
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Website & Company Phone ── */}
+            {(listing.website || listing.phone) && (
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                {listing.website && (
+                  <a
+                    href={String(listing.website).startsWith("http") ? listing.website : `https://${listing.website}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Globe className="h-3 w-3" />
+                    <span className="text-xs">{String(listing.website).replace(/^https?:\/\//, "")}</span>
+                  </a>
+                )}
+                {listing.phone && (
+                  <a href={`tel:${listing.phone}`} className="flex items-center gap-1 text-muted-foreground hover:text-foreground">
+                    <Phone className="h-3 w-3" />
+                    <span className="text-xs">{String(listing.phone)}</span>
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Disqualification reason */}
+            {listing.disqualificationReason && (
+              <div className="mt-3 rounded-md border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-800 p-2.5">
+                <div className="text-xs font-medium text-red-700 dark:text-red-400">Disqualification Reason</div>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-300">{String(listing.disqualificationReason)}</p>
               </div>
             )}
           </>

@@ -22,6 +22,7 @@ import {
   Award,
   Globe,
   UserCheck,
+  Network,
 } from "lucide-react";
 import {
   useListing,
@@ -134,6 +135,7 @@ export default function ListingDetailPage({
       dcRelevanceScore: listing.dcRelevanceScore || "",
       dcExperience: listing.dcExperience,
       disqualificationReason: listing.disqualificationReason || "",
+      synergyNotes: listing.synergyNotes || "",
     });
     setIsEditing(true);
   };
@@ -151,7 +153,7 @@ export default function ListingDetailPage({
       "metroArea", "zipCode", "industry", "category",
       "reasonForSale", "facilities",
       "brokerName", "brokerCompany", "brokerPhone", "brokerEmail",
-      "website", "phone", "disqualificationReason",
+      "website", "phone", "disqualificationReason", "synergyNotes",
     ];
     const booleanFields = ["sellerFinancing", "bonded", "insured", "dcExperience"];
     const enumFields = ["primaryTrade", "tier"];
@@ -833,6 +835,31 @@ export default function ListingDetailPage({
               </a>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Platform Synergy */}
+      {(isEditing || listing.synergyNotes) && (
+        <div className="rounded-lg border bg-card p-5">
+          <h2 className="mb-3 text-lg font-medium flex items-center gap-2">
+            <Network className="h-5 w-5 text-muted-foreground" />
+            Platform Synergy
+          </h2>
+          {isEditing ? (
+            <textarea
+              value={String(editData.synergyNotes || "")}
+              onChange={(e) => updateField("synergyNotes", e.target.value)}
+              rows={4}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder="Notes on how this business fits with the platform strategy, potential synergies, cross-selling opportunities, etc."
+            />
+          ) : listing.synergyNotes ? (
+            <div className="prose prose-sm max-w-none text-foreground">
+              <p className="whitespace-pre-wrap">{listing.synergyNotes}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No synergy notes available</p>
+          )}
         </div>
       )}
 

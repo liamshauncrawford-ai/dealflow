@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { prisma } from "@/lib/db";
 import { getValidAccessToken } from "@/lib/email/msal-client";
+import { categorizeEmail, TARGET_DOMAINS, BROKER_DOMAINS } from "@/lib/email-categorizer";
 
 /**
  * Compute a content-based hash for cross-account email deduplication.
@@ -532,6 +533,21 @@ async function upsertEmail(message: GraphMessage, emailAccountId: string): Promi
     return;
   }
 
+  // Categorize email for deal pipeline
+  const category = categorizeEmail(
+    {
+      fromAddress,
+      toAddresses,
+      subject: message.subject ?? null,
+      bodyPreview: message.bodyPreview ?? null,
+    },
+    {
+      userDomain: "gmail.com",
+      targetDomains: [...TARGET_DOMAINS],
+      brokerDomains: [...BROKER_DOMAINS],
+    }
+  );
+
   const data = {
     emailAccountId,
     messageHash,
@@ -548,6 +564,7 @@ async function upsertEmail(message: GraphMessage, emailAccountId: string): Promi
     hasAttachments: message.hasAttachments ?? false,
     importance: message.importance ?? null,
     webLink: message.webLink ?? null,
+    emailCategory: category,
   };
 
   await prisma.email.upsert({

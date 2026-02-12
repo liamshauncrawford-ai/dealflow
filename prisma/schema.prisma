@@ -18,6 +18,7 @@ model Listing {
   // Business identification
   title           String
   businessName    String?
+  dbaName         String?
   description     String?           @db.Text
 
   // Financials (reported)
@@ -91,6 +92,7 @@ model Listing {
   // Certifications & licensing
   certifications  String[]
   licenseNumbers  String[]
+  licenseState    String?
   bonded          Boolean?
   insured         Boolean?
 
@@ -104,6 +106,7 @@ model Listing {
   tier                    Tier?
   fitScore                Int?      // 0-100 composite score
   disqualificationReason  String?   @db.Text
+  synergyNotes            String?   @db.Text
 
   // Status and visibility
   isHidden        Boolean           @default(false)
@@ -248,6 +251,14 @@ enum ContactSentiment {
   HOT
   ENGAGED
   COMMITTED
+}
+
+enum InteractionType {
+  EMAIL
+  PHONE
+  IN_PERSON
+  LINKEDIN
+  BROKER
 }
 
 // ─────────────────────────────────────────────
@@ -404,12 +415,15 @@ model Contact {
   partnerName         String?
   hasSuccessor        Boolean?
   successorName       String?
-  familyBusiness      Boolean?
-  education           String?
-  priorEmployers      String[]
-  outreachStatus      OutreachStatus?
-  sentiment           ContactSentiment?
-  nextFollowUpDate    DateTime?
+  familyBusiness          Boolean?
+  familyMembersInBusiness String[]
+  education               String?
+  priorEmployers          String[]
+  outreachStatus          OutreachStatus?
+  sentiment               ContactSentiment?
+  lastInteractionDate     DateTime?
+  lastInteractionType     InteractionType?
+  nextFollowUpDate        DateTime?
 
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -535,6 +549,19 @@ enum EmailProvider {
   GMAIL
 }
 
+enum EmailCategory {
+  COLD_OUTREACH
+  WARM_INTRODUCTION
+  INITIAL_RESPONSE
+  DISCOVERY_CALL
+  LOI_TERM_SHEET
+  DUE_DILIGENCE
+  CLOSING
+  DEAD_PASSED
+  LISTING_ALERT
+  BROKER_UPDATE
+}
+
 model Email {
   id              String        @id @default(cuid())
 
@@ -565,6 +592,7 @@ model Email {
 
   isListingAlert       Boolean  @default(false)
   listingAlertParsed   Boolean  @default(false)
+  emailCategory        EmailCategory?
 
   createdAt       DateTime      @default(now())
 

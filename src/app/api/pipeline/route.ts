@@ -22,6 +22,11 @@ export async function GET(request: NextRequest) {
           sources: true,
         },
       },
+      contacts: {
+        where: { isPrimary: true },
+        take: 1,
+        select: { name: true, nextFollowUpDate: true },
+      },
       notes: { orderBy: { createdAt: "desc" as const }, take: 3 },
       emails: {
         include: { email: true },
