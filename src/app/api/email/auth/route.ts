@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthUrl } from "@/lib/email/msal-client";
-import { getGmailAuthUrl } from "@/lib/email/gmail-client";
 
 /** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
 function baseUrl(request: NextRequest): string {
@@ -39,6 +37,7 @@ export async function GET(request: NextRequest) {
           new URL(`/settings/email?error=${errorMsg}`, base)
         );
       }
+      const { getGmailAuthUrl } = await import("@/lib/email/gmail-client");
       authUrl = getGmailAuthUrl();
     } else {
       // Check if Microsoft OAuth is configured before attempting
@@ -54,6 +53,7 @@ export async function GET(request: NextRequest) {
           new URL(`/settings/email?error=${errorMsg}`, base)
         );
       }
+      const { getAuthUrl } = await import("@/lib/email/msal-client");
       authUrl = await getAuthUrl();
     }
 

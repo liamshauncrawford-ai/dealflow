@@ -1,10 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { acquireTokenByCode, saveTokensToDb } from "@/lib/email/msal-client";
-import {
-  exchangeCodeForTokens,
-  getGoogleUserProfile,
-  saveGmailTokensToDb,
-} from "@/lib/email/gmail-client";
 
 /** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
 function baseUrl(request: NextRequest): string {
@@ -72,6 +66,10 @@ export async function GET(request: NextRequest) {
 // ── Google OAuth callback ──────────────────────────
 
 async function handleGoogleCallback(code: string, base: string) {
+  // Dynamic import to avoid loading MSAL when only Google is needed
+  const { exchangeCodeForTokens, getGoogleUserProfile, saveGmailTokensToDb } =
+    await import("@/lib/email/gmail-client");
+
   // Exchange code for tokens
   const tokenData = await exchangeCodeForTokens(code);
 
@@ -117,6 +115,10 @@ async function handleGoogleCallback(code: string, base: string) {
 // ── Microsoft OAuth callback ───────────────────────
 
 async function handleMicrosoftCallback(code: string, base: string) {
+  // Dynamic import so MSAL only loads when actually handling Microsoft callback
+  const { acquireTokenByCode, saveTokensToDb } =
+    await import("@/lib/email/msal-client");
+
   // Exchange the authorization code for tokens.
   const tokenResponse = await acquireTokenByCode(code);
 
