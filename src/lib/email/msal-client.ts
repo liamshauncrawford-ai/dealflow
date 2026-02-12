@@ -1,30 +1,31 @@
-import {
-  ConfidentialClientApplication,
-  Configuration,
-  AuthorizationUrlRequest,
-  AuthorizationCodeRequest,
-  RefreshTokenRequest,
-} from "@azure/msal-node";
+/**
+ * Microsoft OAuth2 client — pure HTTP implementation (no @azure/msal-node).
+ *
+ * Uses standard OAuth2 endpoints from Microsoft identity platform directly,
+ * matching the pattern used by gmail-client.ts. This avoids dependency issues
+ * with @azure/msal-node in Next.js standalone Docker builds.
+ *
+ * Handles:
+ *  - OAuth2 authorization URL generation
+ *  - Authorization code exchange for tokens
+ *  - Token refresh with 5-minute buffer
+ *  - Encrypted token storage in EmailAccount table
+ */
+
 import { prisma } from "@/lib/db";
 import { encrypt, decrypt } from "@/lib/encryption";
 
 // ---------------------------------------------------------------------------
-// MSAL Singleton
+// Config
 // ---------------------------------------------------------------------------
 
 const SCOPES = ["Mail.Read", "Mail.Send", "User.Read", "offline_access"];
 
-let msalInstance: ConfidentialClientApplication | null = null;
-
-/**
- * Returns a singleton ConfidentialClientApplication configured from env vars.
- */
-export function getMsalClient(): ConfidentialClientApplication {
-  if (msalInstance) return msalInstance;
-
+function getMicrosoftConfig() {
   const clientId = process.env.AZURE_AD_CLIENT_ID;
   const clientSecret = process.env.AZURE_AD_CLIENT_SECRET;
   const tenantId = process.env.AZURE_AD_TENANT_ID;
+  const redirectUri = process.env.AZURE_AD_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !tenantId) {
     throw new Error(
@@ -33,16 +34,9 @@ export function getMsalClient(): ConfidentialClientApplication {
     );
   }
 
-  const config: Configuration = {
-    auth: {
-      clientId,
-      clientSecret,
-      authority: `https://login.microsoftonline.com/${tenantId}`,
-    },
-  };
+  const authority = `https://login.microsoftonline.com/${tenantId}`;
 
-  msalInstance = new ConfidentialClientApplication(config);
-  return msalInstance;
+  return { clientId, clientSecret, tenantId, redirectUri, authority };
 }
 
 // ---------------------------------------------------------------------------
@@ -50,72 +44,83 @@ export function getMsalClient(): ConfidentialClientApplication {
 // ---------------------------------------------------------------------------
 
 /**
- * Generates the Microsoft OAuth 2.0 authorization URL that the user
- * should be redirected to in order to grant consent.
+ * Generates the Microsoft OAuth 2.0 authorization URL.
  */
 export async function getAuthUrl(): Promise<string> {
-  const redirectUri = process.env.AZURE_AD_REDIRECT_URI;
+  const { clientId, redirectUri, authority } = getMicrosoftConfig();
+
   if (!redirectUri) {
     throw new Error("Missing AZURE_AD_REDIRECT_URI environment variable");
   }
 
-  const client = getMsalClient();
-
-  const authUrlRequest: AuthorizationUrlRequest = {
-    scopes: SCOPES,
-    redirectUri,
-  };
-
-  return client.getAuthCodeUrl(authUrlRequest);
-}
-
-// ---------------------------------------------------------------------------
-// Token Acquisition — Authorization Code Flow
-// ---------------------------------------------------------------------------
-
-/**
- * Exchanges an authorization code (from the OAuth callback) for access and
- * refresh tokens.
- */
-export async function acquireTokenByCode(code: string) {
-  const redirectUri = process.env.AZURE_AD_REDIRECT_URI;
-  if (!redirectUri) {
-    throw new Error("Missing AZURE_AD_REDIRECT_URI environment variable");
-  }
-
-  const client = getMsalClient();
-
-  const tokenRequest: AuthorizationCodeRequest = {
-    code,
-    scopes: SCOPES,
-    redirectUri,
-  };
-
-  return client.acquireTokenByCode(tokenRequest);
-}
-
-// ---------------------------------------------------------------------------
-// Token Acquisition — Silent (cached / refresh token)
-// ---------------------------------------------------------------------------
-
-/**
- * Attempts to silently acquire a new access token using the MSAL token cache.
- * Falls back to the refresh token flow when the cache is empty.
- */
-export async function acquireTokenSilent(accountId: string) {
-  const client = getMsalClient();
-
-  const accounts = await client.getTokenCache().getAllAccounts();
-  const account = accounts.find((a) => a.homeAccountId === accountId);
-
-  if (!account) {
-    return null;
-  }
-
-  return client.acquireTokenSilent({
-    scopes: SCOPES,
-    account,
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: "code",
+    redirect_uri: redirectUri,
+    response_mode: "query",
+    scope: SCOPES.join(" "),
+    prompt: "consent",
   });
+
+  return `${authority}/oauth2/v2.0/authorize?${params.toString()}`;
+}
+
+// ---------------------------------------------------------------------------
+// Token Exchange — Authorization Code Flow
+// ---------------------------------------------------------------------------
+
+interface MicrosoftTokenResponse {
+  access_token: string;
+  refresh_token?: string;
+  expires_in: number;
+  token_type: string;
+  scope: string;
+  id_token?: string;
+}
+
+/**
+ * Exchanges an authorization code for access + refresh tokens.
+ */
+export async function acquireTokenByCode(code: string): Promise<{
+  accessToken: string;
+  refreshToken?: string;
+  expiresOn: Date;
+}> {
+  const { clientId, clientSecret, redirectUri, authority } =
+    getMicrosoftConfig();
+
+  if (!redirectUri) {
+    throw new Error("Missing AZURE_AD_REDIRECT_URI environment variable");
+  }
+
+  const response = await fetch(`${authority}/oauth2/v2.0/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      code,
+      redirect_uri: redirectUri,
+      grant_type: "authorization_code",
+      scope: SCOPES.join(" "),
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Microsoft token exchange failed: ${response.status} - ${errorText}`
+    );
+  }
+
+  const data: MicrosoftTokenResponse = await response.json();
+  const expiresOn = new Date(Date.now() + data.expires_in * 1000);
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresOn,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +167,7 @@ export async function saveTokensToDb(
 
 /**
  * Reads the EmailAccount from the database, decrypts the stored tokens, and
- * returns a valid access token.  If the current token is expired (or within
+ * returns a valid access token. If the current token is expired (or within
  * 5 minutes of expiry) it is refreshed automatically using the refresh token
  * and the new tokens are persisted back to the database.
  */
@@ -185,56 +190,74 @@ export async function getValidAccessToken(
   const decryptedRefreshToken = decrypt(account.refreshToken);
 
   // Check whether the current token is still valid (with a 5-minute buffer).
-  const bufferMs = 5 * 60 * 1000; // 5 minutes
+  const bufferMs = 5 * 60 * 1000;
   const now = new Date();
   const expiresAt = new Date(account.tokenExpiresAt);
 
   if (expiresAt.getTime() - now.getTime() > bufferMs) {
-    // Token is still fresh — return it directly.
     return decryptedAccessToken;
   }
 
   // Token is expired or about to expire — refresh it.
-  const client = getMsalClient();
+  try {
+    const { clientId, clientSecret, authority } = getMicrosoftConfig();
 
-  const refreshRequest: RefreshTokenRequest = {
-    refreshToken: decryptedRefreshToken,
-    scopes: SCOPES,
-  };
+    const response = await fetch(`${authority}/oauth2/v2.0/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        refresh_token: decryptedRefreshToken,
+        grant_type: "refresh_token",
+        scope: SCOPES.join(" "),
+      }),
+    });
 
-  const result = await client.acquireTokenByRefreshToken(refreshRequest);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[microsoft] Token refresh failed: ${errorText}`);
 
-  if (!result || !result.accessToken) {
-    // Mark the account as disconnected so the user knows to re-authenticate.
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { isConnected: false },
+      });
+
+      throw new Error(`Microsoft token refresh failed: ${response.status}`);
+    }
+
+    const data: MicrosoftTokenResponse = await response.json();
+    const newExpiresAt = new Date(Date.now() + data.expires_in * 1000);
+
+    // Microsoft may or may not return a new refresh token
+    const newRefreshToken = data.refresh_token ?? decryptedRefreshToken;
+
+    await saveTokensToDb(
+      account.email,
+      account.displayName,
+      data.access_token,
+      newRefreshToken,
+      newExpiresAt
+    );
+
+    return data.access_token;
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      err.message.includes("Token refresh failed")
+    ) {
+      throw err;
+    }
+
+    console.error("[microsoft] Token refresh error:", err);
+
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { isConnected: false },
     });
+
     throw new Error(
-      `Failed to refresh access token for EmailAccount: ${emailAccountId}. ` +
-        "The account has been marked as disconnected."
+      `Microsoft token refresh failed: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-
-  // Compute new expiration from the expiresOn date provided by MSAL, falling
-  // back to 1 hour from now if not available.
-  const newExpiresAt = result.expiresOn
-    ? new Date(result.expiresOn)
-    : new Date(Date.now() + 60 * 60 * 1000);
-
-  // MSAL may or may not return a new refresh token — fall back to the
-  // existing one if none is provided.
-  const newRefreshToken =
-    (result as Record<string, unknown>).refreshToken as string | undefined ??
-    decryptedRefreshToken;
-
-  await saveTokensToDb(
-    account.email,
-    account.displayName,
-    result.accessToken,
-    newRefreshToken,
-    newExpiresAt
-  );
-
-  return result.accessToken;
 }

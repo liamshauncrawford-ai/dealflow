@@ -115,7 +115,7 @@ async function handleGoogleCallback(code: string, base: string) {
 // ── Microsoft OAuth callback ───────────────────────
 
 async function handleMicrosoftCallback(code: string, base: string) {
-  // Dynamic import so MSAL only loads when actually handling Microsoft callback
+  // Dynamic import — no heavy SDK, just our pure-HTTP client
   const { acquireTokenByCode, saveTokensToDb } =
     await import("@/lib/email/msal-client");
 
@@ -128,7 +128,7 @@ async function handleMicrosoftCallback(code: string, base: string) {
     );
   }
 
-  const accessToken = tokenResponse.accessToken;
+  const { accessToken, refreshToken, expiresOn } = tokenResponse;
 
   // Fetch the user profile from Microsoft Graph.
   const profileRes = await fetch("https://graph.microsoft.com/v1.0/me", {
@@ -151,25 +151,16 @@ async function handleMicrosoftCallback(code: string, base: string) {
     profile.mail || profile.userPrincipalName || profile.id;
   const displayName: string | null = profile.displayName ?? null;
 
-  const expiresAt = tokenResponse.expiresOn
-    ? new Date(tokenResponse.expiresOn)
-    : new Date(Date.now() + 60 * 60 * 1000);
-
-  const refreshToken =
-    (tokenResponse as Record<string, unknown>).refreshToken as
-      | string
-      | undefined;
-
   if (!refreshToken) {
     console.error(
-      "No refresh token returned by MSAL. Ensure offline_access scope is requested."
+      "No refresh token returned by Microsoft. Ensure offline_access scope is requested."
     );
     return NextResponse.redirect(
       new URL("/settings/email?error=no_refresh_token", base)
     );
   }
 
-  await saveTokensToDb(email, displayName, accessToken, refreshToken, expiresAt);
+  await saveTokensToDb(email, displayName, accessToken, refreshToken, expiresOn);
 
   return NextResponse.redirect(
     new URL("/settings/email?connected=true", base)

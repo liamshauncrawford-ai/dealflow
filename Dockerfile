@@ -38,16 +38,15 @@ RUN adduser --system --uid 1001 nextjs
 # Copy public assets
 COPY --from=builder /app/public ./public
 
-# Copy full node_modules first (for serverExternalPackages like @azure/msal-node
-# and their transitive dependencies that Next.js standalone doesn't auto-trace)
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-
-# Copy standalone output (overwrites traced node_modules with standalone versions)
+# Copy standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma: schema, migrations, and CLI for migrate deploy at startup
+# Copy Prisma: schema, migrations, client, and full CLI with engines
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 
