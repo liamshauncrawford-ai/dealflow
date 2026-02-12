@@ -9,21 +9,6 @@ import {
   saveTokensToDb,
 } from "@/lib/email/msal-client";
 
-/** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
-function baseUrl(request: NextRequest): string {
-  // NEXT_PUBLIC_ vars are inlined at build time, so in production we
-  // prefer the Host header which reflects the actual deployment URL.
-  const host = request.headers.get("host");
-  if (host && !host.includes("localhost") && !host.includes("0.0.0.0")) {
-    const proto = request.headers.get("x-forwarded-proto") || "https";
-    return `${proto}://${host}`;
-  }
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    `${request.nextUrl.protocol}//${host}`
-  );
-}
-
 /**
  * GET /api/email/auth/callback?code=XXX
  *
@@ -32,8 +17,15 @@ function baseUrl(request: NextRequest): string {
  * (Google includes googleapis.com scopes in the callback URL).
  */
 export async function GET(request: NextRequest) {
-  const base = baseUrl(request);
+  // Build the base URL from the request headers (not NEXT_PUBLIC_ which is build-time inlined)
+  const host = request.headers.get("host") || "localhost:3000";
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  const base = host.includes("localhost") || host.includes("0.0.0.0")
+    ? `http://${host}`
+    : `${proto}://${host}`;
 
+  // Wrap EVERYTHING in a single try/catch that returns JSON on error
+  // so we can diagnose issues in production
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
@@ -62,20 +54,37 @@ export async function GET(request: NextRequest) {
     const isGoogle = scope.includes("googleapis.com") || scope.includes("google");
 
     if (isGoogle) {
-      return handleGoogleCallback(code, base);
+      return await handleGoogleCallback(code, base);
     } else {
-      return handleMicrosoftCallback(code, base);
+      return await handleMicrosoftCallback(code, base);
     }
   } catch (err) {
+    // Return JSON error so we can see what's happening in production
     console.error("Error handling OAuth callback:", err);
-    return NextResponse.redirect(
-      new URL(
-        `/settings/email?error=${encodeURIComponent(
-          err instanceof Error ? err.message : "callback_failed"
-        )}`,
-        base
-      )
-    );
+    const message = err instanceof Error ? err.message : "callback_failed";
+    const stack = err instanceof Error ? err.stack : undefined;
+
+    // Try to redirect, but if that fails too, return JSON
+    try {
+      return NextResponse.redirect(
+        new URL(
+          `/settings/email?error=${encodeURIComponent(message.substring(0, 200))}`,
+          base
+        )
+      );
+    } catch (redirectErr) {
+      // If even the redirect fails, return JSON so we can debug
+      return NextResponse.json(
+        {
+          error: "OAuth callback failed",
+          message,
+          stack,
+          redirectError: redirectErr instanceof Error ? redirectErr.message : String(redirectErr),
+          base,
+        },
+        { status: 500 }
+      );
+    }
   }
 }
 
