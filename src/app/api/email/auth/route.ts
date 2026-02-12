@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getGmailAuthUrl } from "@/lib/email/gmail-client";
+import { getAuthUrl } from "@/lib/email/msal-client";
 
 /** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
 function baseUrl(request: NextRequest): string {
+  const host = request.headers.get("host");
+  if (host && !host.includes("localhost") && !host.includes("0.0.0.0")) {
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`;
+  }
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
-    `${request.nextUrl.protocol}//${request.headers.get("host")}`
+    `${request.nextUrl.protocol}//${host}`
   );
 }
 
@@ -37,7 +44,6 @@ export async function GET(request: NextRequest) {
           new URL(`/settings/email?error=${errorMsg}`, base)
         );
       }
-      const { getGmailAuthUrl } = await import("@/lib/email/gmail-client");
       authUrl = getGmailAuthUrl();
     } else {
       // Check if Microsoft OAuth is configured before attempting
@@ -53,7 +59,6 @@ export async function GET(request: NextRequest) {
           new URL(`/settings/email?error=${errorMsg}`, base)
         );
       }
-      const { getAuthUrl } = await import("@/lib/email/msal-client");
       authUrl = await getAuthUrl();
     }
 

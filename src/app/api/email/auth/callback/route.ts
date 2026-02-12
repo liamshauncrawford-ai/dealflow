@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  exchangeCodeForTokens,
+  getGoogleUserProfile,
+  saveGmailTokensToDb,
+} from "@/lib/email/gmail-client";
+import {
+  acquireTokenByCode,
+  saveTokensToDb,
+} from "@/lib/email/msal-client";
 
 /** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
 function baseUrl(request: NextRequest): string {
+  // NEXT_PUBLIC_ vars are inlined at build time, so in production we
+  // prefer the Host header which reflects the actual deployment URL.
+  const host = request.headers.get("host");
+  if (host && !host.includes("localhost") && !host.includes("0.0.0.0")) {
+    const proto = request.headers.get("x-forwarded-proto") || "https";
+    return `${proto}://${host}`;
+  }
   return (
     process.env.NEXT_PUBLIC_APP_URL ||
-    `${request.nextUrl.protocol}//${request.headers.get("host")}`
+    `${request.nextUrl.protocol}//${host}`
   );
 }
 
@@ -66,10 +82,6 @@ export async function GET(request: NextRequest) {
 // ── Google OAuth callback ──────────────────────────
 
 async function handleGoogleCallback(code: string, base: string) {
-  // Dynamic import to avoid loading MSAL when only Google is needed
-  const { exchangeCodeForTokens, getGoogleUserProfile, saveGmailTokensToDb } =
-    await import("@/lib/email/gmail-client");
-
   // Exchange code for tokens
   const tokenData = await exchangeCodeForTokens(code);
 
@@ -115,10 +127,6 @@ async function handleGoogleCallback(code: string, base: string) {
 // ── Microsoft OAuth callback ───────────────────────
 
 async function handleMicrosoftCallback(code: string, base: string) {
-  // Dynamic import — no heavy SDK, just our pure-HTTP client
-  const { acquireTokenByCode, saveTokensToDb } =
-    await import("@/lib/email/msal-client");
-
   // Exchange the authorization code for tokens.
   const tokenResponse = await acquireTokenByCode(code);
 

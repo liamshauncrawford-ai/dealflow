@@ -75,5 +75,35 @@ export async function GET(request: NextRequest) {
     results["db_connection"] = `FAILED: ${err instanceof Error ? err.message : String(err)}`;
   }
 
+  // 9. Test baseUrl resolution
+  const host = request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") || "unknown";
+  results["host_header"] = host || "MISSING";
+  results["x_forwarded_proto"] = proto;
+  results["NEXT_PUBLIC_APP_URL_runtime"] = process.env.NEXT_PUBLIC_APP_URL || "MISSING";
+
+  // Test URL construction
+  try {
+    const testBase = process.env.NEXT_PUBLIC_APP_URL ||
+      `${request.nextUrl.protocol}//${host}`;
+    results["computed_base"] = testBase;
+    const testUrl = new URL("/settings/email?error=test", testBase);
+    results["url_construction"] = testUrl.toString();
+  } catch (err) {
+    results["url_construction"] = `FAILED: ${err instanceof Error ? err.message : String(err)}`;
+  }
+
+  // 10. Test NextResponse.redirect
+  try {
+    const testBase = process.env.NEXT_PUBLIC_APP_URL ||
+      `${request.nextUrl.protocol}//${host}`;
+    const redirectUrl = new URL("/settings/email?connected=true", testBase);
+    // Don't actually redirect, just verify it would work
+    results["redirect_url"] = redirectUrl.toString();
+    results["redirect_test"] = "ok";
+  } catch (err) {
+    results["redirect_test"] = `FAILED: ${err instanceof Error ? err.message : String(err)}`;
+  }
+
   return NextResponse.json(results, { status: 200 });
 }
