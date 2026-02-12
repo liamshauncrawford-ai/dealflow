@@ -1,9 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  exchangeCodeForTokens,
-  getGoogleUserProfile,
-  saveGmailTokensToDb,
-} from "@/lib/email/gmail-client";
 
 /** Resolve the public base URL for redirects (avoids 0.0.0.0 in production). */
 function baseUrl(request: NextRequest): string {
@@ -24,6 +19,10 @@ export async function GET(request: NextRequest) {
   const base = baseUrl(request);
 
   try {
+    // Dynamic import to avoid module-level issues in standalone builds
+    const { exchangeCodeForTokens, getGoogleUserProfile, saveGmailTokensToDb } =
+      await import("@/lib/email/gmail-client");
+
     const { searchParams } = new URL(request.url);
     const code = searchParams.get("code");
     const error = searchParams.get("error");
