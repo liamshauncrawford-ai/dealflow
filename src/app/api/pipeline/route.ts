@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = await parseBody(createOpportunitySchema, request);
     if (parsed.error) return parsed.error;
-    const { title, description, listingId, stage, priority } = parsed.data;
+    const { title, description, listingId, stage, priority, offerPrice } = parsed.data;
 
     const opportunity = await prisma.opportunity.create({
       data: {
@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         listingId: listingId || null,
         stage,
         priority,
+        offerPrice: offerPrice ?? null,
       },
       include: {
         listing: { include: { sources: true } },

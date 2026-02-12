@@ -160,3 +160,58 @@ export function computeValuation(input: ValuationInput): ValuationResult | null 
     midpointValuation: (valuationLow + valuationHigh) / 2,
   };
 }
+
+// ─────────────────────────────────────────────
+// Deal Metrics (Asking vs Offer perspective)
+// ─────────────────────────────────────────────
+
+export interface DealMetricsInput {
+  askingPrice: number | null;
+  offerPrice: number | null;
+  ebitda: number | null;
+  sde: number | null;
+  revenue: number | null;
+}
+
+export interface DealMetrics {
+  // Asking-based multiples (seller perspective)
+  askingEbitdaMultiple: number | null;
+  askingSdeMultiple: number | null;
+  askingRevenueMultiple: number | null;
+  // Offer-based multiples (buyer perspective)
+  offerEbitdaMultiple: number | null;
+  offerSdeMultiple: number | null;
+  offerRevenueMultiple: number | null;
+  // Spread
+  discountAmount: number | null;
+  discountPercent: number | null;
+}
+
+/**
+ * Compute deal metrics comparing asking-based vs offer-based multiples.
+ * Used by LinkedListingCard and DealAnalysisPanel.
+ */
+export function computeDealMetrics(input: DealMetricsInput): DealMetrics {
+  const { askingPrice, offerPrice, ebitda, sde, revenue } = input;
+
+  const safeDiv = (num: number | null, den: number | null): number | null =>
+    num != null && den != null && den > 0 ? num / den : null;
+
+  const discountAmount =
+    askingPrice != null && offerPrice != null ? askingPrice - offerPrice : null;
+  const discountPercent =
+    askingPrice != null && askingPrice > 0 && offerPrice != null
+      ? ((askingPrice - offerPrice) / askingPrice) * 100
+      : null;
+
+  return {
+    askingEbitdaMultiple: safeDiv(askingPrice, ebitda),
+    askingSdeMultiple: safeDiv(askingPrice, sde),
+    askingRevenueMultiple: safeDiv(askingPrice, revenue),
+    offerEbitdaMultiple: safeDiv(offerPrice, ebitda),
+    offerSdeMultiple: safeDiv(offerPrice, sde),
+    offerRevenueMultiple: safeDiv(offerPrice, revenue),
+    discountAmount,
+    discountPercent,
+  };
+}

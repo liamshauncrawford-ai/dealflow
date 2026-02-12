@@ -628,6 +628,25 @@ export default function ListingDetailPage({
             priceToSde={listing.priceToSde}
             priceToRevenue={listing.priceToRevenue}
           />
+          {/* Offer price indicator from linked opportunity */}
+          {listing.opportunity?.offerPrice && (
+            <div className="mt-3 flex items-center gap-3 rounded-md border-l-4 border-primary bg-primary/5 px-3 py-2">
+              <div>
+                <span className="text-xs text-primary font-medium">Your Offer:</span>{" "}
+                <span className="text-sm font-bold">{formatCurrency(Number(listing.opportunity.offerPrice))}</span>
+              </div>
+              {listing.askingPrice && (
+                <span className="text-xs text-muted-foreground">
+                  ({(() => {
+                    const ask = Number(listing.askingPrice);
+                    const offer = Number(listing.opportunity.offerPrice);
+                    const pct = ask > 0 ? ((ask - offer) / ask) * 100 : 0;
+                    return `${pct > 0 ? "-" : "+"}${Math.abs(pct).toFixed(0)}% from asking`;
+                  })()})
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 

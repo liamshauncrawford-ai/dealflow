@@ -29,6 +29,9 @@ export async function GET() {
       closedWonOpps,
       upcomingFollowUps,
       tier1PrimaryContacts,
+      // Offer price stats
+      offerPriceAgg,
+      dealsWithBothPrices,
     ] = await Promise.all([
       // Total active listings meeting threshold
       prisma.listing.count({
@@ -167,6 +170,30 @@ export async function GET() {
         },
         include: { opportunity: { select: { id: true, title: true, updatedAt: true } } },
       }),
+
+      // Average offer price across active pipeline deals
+      prisma.opportunity.aggregate({
+        where: {
+          offerPrice: { not: null },
+          stage: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+        },
+        _avg: { offerPrice: true },
+        _sum: { offerPrice: true },
+        _count: { offerPrice: true },
+      }),
+
+      // Active pipeline deals with offerPrice + linked listing askingPrice (for avg discount)
+      prisma.opportunity.findMany({
+        where: {
+          offerPrice: { not: null },
+          stage: { notIn: ["CLOSED_WON", "CLOSED_LOST"] },
+          listing: { askingPrice: { not: null } },
+        },
+        select: {
+          offerPrice: true,
+          listing: { select: { askingPrice: true } },
+        },
+      }),
     ]);
 
     const winRate = (wonCount + lostCount) > 0
@@ -208,6 +235,26 @@ export async function GET() {
     const targetMoic = capitalDeployed > 0
       ? platformValuation7x / capitalDeployed
       : null;
+
+    // Offer price metrics
+    const avgOfferPrice = offerPriceAgg._avg.offerPrice
+      ? Number(offerPriceAgg._avg.offerPrice)
+      : null;
+    const totalPipelineOfferValue = offerPriceAgg._sum.offerPrice
+      ? Number(offerPriceAgg._sum.offerPrice)
+      : 0;
+    const pipelineDealsWithOffer = offerPriceAgg._count.offerPrice ?? 0;
+
+    // Average discount from asking price
+    let avgDiscount: number | null = null;
+    if (dealsWithBothPrices.length > 0) {
+      const discounts = dealsWithBothPrices.map((d) => {
+        const ask = Number(d.listing!.askingPrice);
+        const offer = Number(d.offerPrice);
+        return ask > 0 ? ((ask - offer) / ask) * 100 : 0;
+      });
+      avgDiscount = discounts.reduce((a, b) => a + b, 0) / discounts.length;
+    }
 
     // Stale Tier 1 contacts (>30 days since last activity)
     const staleT1Contacts = tier1PrimaryContacts
@@ -279,6 +326,12 @@ export async function GET() {
         followUpDate: c.nextFollowUpDate,
       })),
       staleT1Contacts,
+
+      // Offer price metrics
+      avgOfferPrice,
+      totalPipelineOfferValue,
+      pipelineDealsWithOffer,
+      avgDiscount: avgDiscount !== null ? Math.round(avgDiscount * 10) / 10 : null,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

@@ -3,12 +3,21 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Globe, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useCreateListing } from "@/hooks/use-listings";
+
+type ScrapeStatus = "idle" | "scraping" | "success" | "error";
 
 export default function AddListingPage() {
   const router = useRouter();
   const createListing = useCreateListing();
+
+  // URL import state
+  const [importUrl, setImportUrl] = useState("");
+  const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus>("idle");
+  const [scrapePlatform, setScrapePlatform] = useState<string | null>(null);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     title: "",
     businessName: "",
@@ -38,10 +47,80 @@ export default function AddListingPage() {
     reasonForSale: "",
     facilities: "",
     sourceUrl: "",
+    platform: "",
   });
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleScrapeUrl = async () => {
+    if (!importUrl.trim()) return;
+
+    setScrapeStatus("scraping");
+    setScrapeError(null);
+    setScrapePlatform(null);
+
+    try {
+      const res = await fetch("/api/scrape-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setScrapeStatus("error");
+        setScrapeError(data.error || "Failed to scrape URL");
+        return;
+      }
+
+      // Auto-fill form fields from scraped data
+      const listing = data.listing;
+      setScrapePlatform(data.platform);
+
+      setFormData((prev) => ({
+        ...prev,
+        title: listing.title || prev.title,
+        businessName: listing.businessName || prev.businessName,
+        description: listing.description || prev.description,
+        askingPrice: listing.askingPrice != null ? String(listing.askingPrice) : prev.askingPrice,
+        revenue: listing.revenue != null ? String(listing.revenue) : prev.revenue,
+        ebitda: listing.ebitda != null ? String(listing.ebitda) : prev.ebitda,
+        sde: listing.sde != null ? String(listing.sde) : prev.sde,
+        cashFlow: listing.cashFlow != null ? String(listing.cashFlow) : prev.cashFlow,
+        inventory: listing.inventory != null ? String(listing.inventory) : prev.inventory,
+        ffe: listing.ffe != null ? String(listing.ffe) : prev.ffe,
+        realEstate: listing.realEstate != null ? String(listing.realEstate) : prev.realEstate,
+        city: listing.city || prev.city,
+        state: listing.state || prev.state,
+        county: listing.county || prev.county,
+        zipCode: listing.zipCode || prev.zipCode,
+        metroArea: prev.metroArea, // keep default
+        industry: listing.industry || prev.industry,
+        category: listing.category || prev.category,
+        brokerName: listing.brokerName || prev.brokerName,
+        brokerCompany: listing.brokerCompany || prev.brokerCompany,
+        brokerPhone: listing.brokerPhone || prev.brokerPhone,
+        brokerEmail: listing.brokerEmail || prev.brokerEmail,
+        sellerFinancing:
+          listing.sellerFinancing === true ? "true" :
+          listing.sellerFinancing === false ? "false" :
+          prev.sellerFinancing,
+        employees: listing.employees != null ? String(listing.employees) : prev.employees,
+        established: listing.established != null ? String(listing.established) : prev.established,
+        reasonForSale: listing.reasonForSale || prev.reasonForSale,
+        facilities: listing.facilities || prev.facilities,
+        sourceUrl: listing.sourceUrl || importUrl.trim(),
+        platform: data.platform || prev.platform,
+      }));
+
+      setScrapeStatus("success");
+    } catch (err) {
+      setScrapeStatus("error");
+      setScrapeError(err instanceof Error ? err.message : "Failed to scrape URL");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,6 +158,9 @@ export default function AddListingPage() {
     if (formData.sellerFinancing === "true") data.sellerFinancing = true;
     if (formData.sellerFinancing === "false") data.sellerFinancing = false;
 
+    // Platform from scrape
+    if (formData.platform) data.platform = formData.platform;
+
     try {
       await createListing.mutateAsync(data);
       router.push("/listings");
@@ -86,6 +168,10 @@ export default function AddListingPage() {
       console.error("Failed to create listing:", err);
     }
   };
+
+  const platformLabel = scrapePlatform
+    ? scrapePlatform.charAt(0) + scrapePlatform.slice(1).toLowerCase()
+    : null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -97,10 +183,72 @@ export default function AddListingPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to listings
         </Link>
-        <h1 className="text-2xl font-semibold text-foreground">Add Listing Manually</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Add Listing</h1>
         <p className="text-sm text-muted-foreground">
-          Add a business listing that you found outside of the scraped platforms
+          Paste a listing URL to auto-fill, or enter details manually
         </p>
+      </div>
+
+      {/* URL Import Section */}
+      <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 p-5">
+        <div className="mb-3 flex items-center gap-2">
+          <Globe className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-medium">Import from URL</h2>
+        </div>
+        <p className="mb-3 text-sm text-muted-foreground">
+          Paste a listing URL from BizBuySell, BizQuest, DealStream, Transworld, LoopNet, or BusinessBroker.net
+        </p>
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={importUrl}
+            onChange={(e) => {
+              setImportUrl(e.target.value);
+              if (scrapeStatus !== "idle") {
+                setScrapeStatus("idle");
+                setScrapeError(null);
+              }
+            }}
+            placeholder="https://www.bizbuysell.com/Business-Opportunity/..."
+            className="h-10 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          <button
+            type="button"
+            onClick={handleScrapeUrl}
+            disabled={!importUrl.trim() || scrapeStatus === "scraping"}
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {scrapeStatus === "scraping" ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Scraping...
+              </>
+            ) : (
+              <>
+                <Globe className="h-4 w-4" />
+                Import
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Success banner */}
+        {scrapeStatus === "success" && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-green-500/10 border border-green-500/30 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+            <span>
+              Imported from <strong>{platformLabel}</strong> — review and edit fields below, then save.
+            </span>
+          </div>
+        )}
+
+        {/* Error banner */}
+        {scrapeStatus === "error" && (
+          <div className="mt-3 flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>{scrapeError || "Failed to import listing. You can enter details manually below."}</span>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -314,12 +462,17 @@ export default function AddListingPage() {
         {/* Source URL */}
         <Section title="Source">
           <FormField
-            label="Source URL (optional)"
+            label="Source URL"
             value={formData.sourceUrl}
             onChange={(v) => updateField("sourceUrl", v)}
             placeholder="https://... (link to the original listing)"
             type="url"
           />
+          {formData.platform && (
+            <p className="text-xs text-muted-foreground">
+              Platform: <span className="font-medium">{formData.platform}</span>
+            </p>
+          )}
         </Section>
 
         {/* Submit */}

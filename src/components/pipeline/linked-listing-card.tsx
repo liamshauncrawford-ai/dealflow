@@ -408,15 +408,95 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
               );
             })()}
 
-            {/* Offer terms */}
+            {/* Asking Price vs Offer Price comparison */}
             {offerPrice && (
               <div className="mt-4 rounded-md border-l-4 border-primary bg-primary/5 p-3">
-                <div className="text-xs font-medium text-primary">Your Offer</div>
-                <div className="mt-0.5 text-lg font-bold">
-                  {formatCurrency(Number(offerPrice))}
+                <div className="text-xs font-medium text-primary mb-2">Price Comparison</div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div>
+                    <div className="text-[10px] text-muted-foreground uppercase">Asking Price (Seller)</div>
+                    <div className="text-sm font-semibold">
+                      {listing.askingPrice ? formatCurrency(Number(listing.askingPrice)) : "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] text-primary uppercase font-medium">Your Offer (Buyer)</div>
+                    <div className="text-sm font-bold text-primary">
+                      {formatCurrency(Number(offerPrice))}
+                    </div>
+                  </div>
+                  {listing.askingPrice && (
+                    <div>
+                      <div className="text-[10px] text-muted-foreground uppercase">Discount</div>
+                      {(() => {
+                        const ask = Number(listing.askingPrice);
+                        const offer = Number(offerPrice);
+                        const discountPct = ask > 0 ? ((ask - offer) / ask) * 100 : 0;
+                        const discountAmt = ask - offer;
+                        return (
+                          <div className={`text-sm font-semibold ${discountPct > 0 ? "text-green-600" : discountPct < 0 ? "text-red-500" : ""}`}>
+                            {discountPct > 0 ? "-" : discountPct < 0 ? "+" : ""}{formatCurrency(Math.abs(discountAmt))} ({Math.abs(discountPct).toFixed(0)}%)
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
+
+                {/* Offer-based multiples vs Asking-based multiples */}
+                {(() => {
+                  const askPrice = listing.askingPrice ? Number(listing.askingPrice) : null;
+                  const offerVal = Number(offerPrice);
+                  const ebitdaVal = listing.ebitda ? Number(listing.ebitda) : (listing.inferredEbitda ? Number(listing.inferredEbitda) : null);
+                  const sdeVal = listing.sde ? Number(listing.sde) : (listing.inferredSde ? Number(listing.inferredSde) : null);
+                  const revenueVal = listing.revenue ? Number(listing.revenue) : null;
+
+                  const hasMultiples = (ebitdaVal && ebitdaVal > 0) || (sdeVal && sdeVal > 0) || (revenueVal && revenueVal > 0);
+                  if (!hasMultiples) return null;
+
+                  const multiples = [
+                    {
+                      label: "EV/EBITDA",
+                      asking: askPrice && ebitdaVal && ebitdaVal > 0 ? askPrice / ebitdaVal : null,
+                      offer: ebitdaVal && ebitdaVal > 0 ? offerVal / ebitdaVal : null,
+                    },
+                    {
+                      label: "Price/SDE",
+                      asking: askPrice && sdeVal && sdeVal > 0 ? askPrice / sdeVal : null,
+                      offer: sdeVal && sdeVal > 0 ? offerVal / sdeVal : null,
+                    },
+                    {
+                      label: "Price/Rev",
+                      asking: askPrice && revenueVal && revenueVal > 0 ? askPrice / revenueVal : null,
+                      offer: revenueVal && revenueVal > 0 ? offerVal / revenueVal : null,
+                    },
+                  ].filter((m) => m.offer != null);
+
+                  if (multiples.length === 0) return null;
+
+                  return (
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {multiples.map((m) => (
+                        <div key={m.label} className="rounded border bg-background/50 p-1.5">
+                          <div className="text-[10px] text-muted-foreground">{m.label}</div>
+                          <div className="flex items-baseline gap-1">
+                            <span className={`text-xs font-bold ${m.offer! < (m.asking ?? Infinity) ? "text-green-600" : ""}`}>
+                              {m.offer!.toFixed(1)}x
+                            </span>
+                            {m.asking && (
+                              <span className="text-[10px] text-muted-foreground line-through">
+                                {m.asking.toFixed(1)}x
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
                 {offerTerms && (
-                  <p className="mt-1 text-xs text-muted-foreground">{offerTerms}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{offerTerms}</p>
                 )}
               </div>
             )}

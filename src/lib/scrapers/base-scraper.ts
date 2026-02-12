@@ -384,6 +384,18 @@ export abstract class BaseScraper {
     throw lastError ?? new Error(`Failed to fetch detail page after ${MAX_RETRIES} retries: ${url}`);
   }
 
+  // ── Public single-page fetch (for URL scraper) ──
+
+  /**
+   * Fetch a single page by URL. Public wrapper around the protected fetchPage()
+   * that automatically loads cookies for this platform.
+   * Used by the URL scraper service to fetch individual listing detail pages.
+   */
+  public async fetchSinglePage(url: string): Promise<string> {
+    const cookies = await loadCookies(this.platform);
+    return this.fetchPage(url, cookies);
+  }
+
   // ── Utility helpers ──
 
   /**

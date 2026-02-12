@@ -210,8 +210,66 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
             </button>
           </div>
         </div>
-      ) : hasData ? (
+      ) : hasData || opportunity.offerPrice ? (
         <div className="p-4 space-y-3">
+          {/* Buyer-Perspective Multiples (when offerPrice exists) */}
+          {opportunity.offerPrice && opportunity.listing && (() => {
+            const offer = Number(opportunity.offerPrice);
+            const askPrice = opportunity.listing.askingPrice ? Number(opportunity.listing.askingPrice) : null;
+            const ebitdaVal = opportunity.listing.ebitda ? Number(opportunity.listing.ebitda) :
+              (opportunity.listing.inferredEbitda ? Number(opportunity.listing.inferredEbitda) : null);
+            const sdeVal = opportunity.listing.sde ? Number(opportunity.listing.sde) :
+              (opportunity.listing.inferredSde ? Number(opportunity.listing.inferredSde) : null);
+            const revenueVal = opportunity.listing.revenue ? Number(opportunity.listing.revenue) : null;
+
+            const offerEbitda = ebitdaVal && ebitdaVal > 0 ? offer / ebitdaVal : null;
+            const offerSde = sdeVal && sdeVal > 0 ? offer / sdeVal : null;
+            const offerRev = revenueVal && revenueVal > 0 ? offer / revenueVal : null;
+            const discountPct = askPrice && askPrice > 0 ? ((askPrice - offer) / askPrice) * 100 : null;
+
+            if (!offerEbitda && !offerSde && !offerRev) return null;
+
+            return (
+              <div className="rounded-md border bg-primary/5 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] font-medium text-primary uppercase tracking-wide">
+                    Buyer-Perspective Multiples (Offer: {formatCurrency(offer)})
+                  </div>
+                  {discountPct !== null && (
+                    <span className={cn(
+                      "text-[10px] font-medium px-1.5 py-0.5 rounded",
+                      discountPct > 0
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                    )}>
+                      {discountPct > 0 ? "" : "+"}{discountPct.toFixed(0)}% from asking
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {offerEbitda && (
+                    <div className="rounded border bg-background p-2">
+                      <div className="text-[10px] text-muted-foreground">Offer/EBITDA</div>
+                      <div className="text-sm font-bold text-primary">{offerEbitda.toFixed(1)}x</div>
+                    </div>
+                  )}
+                  {offerSde && (
+                    <div className="rounded border bg-background p-2">
+                      <div className="text-[10px] text-muted-foreground">Offer/SDE</div>
+                      <div className="text-sm font-bold text-primary">{offerSde.toFixed(1)}x</div>
+                    </div>
+                  )}
+                  {offerRev && (
+                    <div className="rounded border bg-background p-2">
+                      <div className="text-[10px] text-muted-foreground">Offer/Revenue</div>
+                      <div className="text-sm font-bold text-primary">{offerRev.toFixed(1)}x</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Actual financials grid */}
           {(opportunity.actualRevenue || opportunity.actualEbitda) && (
             <div className="grid grid-cols-2 gap-2">

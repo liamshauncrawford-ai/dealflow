@@ -41,6 +41,7 @@ export const createOpportunitySchema = z.object({
   listingId: z.string().nullable().optional(),
   stage: z.enum(pipelineStages).default("CONTACTING"),
   priority: z.enum(priorities).default("MEDIUM"),
+  offerPrice: z.number().min(0).nullable().optional(),
 });
 
 const optionalDateString = z.string().datetime({ offset: true }).nullable().optional()

@@ -12,17 +12,21 @@ import {
   DollarSign,
   CheckCircle2,
   Plus,
+  Globe,
+  AlertCircle,
+  Link2,
 } from "lucide-react";
 import { useCreateOpportunity } from "@/hooks/use-pipeline";
 import {
   PIPELINE_STAGES,
   PRIORITY_LEVELS,
-  PLATFORMS,
   type PipelineStageKey,
-  type PlatformKey,
 } from "@/lib/constants";
 import { cn, formatCurrency } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
+
+type ImportMode = "search" | "url";
+type ScrapeStatus = "idle" | "scraping" | "success" | "error";
 
 export default function AddOpportunityPage() {
   const router = useRouter();
@@ -33,11 +37,23 @@ export default function AddOpportunityPage() {
   const [description, setDescription] = useState("");
   const [stage, setStage] = useState<PipelineStageKey>("CONTACTING");
   const [priority, setPriority] = useState<keyof typeof PRIORITY_LEVELS>("MEDIUM");
+  const [offerPrice, setOfferPrice] = useState("");
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+
+  // Import mode toggle
+  const [importMode, setImportMode] = useState<ImportMode>("search");
 
   // Listing search
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+
+  // URL import state
+  const [importUrl, setImportUrl] = useState("");
+  const [scrapeStatus, setScrapeStatus] = useState<ScrapeStatus>("idle");
+  const [scrapePlatform, setScrapePlatform] = useState<string | null>(null);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [isCreatingListing, setIsCreatingListing] = useState(false);
+  const [importedListingTitle, setImportedListingTitle] = useState<string | null>(null);
 
   // Search for listings to link
   const { data: searchResults, isLoading: isSearching } = useQuery({
@@ -58,25 +74,118 @@ export default function AddOpportunityPage() {
     (l: { id: string }) => l.id === selectedListingId
   );
 
+  const handleScrapeAndCreateListing = async () => {
+    if (!importUrl.trim()) return;
+
+    setScrapeStatus("scraping");
+    setScrapeError(null);
+    setScrapePlatform(null);
+    setImportedListingTitle(null);
+
+    try {
+      // Step 1: Scrape the URL
+      const scrapeRes = await fetch("/api/scrape-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      });
+
+      const scrapeData = await scrapeRes.json();
+
+      if (!scrapeRes.ok) {
+        setScrapeStatus("error");
+        setScrapeError(scrapeData.error || "Failed to scrape URL");
+        return;
+      }
+
+      setScrapePlatform(scrapeData.platform);
+
+      // Step 2: Create a listing from the scraped data
+      setIsCreatingListing(true);
+      const listing = scrapeData.listing;
+
+      const listingPayload: Record<string, unknown> = {
+        title: listing.title || `Listing from ${scrapeData.platform}`,
+        sourceUrl: listing.sourceUrl || importUrl.trim(),
+        platform: scrapeData.platform,
+      };
+
+      // Map all scraped fields
+      const stringFields = [
+        "businessName", "description", "city", "state", "county",
+        "zipCode", "industry", "category",
+        "brokerName", "brokerCompany", "brokerPhone", "brokerEmail",
+        "reasonForSale", "facilities",
+      ];
+      for (const field of stringFields) {
+        if (listing[field]) listingPayload[field] = listing[field];
+      }
+
+      const numericFields = [
+        "askingPrice", "revenue", "ebitda", "sde", "cashFlow",
+        "inventory", "ffe", "realEstate", "employees", "established",
+      ];
+      for (const field of numericFields) {
+        if (listing[field] != null) listingPayload[field] = Number(listing[field]);
+      }
+
+      if (listing.sellerFinancing === true) listingPayload.sellerFinancing = true;
+      if (listing.sellerFinancing === false) listingPayload.sellerFinancing = false;
+
+      const createRes = await fetch("/api/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(listingPayload),
+      });
+
+      if (!createRes.ok) {
+        setScrapeStatus("error");
+        setScrapeError("Scraped successfully, but failed to create listing. Try again or add manually.");
+        setIsCreatingListing(false);
+        return;
+      }
+
+      const createdListing = await createRes.json();
+      setSelectedListingId(createdListing.id);
+      setImportedListingTitle(createdListing.title);
+
+      // Auto-fill opportunity title from listing
+      if (!title) {
+        setTitle(createdListing.title);
+      }
+
+      setScrapeStatus("success");
+      setIsCreatingListing(false);
+    } catch (err) {
+      setScrapeStatus("error");
+      setScrapeError(err instanceof Error ? err.message : "Failed to import listing");
+      setIsCreatingListing(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) return;
 
-    createOpportunity.mutate(
-      {
-        title: title.trim(),
-        description: description.trim() || undefined,
-        listingId: selectedListingId || undefined,
-        stage,
-        priority,
+    const data: Record<string, unknown> = {
+      title: title.trim(),
+      description: description.trim() || undefined,
+      listingId: selectedListingId || undefined,
+      stage,
+      priority,
+    };
+
+    // Include offer price if provided
+    if (offerPrice && !isNaN(Number(offerPrice))) {
+      data.offerPrice = Number(offerPrice);
+    }
+
+    createOpportunity.mutate(data, {
+      onSuccess: (result) => {
+        router.push(`/pipeline/${result.id}`);
       },
-      {
-        onSuccess: (data) => {
-          router.push(`/pipeline/${data.id}`);
-        },
-      }
-    );
+    });
   };
 
   const handleSelectListing = (listing: {
@@ -96,6 +205,19 @@ export default function AddOpportunityPage() {
     setSearchQuery("");
   };
 
+  const handleRemoveListing = () => {
+    setSelectedListingId(null);
+    setImportedListingTitle(null);
+    setScrapeStatus("idle");
+    setImportUrl("");
+  };
+
+  const platformLabel = scrapePlatform
+    ? scrapePlatform.charAt(0) + scrapePlatform.slice(1).toLowerCase()
+    : null;
+
+  const isScraping = scrapeStatus === "scraping" || isCreatingListing;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       {/* Header */}
@@ -109,49 +231,93 @@ export default function AddOpportunityPage() {
         </Link>
         <h1 className="text-2xl font-bold">Add Opportunity</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Create a new pipeline opportunity. Optionally link it to an existing listing.
+          Create a new pipeline opportunity. Link to an existing listing or import from a URL.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Link to listing */}
+        {/* Link to listing — with mode toggle */}
         <div className="rounded-lg border bg-card p-4">
-          <label className="mb-2 block text-sm font-medium">Link to Listing (optional)</label>
+          <div className="mb-3 flex items-center justify-between">
+            <label className="text-sm font-medium">Link to Listing (optional)</label>
+            {!selectedListingId && (
+              <div className="flex rounded-md border bg-muted/30 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setImportMode("search")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                    importMode === "search"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Search className="h-3 w-3" />
+                  Search Existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportMode("url")}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                    importMode === "url"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Globe className="h-3 w-3" />
+                  Import from URL
+                </button>
+              </div>
+            )}
+          </div>
 
-          {selectedListingId && selectedListing ? (
+          {/* Selected listing card */}
+          {selectedListingId && (selectedListing || importedListingTitle) ? (
             <div className="flex items-center justify-between rounded-md border bg-muted/20 p-3">
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{selectedListing.title}</div>
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  {scrapeStatus === "success" && (
+                    <Link2 className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                  )}
+                  {selectedListing?.title || importedListingTitle}
+                </div>
                 <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                  {selectedListing.city && selectedListing.state && (
+                  {selectedListing?.city && selectedListing?.state && (
                     <span className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
                       {selectedListing.city}, {selectedListing.state}
                     </span>
                   )}
-                  {selectedListing.askingPrice && (
+                  {selectedListing?.askingPrice && (
                     <span className="flex items-center gap-1">
                       <DollarSign className="h-3 w-3" />
                       {formatCurrency(Number(selectedListing.askingPrice))}
                     </span>
                   )}
-                  {selectedListing.industry && (
+                  {selectedListing?.industry && (
                     <span className="flex items-center gap-1">
                       <Building2 className="h-3 w-3" />
                       {selectedListing.industry}
+                    </span>
+                  )}
+                  {scrapeStatus === "success" && platformLabel && (
+                    <span className="text-green-600">
+                      Imported from {platformLabel}
                     </span>
                   )}
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedListingId(null)}
+                onClick={handleRemoveListing}
                 className="ml-2 rounded-md px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
               >
                 Remove
               </button>
             </div>
-          ) : (
+          ) : importMode === "search" ? (
+            /* Search mode */
             <div className="relative">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -238,6 +404,53 @@ export default function AddOpportunityPage() {
                 </div>
               )}
             </div>
+          ) : (
+            /* URL import mode */
+            <div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Paste a listing URL — it will be scraped, saved as a listing, and linked to this opportunity.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={importUrl}
+                  onChange={(e) => {
+                    setImportUrl(e.target.value);
+                    if (scrapeStatus !== "idle") {
+                      setScrapeStatus("idle");
+                      setScrapeError(null);
+                    }
+                  }}
+                  placeholder="https://www.bizbuysell.com/Business-Opportunity/..."
+                  className="h-9 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <button
+                  type="button"
+                  onClick={handleScrapeAndCreateListing}
+                  disabled={!importUrl.trim() || isScraping}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {isScraping ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      {isCreatingListing ? "Creating..." : "Scraping..."}
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="h-3.5 w-3.5" />
+                      Import
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {scrapeStatus === "error" && (
+                <div className="mt-2 flex items-center gap-2 rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-xs text-destructive">
+                  <AlertCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{scrapeError}</span>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -272,8 +485,8 @@ export default function AddOpportunityPage() {
           />
         </div>
 
-        {/* Stage and Priority row */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* Stage, Priority, and Offer Price row */}
+        <div className="grid gap-4 sm:grid-cols-3">
           {/* Initial Stage */}
           <div>
             <label htmlFor="stage" className="mb-1.5 block text-sm font-medium">
@@ -312,6 +525,24 @@ export default function AddOpportunityPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Offer Price */}
+          <div>
+            <label htmlFor="offerPrice" className="mb-1.5 block text-sm font-medium">
+              Offer Price ($)
+            </label>
+            <input
+              id="offerPrice"
+              type="number"
+              value={offerPrice}
+              onChange={(e) => setOfferPrice(e.target.value)}
+              placeholder="Your intended offer"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              What you plan to offer (distinct from listing asking price)
+            </p>
           </div>
         </div>
 
