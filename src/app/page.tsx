@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import {
   BarChart3,
@@ -16,15 +17,90 @@ import {
   AlertTriangle,
   CalendarClock,
   Wallet,
+  RotateCcw,
 } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 import { useStats } from "@/hooks/use-pipeline";
 import { useScrapingStatus } from "@/hooks/use-scraping";
 import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
 import { PIPELINE_STAGES, PLATFORMS, TIERS, type PlatformKey, type TierKey } from "@/lib/constants";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
+import { SortableDashboardCard } from "@/components/dashboard/sortable-card";
+import {
+  useDashboardCardOrder,
+  DEFAULT_ORDER,
+  type DashboardCardId,
+} from "@/hooks/use-dashboard-card-order";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface DashboardCardProps {
+  stats: any;
+  isLoading: boolean;
+}
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useStats();
+  const { order, handleDragEnd, resetOrder } = useDashboardCardOrder();
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const cardRegistry: Record<
+    DashboardCardId,
+    { render: () => React.ReactNode; isVisible: () => boolean }
+  > = {
+    "recent-listings": {
+      render: () => <RecentListingsCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => true,
+    },
+    "pipeline-summary": {
+      render: () => <PipelineSummaryCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => true,
+    },
+    "tier-breakdown": {
+      render: () => <TierBreakdownCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => (stats?.tierBreakdown?.length ?? 0) > 0,
+    },
+    "upcoming-follow-ups": {
+      render: () => <UpcomingFollowUpsCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => true,
+    },
+    "stale-contacts": {
+      render: () => <StaleContactsCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => !isLoading && (stats?.staleT1Contacts?.length ?? 0) > 0,
+    },
+    "listings-by-platform": {
+      render: () => <ListingsByPlatformCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => true,
+    },
+    "scraper-health": {
+      render: () => <ScraperHealthCard />,
+      isVisible: () => true,
+    },
+  };
+
+  const visibleCardIds = order.filter((id) => cardRegistry[id]?.isVisible());
+  const isCustomOrder = JSON.stringify(order) !== JSON.stringify([...DEFAULT_ORDER]);
 
   return (
     <div className="space-y-6">
@@ -115,288 +191,341 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Recent Listings */}
-        <div className="rounded-lg border bg-card">
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h2 className="font-medium">Recent Listings</h2>
+      {/* Reset layout button */}
+      {isCustomOrder && (
+        <div className="flex justify-end">
+          <button
+            onClick={resetOrder}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="h-3 w-3" />
+            Reset layout
+          </button>
+        </div>
+      )}
+
+      {/* Main content cards — draggable */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={(event) => setActiveId(String(event.active.id))}
+        onDragEnd={(event) => {
+          handleDragEnd(event);
+          setActiveId(null);
+        }}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <SortableContext items={visibleCardIds} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {visibleCardIds.map((id) => (
+              <SortableDashboardCard key={id} id={id}>
+                {cardRegistry[id].render()}
+              </SortableDashboardCard>
+            ))}
+          </div>
+        </SortableContext>
+        <DragOverlay>
+          {activeId && cardRegistry[activeId as DashboardCardId] ? (
+            <div className="rounded-lg border bg-card shadow-lg opacity-90 pointer-events-none">
+              {cardRegistry[activeId as DashboardCardId].render()}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </div>
+  );
+}
+
+/* ─── Card Content Components ─── */
+
+function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
+  return (
+    <div className="rounded-lg border bg-card">
+      <div className="flex items-center justify-between border-b px-5 py-3">
+        <h2 className="font-medium">Recent Listings</h2>
+        <Link
+          href="/listings"
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          View all <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="divide-y">
+        {isLoading ? (
+          <div className="p-5 text-center text-sm text-muted-foreground">Loading...</div>
+        ) : stats?.recentListings?.length > 0 ? (
+          stats.recentListings.slice(0, 5).map((listing: {
+            id: string;
+            title: string;
+            askingPrice: string | number | null;
+            city: string | null;
+            state: string | null;
+            industry: string | null;
+            firstSeenAt: string;
+            sources: Array<{ platform: string; sourceUrl: string }>;
+          }) => (
             <Link
-              href="/listings"
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
+              key={listing.id}
+              href={`/listings/${listing.id}`}
+              className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
             >
-              View all <ArrowRight className="h-3 w-3" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{truncate(listing.title, 40)}</p>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {listing.city && <span>{listing.city}, {listing.state}</span>}
+                  {listing.industry && <span>- {listing.industry}</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <ListingSourceBadges sources={listing.sources} />
+                <div className="text-right">
+                  <p className="text-sm font-medium">
+                    {listing.askingPrice
+                      ? formatCurrency(Number(listing.askingPrice))
+                      : "Price N/A"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatRelativeDate(listing.firstSeenAt)}
+                  </p>
+                </div>
+              </div>
+            </Link>
+          ))
+        ) : (
+          <div className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">No listings yet</p>
+            <Link
+              href="/listings/add"
+              className="mt-2 inline-block text-sm text-primary hover:underline"
+            >
+              Add your first listing
             </Link>
           </div>
-          <div className="divide-y">
-            {isLoading ? (
-              <div className="p-5 text-center text-sm text-muted-foreground">Loading...</div>
-            ) : stats?.recentListings?.length > 0 ? (
-              stats.recentListings.slice(0, 5).map((listing: {
-                id: string;
-                title: string;
-                askingPrice: string | number | null;
-                city: string | null;
-                state: string | null;
-                industry: string | null;
-                firstSeenAt: string;
-                sources: Array<{ platform: string; sourceUrl: string }>;
-              }) => (
-                <Link
-                  key={listing.id}
-                  href={`/listings/${listing.id}`}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{truncate(listing.title, 40)}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {listing.city && <span>{listing.city}, {listing.state}</span>}
-                      {listing.industry && <span>- {listing.industry}</span>}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <ListingSourceBadges sources={listing.sources} />
-                    <div className="text-right">
-                      <p className="text-sm font-medium">
-                        {listing.askingPrice
-                          ? formatCurrency(Number(listing.askingPrice))
-                          : "Price N/A"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatRelativeDate(listing.firstSeenAt)}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <div className="p-8 text-center">
-                <p className="text-sm text-muted-foreground">No listings yet</p>
-                <Link
-                  href="/listings/add"
-                  className="mt-2 inline-block text-sm text-primary hover:underline"
-                >
-                  Add your first listing
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-        {/* Pipeline Summary */}
-        <div className="rounded-lg border bg-card">
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <h2 className="font-medium">Pipeline Summary</h2>
-            <Link
-              href="/pipeline"
-              className="flex items-center gap-1 text-sm text-primary hover:underline"
-            >
-              View pipeline <ArrowRight className="h-3 w-3" />
-            </Link>
+function PipelineSummaryCard({ stats, isLoading }: DashboardCardProps) {
+  return (
+    <div className="rounded-lg border bg-card">
+      <div className="flex items-center justify-between border-b px-5 py-3">
+        <h2 className="font-medium">Pipeline Summary</h2>
+        <Link
+          href="/pipeline"
+          className="flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          View pipeline <ArrowRight className="h-3 w-3" />
+        </Link>
+      </div>
+      <div className="p-5">
+        {isLoading ? (
+          <p className="text-center text-sm text-muted-foreground">Loading...</p>
+        ) : stats?.pipelineByStage?.length > 0 ? (
+          <div className="space-y-2">
+            {Object.entries(PIPELINE_STAGES)
+              .filter(([key]) => !["CLOSED_WON", "CLOSED_LOST", "ON_HOLD"].includes(key))
+              .map(([key, stage]) => {
+                const stageData = stats.pipelineByStage.find(
+                  (s: { stage: string }) => s.stage === key
+                );
+                const count = stageData?.count ?? 0;
+                return (
+                  <div key={key} className="flex items-center gap-3">
+                    <div className={`h-2 w-2 rounded-full ${stage.color}`} />
+                    <span className="flex-1 text-sm">{stage.label}</span>
+                    <span className="text-sm font-medium">{count}</span>
+                  </div>
+                );
+              })}
           </div>
-          <div className="p-5">
-            {isLoading ? (
-              <p className="text-center text-sm text-muted-foreground">Loading...</p>
-            ) : stats?.pipelineByStage?.length > 0 ? (
-              <div className="space-y-2">
-                {Object.entries(PIPELINE_STAGES)
-                  .filter(([key]) => !["CLOSED_WON", "CLOSED_LOST", "ON_HOLD"].includes(key))
-                  .map(([key, stage]) => {
-                    const stageData = stats.pipelineByStage.find(
-                      (s: { stage: string }) => s.stage === key
-                    );
-                    const count = stageData?.count ?? 0;
-                    return (
-                      <div key={key} className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${stage.color}`} />
-                        <span className="flex-1 text-sm">{stage.label}</span>
-                        <span className="text-sm font-medium">{count}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            ) : (
-              <div className="py-4 text-center">
-                <p className="text-sm text-muted-foreground">No opportunities in pipeline</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Add listings to your pipeline to track them here
-                </p>
-              </div>
-            )}
+        ) : (
+          <div className="py-4 text-center">
+            <p className="text-sm text-muted-foreground">No opportunities in pipeline</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Add listings to your pipeline to track them here
+            </p>
           </div>
-        </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-        {/* Tier Breakdown — Thesis KPI */}
-        {stats?.tierBreakdown?.length > 0 && (
-          <div className="rounded-lg border bg-card">
-            <div className="flex items-center justify-between border-b px-5 py-3">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-muted-foreground" />
-                <h2 className="font-medium">Target Tier Breakdown</h2>
+function TierBreakdownCard({ stats }: DashboardCardProps) {
+  return (
+    <div className="rounded-lg border bg-card">
+      <div className="flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center gap-2">
+          <Target className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-medium">Target Tier Breakdown</h2>
+        </div>
+        {stats?.avgFitScore !== null && stats?.avgFitScore !== undefined && (
+          <span className="text-xs text-muted-foreground">
+            Avg Fit Score: <strong className="text-foreground">{stats.avgFitScore}</strong>/100
+          </span>
+        )}
+      </div>
+      <div className="p-5">
+        <div className="space-y-2">
+          {stats.tierBreakdown.map((t: { tier: string; count: number }) => {
+            const tier = TIERS[t.tier as TierKey];
+            if (!tier) return null;
+            return (
+              <div key={t.tier} className="flex items-center gap-3">
+                <div className={`h-2.5 w-2.5 rounded-full ${tier.dotColor}`} />
+                <span className="flex-1 text-sm">{tier.label}</span>
+                <span className="text-sm font-medium">{t.count}</span>
               </div>
-              {stats?.avgFitScore !== null && stats?.avgFitScore !== undefined && (
-                <span className="text-xs text-muted-foreground">
-                  Avg Fit Score: <strong className="text-foreground">{stats.avgFitScore}</strong>/100
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingFollowUpsCard({ stats, isLoading }: DashboardCardProps) {
+  return (
+    <div className="rounded-lg border bg-card">
+      <div className="flex items-center justify-between border-b px-5 py-3">
+        <div className="flex items-center gap-2">
+          <CalendarClock className="h-4 w-4 text-muted-foreground" />
+          <h2 className="font-medium">Upcoming Follow-Ups</h2>
+        </div>
+      </div>
+      <div className="p-5">
+        {isLoading ? (
+          <p className="text-center text-sm text-muted-foreground">Loading...</p>
+        ) : stats?.upcomingFollowUps?.length > 0 ? (
+          <div className="space-y-2">
+            {stats.upcomingFollowUps.map((followUp: {
+              contactName: string;
+              opportunityId: string;
+              opportunityTitle: string;
+              followUpDate: string;
+            }) => {
+              const followUpDate = new Date(followUp.followUpDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              followUpDate.setHours(0, 0, 0, 0);
+              const isUrgent = followUpDate <= today;
+
+              return (
+                <Link
+                  key={followUp.opportunityId}
+                  href={`/pipeline/${followUp.opportunityId}`}
+                  className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/50 transition-colors"
+                >
+                  {isUrgent && (
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{followUp.contactName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{followUp.opportunityTitle}</p>
+                  </div>
+                  <span className={`text-xs whitespace-nowrap ${isUrgent ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
+                    {formatRelativeDate(followUp.followUpDate)}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-4 text-center">
+            <p className="text-sm text-muted-foreground">No follow-ups scheduled this week</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StaleContactsCard({ stats }: DashboardCardProps) {
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
+      <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 px-5 py-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+          <h2 className="font-medium text-amber-900 dark:text-amber-100">Stale Tier 1 Contacts</h2>
+        </div>
+        <span className="text-xs text-amber-700 dark:text-amber-400">
+          {stats.staleT1Contacts.length} contact{stats.staleT1Contacts.length > 1 ? 's' : ''}
+        </span>
+      </div>
+      <div className="p-5">
+        <div className="space-y-2">
+          {stats.staleT1Contacts.map((contact: {
+            contactName: string;
+            opportunityId: string;
+            opportunityTitle: string;
+            daysSinceContact: number | null;
+          }) => {
+            const isNeverContacted = contact.daysSinceContact === null;
+            const isVeryStale = contact.daysSinceContact && contact.daysSinceContact > 60;
+
+            return (
+              <Link
+                key={contact.opportunityId}
+                href={`/pipeline/${contact.opportunityId}`}
+                className="flex items-start gap-2 rounded-md p-2 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate">
+                    {contact.contactName}
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 truncate">
+                    {contact.opportunityTitle}
+                  </p>
+                </div>
+                <span className={`text-xs whitespace-nowrap font-medium ${
+                  isNeverContacted || isVeryStale
+                    ? 'text-red-600 dark:text-red-500'
+                    : 'text-amber-600 dark:text-amber-500'
+                }`}>
+                  {isNeverContacted ? 'Never contacted' : `${contact.daysSinceContact}d ago`}
                 </span>
-              )}
-            </div>
-            <div className="p-5">
-              <div className="space-y-2">
-                {stats.tierBreakdown.map((t: { tier: string; count: number }) => {
-                  const tier = TIERS[t.tier as TierKey];
-                  if (!tier) return null;
-                  return (
-                    <div key={t.tier} className="flex items-center gap-3">
-                      <div className={`h-2.5 w-2.5 rounded-full ${tier.dotColor}`} />
-                      <span className="flex-1 text-sm">{tier.label}</span>
-                      <span className="text-sm font-medium">{t.count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Upcoming Follow-Ups */}
-        <div className="rounded-lg border bg-card">
-          <div className="flex items-center justify-between border-b px-5 py-3">
-            <div className="flex items-center gap-2">
-              <CalendarClock className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-medium">Upcoming Follow-Ups</h2>
-            </div>
-          </div>
-          <div className="p-5">
-            {isLoading ? (
-              <p className="text-center text-sm text-muted-foreground">Loading...</p>
-            ) : stats?.upcomingFollowUps?.length > 0 ? (
-              <div className="space-y-2">
-                {stats.upcomingFollowUps.map((followUp: {
-                  contactName: string;
-                  opportunityId: string;
-                  opportunityTitle: string;
-                  followUpDate: string;
-                }) => {
-                  const followUpDate = new Date(followUp.followUpDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  followUpDate.setHours(0, 0, 0, 0);
-                  const isUrgent = followUpDate <= today;
-
-                  return (
-                    <Link
-                      key={followUp.opportunityId}
-                      href={`/pipeline/${followUp.opportunityId}`}
-                      className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/50 transition-colors"
-                    >
-                      {isUrgent && (
-                        <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{followUp.contactName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{followUp.opportunityTitle}</p>
-                      </div>
-                      <span className={`text-xs whitespace-nowrap ${isUrgent ? 'text-amber-600 font-medium' : 'text-muted-foreground'}`}>
-                        {formatRelativeDate(followUp.followUpDate)}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-4 text-center">
-                <p className="text-sm text-muted-foreground">No follow-ups scheduled this week</p>
-              </div>
-            )}
-          </div>
+              </Link>
+            );
+          })}
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* Stale Contacts Warning */}
-        {!isLoading && stats?.staleT1Contacts?.length > 0 && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
-            <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 px-5 py-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                <h2 className="font-medium text-amber-900 dark:text-amber-100">Stale Tier 1 Contacts</h2>
-              </div>
-              <span className="text-xs text-amber-700 dark:text-amber-400">
-                {stats.staleT1Contacts.length} contact{stats.staleT1Contacts.length > 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="p-5">
-              <div className="space-y-2">
-                {stats.staleT1Contacts.map((contact: {
-                  contactName: string;
-                  opportunityId: string;
-                  opportunityTitle: string;
-                  daysSinceContact: number | null;
-                }) => {
-                  const isNeverContacted = contact.daysSinceContact === null;
-                  const isVeryStale = contact.daysSinceContact && contact.daysSinceContact > 60;
-
-                  return (
-                    <Link
-                      key={contact.opportunityId}
-                      href={`/pipeline/${contact.opportunityId}`}
-                      className="flex items-start gap-2 rounded-md p-2 hover:bg-amber-100 dark:hover:bg-amber-950/40 transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-amber-900 dark:text-amber-100 truncate">
-                          {contact.contactName}
-                        </p>
-                        <p className="text-xs text-amber-700 dark:text-amber-400 truncate">
-                          {contact.opportunityTitle}
-                        </p>
-                      </div>
-                      <span className={`text-xs whitespace-nowrap font-medium ${
-                        isNeverContacted || isVeryStale
-                          ? 'text-red-600 dark:text-red-500'
-                          : 'text-amber-600 dark:text-amber-500'
-                      }`}>
-                        {isNeverContacted ? 'Never contacted' : `${contact.daysSinceContact}d ago`}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
+function ListingsByPlatformCard({ stats, isLoading }: DashboardCardProps) {
+  return (
+    <div className="rounded-lg border bg-card">
+      <div className="border-b px-5 py-3">
+        <h2 className="font-medium">Listings by Platform</h2>
+      </div>
+      <div className="p-5">
+        {isLoading ? (
+          <p className="text-center text-sm text-muted-foreground">Loading...</p>
+        ) : stats?.platformCounts?.length > 0 ? (
+          <div className="space-y-2">
+            {stats.platformCounts.map((p: { platform: string; count: number }) => {
+              const platform = PLATFORMS[p.platform as PlatformKey];
+              if (!platform) return null;
+              return (
+                <div key={p.platform} className="flex items-center gap-3">
+                  <div
+                    className="h-3 w-3 rounded-full"
+                    style={{ backgroundColor: platform.color }}
+                  />
+                  <span className="flex-1 text-sm">{platform.label}</span>
+                  <span className="text-sm font-medium">{p.count}</span>
+                </div>
+              );
+            })}
           </div>
+        ) : (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            No scraped listings yet. Set up your scrapers in Settings.
+          </p>
         )}
-
-        {/* Platform Breakdown */}
-        <div className="rounded-lg border bg-card">
-          <div className="border-b px-5 py-3">
-            <h2 className="font-medium">Listings by Platform</h2>
-          </div>
-          <div className="p-5">
-            {isLoading ? (
-              <p className="text-center text-sm text-muted-foreground">Loading...</p>
-            ) : stats?.platformCounts?.length > 0 ? (
-              <div className="space-y-2">
-                {stats.platformCounts.map((p: { platform: string; count: number }) => {
-                  const platform = PLATFORMS[p.platform as PlatformKey];
-                  if (!platform) return null;
-                  return (
-                    <div key={p.platform} className="flex items-center gap-3">
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: platform.color }}
-                      />
-                      <span className="flex-1 text-sm">{platform.label}</span>
-                      <span className="text-sm font-medium">{p.count}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                No scraped listings yet. Set up your scrapers in Settings.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Scraper Health / Data Freshness */}
-        <ScraperHealthCard />
       </div>
     </div>
   );
