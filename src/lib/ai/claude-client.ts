@@ -49,8 +49,8 @@ export interface ClaudeResponse {
 // ─────────────────────────────────────────────
 
 const MODEL_MAP: Record<ModelChoice, string> = {
-  haiku: "claude-haiku-4-5-20250901",
-  sonnet: "claude-sonnet-4-5-20250514",
+  haiku: "claude-haiku-4-5",
+  sonnet: "claude-sonnet-4-5",
 };
 
 // ─────────────────────────────────────────────

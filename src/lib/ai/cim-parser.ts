@@ -157,7 +157,7 @@ export async function parseCIMWithAI(
 DOCUMENT TEXT:
 ${truncatedText}`;
 
-  const modelUsed = "claude-sonnet-4-5-20250514";
+  const modelUsed = "claude-sonnet-4-5";
 
   const response = await callClaude({
     model: "sonnet",
