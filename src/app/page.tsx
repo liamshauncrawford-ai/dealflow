@@ -141,10 +141,18 @@ export default function DashboardPage() {
             isLoading
               ? "..."
               : stats?.pipelineValueLow && stats?.pipelineValueHigh
-              ? `${formatCurrency(stats.pipelineValueLow)} – ${formatCurrency(stats.pipelineValueHigh)}`
+              ? stats.pipelineValueLow === stats.pipelineValueHigh
+                ? formatCurrency(stats.pipelineValueLow)
+                : `${formatCurrency(stats.pipelineValueLow)} – ${formatCurrency(stats.pipelineValueHigh)}`
               : "N/A"
           }
-          description="Tier 1 target EV range"
+          description={
+            isLoading
+              ? "Calculating..."
+              : stats?.pipelineValuedCount
+              ? `${stats.pipelineValuedCount} of ${stats.pipelineOppCount} opps valued`
+              : "No valued opportunities"
+          }
           color="text-warning"
         />
       </div>

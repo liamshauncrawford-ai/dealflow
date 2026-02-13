@@ -24,7 +24,7 @@ export async function GET() {
       tierBreakdown,
       avgFitScore,
       // Thesis KPIs
-      tier1Listings,
+      pipelineOppsForValue,
       ownedListings,
       closedWonOpps,
       upcomingFollowUps,
@@ -134,10 +134,26 @@ export async function GET() {
 
       // ── Thesis KPIs ──
 
-      // Pipeline Value: Tier 1 listings for valuation sum
-      prisma.listing.findMany({
-        where: { isActive: true, tier: "TIER_1_ACTIVE" },
-        select: { ebitda: true, inferredEbitda: true, targetMultipleLow: true, targetMultipleHigh: true },
+      // Pipeline Value: All active pipeline opportunities with financials
+      prisma.opportunity.findMany({
+        where: {
+          stage: { notIn: ["CLOSED_WON", "CLOSED_LOST", "ON_HOLD"] },
+        },
+        select: {
+          id: true,
+          dealValue: true,
+          offerPrice: true,
+          actualEbitda: true,
+          listing: {
+            select: {
+              ebitda: true,
+              inferredEbitda: true,
+              askingPrice: true,
+              targetMultipleLow: true,
+              targetMultipleHigh: true,
+            },
+          },
+        },
       }),
 
       // Platform: OWNED listings
@@ -200,14 +216,45 @@ export async function GET() {
       ? wonCount / (wonCount + lostCount)
       : null;
 
-    // Pipeline Value (sum of implied EV ranges for Tier 1 targets)
+    // Pipeline Value (sum across ALL active pipeline opportunities)
+    // Waterfall per opp: dealValue → offerPrice → actualEbitda × multiple → listing EBITDA × multiple → listing askingPrice
     let pipelineValueLow = 0;
     let pipelineValueHigh = 0;
-    for (const l of tier1Listings) {
-      const ebitdaVal = l.ebitda ? Number(l.ebitda) : (l.inferredEbitda ? Number(l.inferredEbitda) : 0);
-      if (ebitdaVal > 0) {
-        pipelineValueLow += ebitdaVal * (l.targetMultipleLow ?? 3.0);
-        pipelineValueHigh += ebitdaVal * (l.targetMultipleHigh ?? 5.0);
+    let pipelineValuedCount = 0;
+    for (const opp of pipelineOppsForValue) {
+      const dv = opp.dealValue ? Number(opp.dealValue) : null;
+      const op = opp.offerPrice ? Number(opp.offerPrice) : null;
+      const ae = opp.actualEbitda ? Number(opp.actualEbitda) : null;
+      const le = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
+      const ask = opp.listing?.askingPrice ? Number(opp.listing.askingPrice) : null;
+      const mLow = opp.listing?.targetMultipleLow ?? 3.0;
+      const mHigh = opp.listing?.targetMultipleHigh ?? 5.0;
+
+      if (dv && dv > 0) {
+        // Known deal value — use as both low and high
+        pipelineValueLow += dv;
+        pipelineValueHigh += dv;
+        pipelineValuedCount++;
+      } else if (op && op > 0) {
+        // Offer price — use as both low and high
+        pipelineValueLow += op;
+        pipelineValueHigh += op;
+        pipelineValuedCount++;
+      } else if (ae && ae > 0) {
+        // Actual EBITDA from opportunity × multiple range
+        pipelineValueLow += ae * mLow;
+        pipelineValueHigh += ae * mHigh;
+        pipelineValuedCount++;
+      } else if (le && le > 0) {
+        // Listing EBITDA × multiple range
+        pipelineValueLow += le * mLow;
+        pipelineValueHigh += le * mHigh;
+        pipelineValuedCount++;
+      } else if (ask && ask > 0) {
+        // Listing asking price as last resort
+        pipelineValueLow += ask;
+        pipelineValueHigh += ask;
+        pipelineValuedCount++;
       }
     }
 
@@ -308,6 +355,8 @@ export async function GET() {
       // Thesis KPIs
       pipelineValueLow,
       pipelineValueHigh,
+      pipelineValuedCount,
+      pipelineOppCount: pipelineOppsForValue.length,
       capitalDeployed,
       platformRevenue,
       platformEbitda,
