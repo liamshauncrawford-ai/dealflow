@@ -71,11 +71,14 @@ interface AutoLinkResult {
 
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 
+// NOTE: `body` is intentionally excluded from $select because the
+// Graph API delta endpoint does NOT support it reliably.  Instead we
+// fetch body content in a separate per-message call only for emails
+// that are identified as listing alerts (see fetchBodyForAlerts).
 const MESSAGE_SELECT_FIELDS = [
   "id",
   "subject",
   "bodyPreview",
-  "body",
   "from",
   "toRecipients",
   "ccRecipients",
@@ -310,6 +313,14 @@ export async function syncEmails(
     });
   }
 
+  // ── Fetch body HTML for listing alert emails ──────────────────────────
+  // The bulk list/delta queries exclude `body` to avoid Graph API errors,
+  // so we back-fill it here with individual GET requests.
+  const bodyResult = await fetchBodyForAlerts(emailAccountId, accessToken);
+  if (bodyResult.errors.length > 0) {
+    errors.push(...bodyResult.errors);
+  }
+
   return { synced, errors };
 }
 
@@ -488,6 +499,74 @@ export async function autoLinkEmails(
 }
 
 // ---------------------------------------------------------------------------
+// Fetch body HTML for listing alert emails
+// ---------------------------------------------------------------------------
+
+/**
+ * After the main sync, listing alert emails may not have bodyHtml populated
+ * because the bulk list/delta endpoints don't include `body` in $select.
+ * This function fetches the full body for each listing alert email that is
+ * missing bodyHtml, using individual GET /me/messages/{id} requests.
+ */
+async function fetchBodyForAlerts(
+  emailAccountId: string,
+  accessToken: string,
+): Promise<{ fetched: number; errors: string[] }> {
+  const errors: string[] = [];
+  let fetched = 0;
+
+  // Find listing alert emails that were synced but are missing bodyHtml
+  const alertsWithoutBody = await prisma.email.findMany({
+    where: {
+      emailAccountId,
+      isListingAlert: true,
+      bodyHtml: null,
+    },
+    select: { id: true, externalMessageId: true },
+  });
+
+  if (alertsWithoutBody.length === 0) {
+    return { fetched: 0, errors: [] };
+  }
+
+  console.log(
+    `[sync-engine] Fetching body for ${alertsWithoutBody.length} listing alert email(s)…`,
+  );
+
+  for (const alert of alertsWithoutBody) {
+    try {
+      const url = `${GRAPH_BASE}/me/messages/${alert.externalMessageId}?$select=body`;
+      const msgData = await fetchGraphApi<{ body?: { contentType: string; content: string } }>(
+        url,
+        accessToken,
+      );
+
+      const html =
+        msgData.body?.contentType === "html" ? msgData.body.content : null;
+
+      if (html) {
+        await prisma.email.update({
+          where: { id: alert.id },
+          data: { bodyHtml: html },
+        });
+        fetched++;
+      }
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      errors.push(
+        `Failed to fetch body for message ${alert.externalMessageId}: ${errMsg}`,
+      );
+      console.error(
+        `[sync-engine] Failed to fetch body for ${alert.externalMessageId}:`,
+        error,
+      );
+    }
+  }
+
+  return { fetched, errors };
+}
+
+// ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
 
@@ -600,7 +679,8 @@ async function upsertEmail(
   // Detect listing alert emails
   const isAlert = isLikelyListingAlert(fromAddress, message.subject ?? null);
 
-  // Extract HTML body from Graph API response
+  // Body HTML is fetched separately for listing alerts only (see fetchBodyForAlerts)
+  // The main list/delta queries do NOT include `body` in $select.
   const bodyHtml = message.body?.contentType === "html"
     ? message.body.content
     : null;

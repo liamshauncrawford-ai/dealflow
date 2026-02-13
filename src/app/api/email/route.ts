@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
       const { categorizeEmail, TARGET_DOMAINS, BROKER_DOMAINS } = await import(
         "@/lib/email-categorizer"
       );
+
+      // Derive user domain from the account email for correct categorization
+      const acctForDomain = await prisma.emailAccount.findUnique({
+        where: { id: accountId },
+        select: { email: true },
+      });
+      const userDomain = acctForDomain?.email?.split("@")[1] ?? "gmail.com";
+
       const uncategorized = await prisma.email.findMany({
         where: { emailCategory: null },
         select: {
@@ -102,7 +110,7 @@ export async function POST(request: NextRequest) {
             bodyPreview: email.bodyPreview,
           },
           {
-            userDomain: "gmail.com",
+            userDomain,
             targetDomains: [...TARGET_DOMAINS],
             brokerDomains: [...BROKER_DOMAINS],
           }
