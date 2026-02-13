@@ -120,15 +120,18 @@ function EmailSettingsContent() {
       )}
 
       {/* Sync result banner */}
-      {syncEmails.isSuccess && (
+      {syncEmails.isSuccess && syncEmails.data && (
         <div className="rounded-lg border border-success/30 bg-success/10 p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-success">
             <CheckCircle2 className="h-4 w-4" />
             Email Sync Complete
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Synced {syncEmails.data.synced.emailsSynced} emails, linked{" "}
-            {syncEmails.data.linked.emailsLinked} to opportunities.
+            Synced {syncEmails.data.synced?.synced ?? 0} emails, linked{" "}
+            {syncEmails.data.linked?.linked ?? 0} to opportunities.
+            {(syncEmails.data.newListingsFound ?? 0) > 0 && (
+              <> Found {syncEmails.data.newListingsFound} new listings from email alerts.</>
+            )}
           </p>
         </div>
       )}

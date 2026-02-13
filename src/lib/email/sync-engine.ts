@@ -295,19 +295,28 @@ export async function syncEmails(
     errors.push(...initialErrors);
 
     // Step B: Fetch via the delta endpoint to establish a deltaLink.
-    // The delta endpoint may return messages we already upserted above,
-    // which is fine because we upsert on externalMessageId.
-    const { deltaLink, processedCount: deltaCount, processErrors: deltaErrors } =
-      await fetchAllPages(DELTA_MESSAGES_URL, accessToken, emailAccountId, accountEmail);
+    // This is non-critical — if it fails, we still save Step A results
+    // and will retry on the next sync.
+    let deltaLink: string | null = null;
+    try {
+      const deltaResult = await fetchAllPages(
+        DELTA_MESSAGES_URL, accessToken, emailAccountId, accountEmail,
+      );
 
-    synced += deltaCount;
-    errors.push(...deltaErrors);
+      synced += deltaResult.processedCount;
+      errors.push(...deltaResult.processErrors);
+      deltaLink = deltaResult.deltaLink;
+    } catch (deltaError) {
+      const errMsg = deltaError instanceof Error ? deltaError.message : String(deltaError);
+      console.error("[sync-engine] Delta endpoint failed (non-fatal):", errMsg);
+      errors.push(`Delta sync failed (will retry next sync): ${errMsg}`);
+    }
 
-    // Persist the deltaLink
+    // Persist lastSyncAt even if delta failed — Step A results are valid
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: {
-        syncCursor: deltaLink ?? null,
+        syncCursor: deltaLink,
         lastSyncAt: new Date(),
       },
     });
@@ -316,9 +325,15 @@ export async function syncEmails(
   // ── Fetch body HTML for listing alert emails ──────────────────────────
   // The bulk list/delta queries exclude `body` to avoid Graph API errors,
   // so we back-fill it here with individual GET requests.
-  const bodyResult = await fetchBodyForAlerts(emailAccountId, accessToken);
-  if (bodyResult.errors.length > 0) {
-    errors.push(...bodyResult.errors);
+  try {
+    const bodyResult = await fetchBodyForAlerts(emailAccountId, accessToken);
+    if (bodyResult.errors.length > 0) {
+      errors.push(...bodyResult.errors);
+    }
+  } catch (bodyError) {
+    const errMsg = bodyError instanceof Error ? bodyError.message : String(bodyError);
+    console.error("[sync-engine] Body fetch for alerts failed (non-fatal):", errMsg);
+    errors.push(`Body fetch failed (will retry next sync): ${errMsg}`);
   }
 
   return { synced, errors };

@@ -19,11 +19,14 @@ interface EmailAccountsResponse {
 
 interface SyncResult {
   synced: {
-    emailsSynced: number;
+    synced: number;
+    errors: string[];
   };
   linked: {
-    emailsLinked: number;
+    linked: number;
   };
+  categorized: number;
+  newListingsFound: number;
 }
 
 interface EmailLink {
@@ -95,8 +98,14 @@ export function useSyncEmails() {
       if (!res.ok) throw new Error("Failed to sync emails");
       return res.json();
     },
-    onSuccess: () => {
-      toast.success("Emails synced successfully");
+    onSuccess: (data) => {
+      const emailCount = data.synced?.synced ?? 0;
+      const linkedCount = data.linked?.linked ?? 0;
+      const listingsFound = data.newListingsFound ?? 0;
+      const parts = [`Synced ${emailCount} emails`];
+      if (linkedCount > 0) parts.push(`linked ${linkedCount} to opportunities`);
+      if (listingsFound > 0) parts.push(`found ${listingsFound} new listings`);
+      toast.success(parts.join(", "));
       queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
       queryClient.invalidateQueries({ queryKey: ["email-messages"] });
       // Listing alerts may have created new listings
