@@ -36,7 +36,7 @@ import {
 import { useStats } from "@/hooks/use-pipeline";
 import { useScrapingStatus } from "@/hooks/use-scraping";
 import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
-import { PIPELINE_STAGES, PLATFORMS, TIERS, type PlatformKey, type TierKey } from "@/lib/constants";
+import { PIPELINE_STAGES, PLATFORMS, type PlatformKey } from "@/lib/constants";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
 import { SortableDashboardCard } from "@/components/dashboard/sortable-card";
 import {
@@ -44,6 +44,12 @@ import {
   DEFAULT_ORDER,
   type DashboardCardId,
 } from "@/hooks/use-dashboard-card-order";
+import { PipelineFunnelChart } from "@/components/charts/pipeline-funnel-chart";
+import { SourceDistributionChart } from "@/components/charts/source-distribution-chart";
+import { TierDistributionChart } from "@/components/charts/tier-distribution-chart";
+import { DealVelocityWrapper } from "@/components/charts/deal-velocity-wrapper";
+import { PipelineValueChart } from "@/components/charts/pipeline-value-chart";
+import { WinLossIndicator } from "@/components/charts/win-loss-indicator";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface DashboardCardProps {
@@ -73,13 +79,60 @@ export default function DashboardPage() {
       render: () => <RecentListingsCard stats={stats} isLoading={isLoading} />,
       isVisible: () => true,
     },
+    "pipeline-funnel-chart": {
+      render: () => (
+        <PipelineFunnelChart
+          pipelineByStage={stats?.pipelineByStage}
+          isLoading={isLoading}
+        />
+      ),
+      isVisible: () => true,
+    },
     "pipeline-summary": {
       render: () => <PipelineSummaryCard stats={stats} isLoading={isLoading} />,
       isVisible: () => true,
     },
-    "tier-breakdown": {
-      render: () => <TierBreakdownCard stats={stats} isLoading={isLoading} />,
+    "source-distribution-chart": {
+      render: () => (
+        <SourceDistributionChart
+          platformCounts={stats?.platformCounts}
+          isLoading={isLoading}
+        />
+      ),
+      isVisible: () => true,
+    },
+    "tier-distribution-chart": {
+      render: () => (
+        <TierDistributionChart
+          tierBreakdown={stats?.tierBreakdown}
+          avgFitScore={stats?.avgFitScore}
+          isLoading={isLoading}
+        />
+      ),
       isVisible: () => (stats?.tierBreakdown?.length ?? 0) > 0,
+    },
+    "deal-velocity-chart": {
+      render: () => <DealVelocityWrapper />,
+      isVisible: () => true,
+    },
+    "pipeline-value-chart": {
+      render: () => (
+        <PipelineValueChart
+          pipelineValueByStage={stats?.pipelineValueByStage}
+          isLoading={isLoading}
+        />
+      ),
+      isVisible: () => true,
+    },
+    "win-loss-indicator": {
+      render: () => (
+        <WinLossIndicator
+          wonCount={stats?.wonCount ?? 0}
+          lostCount={stats?.lostCount ?? 0}
+          winRate={stats?.winRate ?? null}
+        />
+      ),
+      isVisible: () => !isLoading && (stats?.wonCount ?? 0) + (stats?.lostCount ?? 0) > 0,
     },
     "upcoming-follow-ups": {
       render: () => <UpcomingFollowUpsCard stats={stats} isLoading={isLoading} />,
@@ -356,39 +409,6 @@ function PipelineSummaryCard({ stats, isLoading }: DashboardCardProps) {
             </p>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function TierBreakdownCard({ stats }: DashboardCardProps) {
-  return (
-    <div className="rounded-lg border bg-card">
-      <div className="flex items-center justify-between border-b px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Target className="h-4 w-4 text-muted-foreground" />
-          <h2 className="font-medium">Target Tier Breakdown</h2>
-        </div>
-        {stats?.avgFitScore !== null && stats?.avgFitScore !== undefined && (
-          <span className="text-xs text-muted-foreground">
-            Avg Fit Score: <strong className="text-foreground">{stats.avgFitScore}</strong>/100
-          </span>
-        )}
-      </div>
-      <div className="p-5">
-        <div className="space-y-2">
-          {stats.tierBreakdown.map((t: { tier: string; count: number }) => {
-            const tier = TIERS[t.tier as TierKey];
-            if (!tier) return null;
-            return (
-              <div key={t.tier} className="flex items-center gap-3">
-                <div className={`h-2.5 w-2.5 rounded-full ${tier.dotColor}`} />
-                <span className="flex-1 text-sm">{tier.label}</span>
-                <span className="text-sm font-medium">{t.count}</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

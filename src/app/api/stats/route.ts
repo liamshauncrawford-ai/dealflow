@@ -141,6 +141,7 @@ export async function GET() {
         },
         select: {
           id: true,
+          stage: true,
           dealValue: true,
           offerPrice: true,
           actualEbitda: true,
@@ -221,6 +222,7 @@ export async function GET() {
     let pipelineValueLow = 0;
     let pipelineValueHigh = 0;
     let pipelineValuedCount = 0;
+    const valueByStageMap = new Map<string, { valueLow: number; valueHigh: number }>();
     for (const opp of pipelineOppsForValue) {
       const dv = opp.dealValue ? Number(opp.dealValue) : null;
       const op = opp.offerPrice ? Number(opp.offerPrice) : null;
@@ -230,33 +232,49 @@ export async function GET() {
       const mLow = opp.listing?.targetMultipleLow ?? 3.0;
       const mHigh = opp.listing?.targetMultipleHigh ?? 5.0;
 
+      let oppLow = 0;
+      let oppHigh = 0;
+      let valued = false;
+
       if (dv && dv > 0) {
-        // Known deal value — use as both low and high
-        pipelineValueLow += dv;
-        pipelineValueHigh += dv;
-        pipelineValuedCount++;
+        oppLow = dv;
+        oppHigh = dv;
+        valued = true;
       } else if (op && op > 0) {
-        // Offer price — use as both low and high
-        pipelineValueLow += op;
-        pipelineValueHigh += op;
-        pipelineValuedCount++;
+        oppLow = op;
+        oppHigh = op;
+        valued = true;
       } else if (ae && ae > 0) {
-        // Actual EBITDA from opportunity × multiple range
-        pipelineValueLow += ae * mLow;
-        pipelineValueHigh += ae * mHigh;
-        pipelineValuedCount++;
+        oppLow = ae * mLow;
+        oppHigh = ae * mHigh;
+        valued = true;
       } else if (le && le > 0) {
-        // Listing EBITDA × multiple range
-        pipelineValueLow += le * mLow;
-        pipelineValueHigh += le * mHigh;
-        pipelineValuedCount++;
+        oppLow = le * mLow;
+        oppHigh = le * mHigh;
+        valued = true;
       } else if (ask && ask > 0) {
-        // Listing asking price as last resort
-        pipelineValueLow += ask;
-        pipelineValueHigh += ask;
+        oppLow = ask;
+        oppHigh = ask;
+        valued = true;
+      }
+
+      if (valued) {
+        pipelineValueLow += oppLow;
+        pipelineValueHigh += oppHigh;
         pipelineValuedCount++;
+
+        // Accumulate per stage
+        const stageKey = opp.stage;
+        const existing = valueByStageMap.get(stageKey) ?? { valueLow: 0, valueHigh: 0 };
+        existing.valueLow += oppLow;
+        existing.valueHigh += oppHigh;
+        valueByStageMap.set(stageKey, existing);
       }
     }
+
+    const pipelineValueByStage = Array.from(valueByStageMap.entries()).map(
+      ([stage, { valueLow, valueHigh }]) => ({ stage, valueLow, valueHigh })
+    );
 
     // Platform Revenue/EBITDA (owned + closed won)
     let platformRevenue = 0;
@@ -381,6 +399,9 @@ export async function GET() {
       totalPipelineOfferValue,
       pipelineDealsWithOffer,
       avgDiscount: avgDiscount !== null ? Math.round(avgDiscount * 10) / 10 : null,
+
+      // Pipeline value by stage (for charts)
+      pipelineValueByStage,
     });
   } catch (error) {
     console.error("Error fetching stats:", error);

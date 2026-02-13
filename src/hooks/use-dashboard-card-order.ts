@@ -8,8 +8,13 @@ const STORAGE_KEY = "dealflow-dashboard-card-order";
 
 export const DEFAULT_ORDER = [
   "recent-listings",
+  "pipeline-funnel-chart",
   "pipeline-summary",
-  "tier-breakdown",
+  "source-distribution-chart",
+  "tier-distribution-chart",
+  "deal-velocity-chart",
+  "pipeline-value-chart",
+  "win-loss-indicator",
   "upcoming-follow-ups",
   "stale-contacts",
   "listings-by-platform",
