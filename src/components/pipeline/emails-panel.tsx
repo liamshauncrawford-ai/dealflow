@@ -29,6 +29,7 @@ interface EmailLink {
     isRead: boolean;
     hasAttachments: boolean;
     webLink: string | null;
+    aiSummary?: string | null;
     attachments?: Array<{
       id: string;
       filename: string;
@@ -166,6 +167,11 @@ export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
                         {link.email.subject ?? "(no subject)"}
                       </p>
                     </div>
+                    {link.email.aiSummary && (
+                      <p className="mt-0.5 text-xs text-muted-foreground/70 italic truncate">
+                        {link.email.aiSummary}
+                      </p>
+                    )}
                     <div className="mt-0.5 flex items-center gap-1.5">
                       <p className="text-xs text-muted-foreground">
                         {link.email.fromName ?? link.email.fromAddress}

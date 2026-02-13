@@ -127,8 +127,52 @@ const FINANCIAL_PATTERNS: FinancialPattern[] = [
 // ─────────────────────────────────────────────
 
 /**
+ * Extract raw text from a PDF buffer using pdfjs-dist.
+ * Reusable by both the regex-based parser and the AI CIM parser.
+ */
+export async function extractPdfText(buffer: Buffer, maxPages = 30): Promise<string> {
+  // Use pdfjs-dist directly to avoid pdf-parse v2 worker resolution issues
+  // in Next.js dev server (pdf.worker.mjs not found in .next/dev/server/chunks/).
+  //
+  // CRITICAL: We use createRequire() instead of import() because Next.js/webpack
+  // intercepts dynamic import() and rewrites paths to chunk references, which
+  // breaks pdfjs-dist's worker file resolution. createRequire() uses Node's
+  // native module loader, bypassing webpack entirely.
+  const nodeRequire = createRequire(resolve(process.cwd(), "package.json"));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfjs: any = nodeRequire("pdfjs-dist/legacy/build/pdf.mjs");
+
+  // Point worker to the actual file on disk via file:// URL
+  const workerPath = resolve(
+    process.cwd(),
+    "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"
+  );
+  pdfjs.GlobalWorkerOptions.workerSrc = "file://" + workerPath;
+
+  const data = new Uint8Array(buffer);
+  const doc = await pdfjs.getDocument({
+    data,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise;
+
+  let text = "";
+  const pagesToRead = Math.min(doc.numPages, maxPages);
+  for (let i = 1; i <= pagesToRead; i++) {
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    text += (content.items as any[]).map((item) => item.str).join(" ") + "\n";
+  }
+  await doc.destroy();
+
+  return text;
+}
+
+/**
  * Parse a CIM or financial PDF and extract business details
- * and financial metrics.
+ * and financial metrics using pattern matching.
  */
 export async function parseCIMPdf(filePath: string): Promise<ExtractedCIMData> {
   const result: ExtractedCIMData = {
@@ -154,43 +198,7 @@ export async function parseCIMPdf(filePath: string): Promise<ExtractedCIMData> {
 
   try {
     const buffer = readFileSync(filePath);
-
-    // Use pdfjs-dist directly to avoid pdf-parse v2 worker resolution issues
-    // in Next.js dev server (pdf.worker.mjs not found in .next/dev/server/chunks/).
-    //
-    // CRITICAL: We use createRequire() instead of import() because Next.js/webpack
-    // intercepts dynamic import() and rewrites paths to chunk references, which
-    // breaks pdfjs-dist's worker file resolution. createRequire() uses Node's
-    // native module loader, bypassing webpack entirely.
-    const nodeRequire = createRequire(resolve(process.cwd(), "package.json"));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfjs: any = nodeRequire("pdfjs-dist/legacy/build/pdf.mjs");
-
-    // Point worker to the actual file on disk via file:// URL
-    const workerPath = resolve(
-      process.cwd(),
-      "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"
-    );
-    pdfjs.GlobalWorkerOptions.workerSrc = "file://" + workerPath;
-
-    const data = new Uint8Array(buffer);
-    const doc = await pdfjs.getDocument({
-      data,
-      useWorkerFetch: false,
-      isEvalSupported: false,
-      useSystemFonts: true,
-    }).promise;
-
-    // Extract text from all pages (cap at 30 to avoid huge docs)
-    let text = "";
-    const maxPages = Math.min(doc.numPages, 30);
-    for (let i = 1; i <= maxPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      text += (content.items as any[]).map((item) => item.str).join(" ") + "\n";
-    }
-    await doc.destroy();
+    const text = await extractPdfText(buffer);
 
     if (!text || text.length < 50) {
       return result;

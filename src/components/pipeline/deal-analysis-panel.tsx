@@ -1,8 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, PenLine, Save, X, AlertTriangle, TrendingUp } from "lucide-react";
+import {
+  BarChart3,
+  PenLine,
+  Save,
+  X,
+  AlertTriangle,
+  TrendingUp,
+  Sparkles,
+  Loader2,
+  ShieldAlert,
+  ShieldCheck,
+  CheckCircle2,
+  HelpCircle,
+  RefreshCw,
+} from "lucide-react";
 import { useUpdateOpportunity } from "@/hooks/use-pipeline";
+import { useRiskAssessment } from "@/hooks/use-ai";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +44,40 @@ const REVENUE_TREND_LABELS: Record<string, { label: string; color: string }> = {
   DECLINING: { label: "Declining", color: "text-red-700" },
 };
 
+interface RiskFlag {
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  category: string;
+  description: string;
+}
+
+interface RiskAssessmentData {
+  overallRisk: "HIGH" | "MEDIUM" | "LOW";
+  thesisFitScore: number;
+  riskFlags: RiskFlag[];
+  strengths: string[];
+  concerns: string[];
+  recommendation: string;
+  keyQuestions: string[];
+}
+
+const RISK_COLORS: Record<string, string> = {
+  HIGH: "text-red-700 bg-red-50 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
+  MEDIUM: "text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
+  LOW: "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
+};
+
+const RISK_ICON: Record<string, typeof ShieldAlert> = {
+  HIGH: ShieldAlert,
+  MEDIUM: AlertTriangle,
+  LOW: ShieldCheck,
+};
+
 export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
   const updateOpportunity = useUpdateOpportunity();
+  const riskAssessmentMutation = useRiskAssessment(opportunity.id);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [riskData, setRiskData] = useState<RiskAssessmentData | null>(null);
 
   // Check if there is any thesis data to display
   const hasData = opportunity.actualRevenue || opportunity.actualEbitda ||
@@ -92,7 +137,16 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
     );
   };
 
+  const handleGenerateRisk = () => {
+    riskAssessmentMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        setRiskData(data.result as unknown as RiskAssessmentData);
+      },
+    });
+  };
+
   return (
+    <>
     <div className="rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
@@ -394,5 +448,164 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
         </div>
       )}
     </div>
+
+    {/* ── AI Risk Assessment Card ── */}
+    <div className="rounded-lg border bg-card shadow-sm">
+      <div className="flex items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-amber-500" />
+          <h2 className="text-sm font-semibold">AI Risk Assessment</h2>
+        </div>
+        {riskData && (
+          <button
+            onClick={handleGenerateRisk}
+            disabled={riskAssessmentMutation.isPending}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            title="Refresh assessment"
+          >
+            <RefreshCw className={cn("h-3 w-3", riskAssessmentMutation.isPending && "animate-spin")} />
+          </button>
+        )}
+      </div>
+
+      {/* No assessment yet */}
+      {!riskData && !riskAssessmentMutation.isPending && !riskAssessmentMutation.isError && (
+        <div className="p-4 text-center">
+          <p className="text-xs text-muted-foreground mb-2">
+            Generate an AI-powered risk assessment for this deal
+          </p>
+          <button
+            onClick={handleGenerateRisk}
+            className="inline-flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-900/20 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+          >
+            <Sparkles className="h-3 w-3" />
+            Generate Assessment
+          </button>
+        </div>
+      )}
+
+      {/* Loading */}
+      {riskAssessmentMutation.isPending && (
+        <div className="flex items-center justify-center gap-2 p-6">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-xs text-muted-foreground">Analyzing deal risk...</span>
+        </div>
+      )}
+
+      {/* Error */}
+      {riskAssessmentMutation.isError && !riskData && (
+        <div className="p-4 text-center">
+          <p className="text-xs text-destructive mb-2">
+            {riskAssessmentMutation.error.message}
+          </p>
+          <button
+            onClick={handleGenerateRisk}
+            className="text-xs text-primary hover:underline"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Assessment Results */}
+      {riskData && (
+        <div className="p-4 space-y-3">
+          {/* Overall risk + thesis fit */}
+          <div className="flex items-center gap-2">
+            {(() => {
+              const RiskIcon = RISK_ICON[riskData.overallRisk] || AlertTriangle;
+              return (
+                <span className={cn(
+                  "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold",
+                  RISK_COLORS[riskData.overallRisk],
+                )}>
+                  <RiskIcon className="h-3 w-3" />
+                  {riskData.overallRisk} Risk
+                </span>
+              );
+            })()}
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Thesis Fit: {riskData.thesisFitScore}/10
+            </span>
+          </div>
+
+          {/* Recommendation */}
+          {riskData.recommendation && (
+            <div className="rounded-md border bg-muted/20 p-2">
+              <p className="text-xs">{riskData.recommendation}</p>
+            </div>
+          )}
+
+          {/* Risk Flags */}
+          {riskData.riskFlags.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5">
+                Risk Flags
+              </div>
+              <div className="space-y-1">
+                {riskData.riskFlags.map((flag, i) => (
+                  <div key={i} className={cn(
+                    "flex items-start gap-2 rounded-md border p-2 text-xs",
+                    RISK_COLORS[flag.severity],
+                  )}>
+                    <span className="font-semibold shrink-0 uppercase text-[10px]">{flag.severity}</span>
+                    <div>
+                      <span className="font-medium">{flag.category}:</span>{" "}
+                      {flag.description}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Strengths */}
+          {riskData.strengths.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Strengths
+              </div>
+              {riskData.strengths.map((s, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-xs mb-0.5">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-500 mt-0.5 shrink-0" />
+                  <span>{s}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Concerns */}
+          {riskData.concerns.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Concerns
+              </div>
+              {riskData.concerns.map((c, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-xs mb-0.5">
+                  <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" />
+                  <span>{c}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Key Diligence Questions */}
+          {riskData.keyQuestions.length > 0 && (
+            <div>
+              <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                Key Diligence Questions
+              </div>
+              {riskData.keyQuestions.map((q, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-xs mb-0.5">
+                  <HelpCircle className="h-3 w-3 text-blue-500 mt-0.5 shrink-0" />
+                  <span>{q}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+    </>
   );
 }

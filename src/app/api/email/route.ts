@@ -127,6 +127,43 @@ export async function POST(request: NextRequest) {
       console.error("Error categorizing emails:", err);
     }
 
+    // AI classification for emails the pattern categorizer missed
+    let aiClassified = 0;
+    let aiSummarized = 0;
+    try {
+      if (process.env.ANTHROPIC_API_KEY) {
+        const { classifyEmailsBatch } = await import(
+          "@/lib/ai/email-intelligence"
+        );
+
+        // Fetch emails that still have no category after pattern matching
+        const stillUncategorized = await prisma.email.findMany({
+          where: {
+            emailCategory: null,
+            aiClassifiedAt: null,
+          },
+          select: {
+            id: true,
+            fromAddress: true,
+            fromName: true,
+            toAddresses: true,
+            subject: true,
+            bodyPreview: true,
+          },
+          take: 60, // Up to 3 batches of 20
+          orderBy: { sentAt: "desc" },
+        });
+
+        if (stillUncategorized.length > 0) {
+          const aiResult = await classifyEmailsBatch(stillUncategorized);
+          aiClassified = aiResult.classified;
+          aiSummarized = aiResult.summarized;
+        }
+      }
+    } catch (err) {
+      console.error("Error in AI email classification:", err);
+    }
+
     // Parse listing alert emails (for both providers)
     let alertResult = null;
     let newListingsFound = 0;
@@ -144,6 +181,8 @@ export async function POST(request: NextRequest) {
       synced: syncResult,
       linked: linkResult,
       categorized,
+      aiClassified,
+      aiSummarized,
       newListingsFound,
       ...(alertResult ? { alerts: alertResult } : {}),
     });

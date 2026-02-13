@@ -375,9 +375,33 @@ model Opportunity {
   documents       DealDocument[]
   contacts        Contact[]
   tasks           Task[]
+  aiAnalyses      AIAnalysisResult[]
 
   @@index([stage])
   @@index([priority])
+}
+
+// ─────────────────────────────────────────────
+// AI ANALYSIS CACHE
+// ─────────────────────────────────────────────
+
+model AIAnalysisResult {
+  id              String        @id @default(cuid())
+
+  opportunityId   String
+  opportunity     Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  documentId      String?       // If analysis was for a specific document
+  analysisType    String        // "CIM_EXTRACTION" | "RISK_ASSESSMENT"
+  resultData      Json          // Full AI extraction result
+  modelUsed       String        // e.g. "claude-sonnet-4-5-20250514"
+  inputTokens     Int
+  outputTokens    Int
+
+  createdAt       DateTime      @default(now())
+
+  @@index([opportunityId])
+  @@index([documentId])
 }
 
 enum ContactInterest {
@@ -598,6 +622,10 @@ model Email {
   isListingAlert       Boolean  @default(false)
   listingAlertParsed   Boolean  @default(false)
   emailCategory        EmailCategory?
+
+  // AI-generated fields
+  aiSummary            String?       @db.Text
+  aiClassifiedAt       DateTime?
 
   createdAt       DateTime      @default(now())
 

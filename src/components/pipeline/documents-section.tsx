@@ -17,6 +17,7 @@ import {
   Loader2,
   X,
   FileQuestion,
+  Sparkles,
 } from "lucide-react";
 import { cn, formatRelativeDate } from "@/lib/utils";
 import {
@@ -31,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CIMAnalysisModal } from "./cim-analysis-modal";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -254,6 +256,9 @@ export function DocumentsSection({
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState("");
   const [editDescription, setEditDescription] = useState("");
+
+  // AI CIM analysis state
+  const [cimAnalysisDoc, setCimAnalysisDoc] = useState<DealDoc | null>(null);
 
   // ── File selection handling ──
 
@@ -685,6 +690,18 @@ export function DocumentsSection({
 
                             {/* Actions — visible on hover */}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {/* Analyze with AI — only for PDF CIM documents */}
+                              {doc.category === "CIM" &&
+                                doc.mimeType === "application/pdf" &&
+                                hasFileData(doc) && (
+                                  <button
+                                    onClick={() => setCimAnalysisDoc(doc)}
+                                    title="Analyze with AI"
+                                    className="rounded p-1 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                  >
+                                    <Sparkles className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
                               {canPreview && (
                                 <button
                                   onClick={() =>
@@ -732,6 +749,19 @@ export function DocumentsSection({
           </div>
         ) : null}
       </div>
+
+      {/* ── AI CIM Analysis Modal ── */}
+      {cimAnalysisDoc && (
+        <CIMAnalysisModal
+          open={!!cimAnalysisDoc}
+          onOpenChange={(open) => {
+            if (!open) setCimAnalysisDoc(null);
+          }}
+          opportunityId={opportunityId}
+          documentId={cimAnalysisDoc.id}
+          documentName={cimAnalysisDoc.fileName}
+        />
+      )}
 
       {/* ── Preview Modal ── */}
       <Dialog
