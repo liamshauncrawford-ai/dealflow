@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -119,5 +119,22 @@ export function useUpdateDocument(opportunityId: string) {
     onError: (error: Error) => {
       toast.error(error.message || "Failed to update document");
     },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Fetch rendered HTML preview for a document (xlsx, docx, csv)
+// ---------------------------------------------------------------------------
+
+export function useDocumentPreview(docId: string | null) {
+  return useQuery<string>({
+    queryKey: ["document-preview", docId],
+    queryFn: async () => {
+      const res = await fetch(`/api/documents/${docId}/preview`);
+      if (!res.ok) throw new Error("Failed to load preview");
+      return res.text();
+    },
+    enabled: !!docId,
+    staleTime: 5 * 60 * 1000, // Cache preview for 5 minutes
   });
 }

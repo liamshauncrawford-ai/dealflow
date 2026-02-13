@@ -23,6 +23,7 @@ import {
   useUploadDocument,
   useDeleteDocument,
   useUpdateDocument,
+  useDocumentPreview,
 } from "@/hooks/use-documents";
 import {
   Dialog,
@@ -105,15 +106,123 @@ function formatFileSize(bytes: number | null): string {
 
 function isPreviewable(
   mimeType: string | null,
-): "pdf" | "image" | false {
+): "pdf" | "image" | "document" | false {
   if (!mimeType) return false;
   if (mimeType === "application/pdf") return "pdf";
   if (mimeType.startsWith("image/")) return "image";
+  if (
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.template" ||
+    mimeType === "application/vnd.ms-excel" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType === "text/csv"
+  ) {
+    return "document";
+  }
   return false;
 }
 
 function hasFileData(doc: DealDoc): boolean {
   return doc.uploadedAt !== null;
+}
+
+// ---------------------------------------------------------------------------
+// Preview content — extracted as a component so it can use React Query hooks
+// ---------------------------------------------------------------------------
+
+function PreviewContent({ doc }: { doc: DealDoc }) {
+  const previewType = isPreviewable(doc.mimeType);
+  const url = `/api/documents/${doc.id}?inline=true`;
+
+  // Only fetch HTML preview for document types (xlsx, docx, csv)
+  const {
+    data: previewHtml,
+    isLoading,
+    error,
+  } = useDocumentPreview(previewType === "document" ? doc.id : null);
+
+  if (previewType === "pdf") {
+    return (
+      <iframe
+        src={url}
+        className="w-full h-[75vh] rounded border"
+        title={doc.fileName}
+      />
+    );
+  }
+
+  if (previewType === "image") {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt={doc.fileName}
+        className="max-w-full max-h-[75vh] mx-auto rounded"
+      />
+    );
+  }
+
+  if (previewType === "document") {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-3 text-sm text-muted-foreground">
+            Loading preview…
+          </span>
+        </div>
+      );
+    }
+
+    if (error || !previewHtml) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-3 py-12">
+          <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+          <p className="text-sm text-muted-foreground">
+            Failed to load preview
+          </p>
+          <button
+            onClick={() =>
+              window.open(`/api/documents/${doc.id}`, "_blank")
+            }
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+          >
+            <Download className="h-4 w-4" />
+            Download File
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <iframe
+        srcDoc={previewHtml}
+        className="w-full h-[75vh] rounded border bg-white"
+        title={doc.fileName}
+        sandbox="allow-scripts"
+      />
+    );
+  }
+
+  // Fallback for unknown types
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-12">
+      <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
+      <p className="text-sm text-muted-foreground">
+        Preview not available for this file type
+      </p>
+      <button
+        onClick={() => window.open(`/api/documents/${doc.id}`, "_blank")}
+        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
+      >
+        <Download className="h-4 w-4" />
+        Download File
+      </button>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -636,6 +745,10 @@ export function DocumentsSection({
             <DialogTitle className="flex items-center gap-2 text-base">
               {previewDoc?.mimeType?.startsWith("image/") ? (
                 <Eye className="h-4 w-4" />
+              ) : previewDoc?.mimeType?.includes("spreadsheet") ||
+                previewDoc?.mimeType?.includes("excel") ||
+                previewDoc?.mimeType === "text/csv" ? (
+                <FileSpreadsheet className="h-4 w-4" />
               ) : (
                 <FileText className="h-4 w-4" />
               )}
@@ -644,53 +757,7 @@ export function DocumentsSection({
           </DialogHeader>
 
           <div className="flex-1 overflow-auto min-h-0">
-            {previewDoc &&
-              (() => {
-                const previewType = isPreviewable(previewDoc.mimeType);
-                const url = `/api/documents/${previewDoc.id}?inline=true`;
-
-                if (previewType === "pdf") {
-                  return (
-                    <iframe
-                      src={url}
-                      className="w-full h-[75vh] rounded border"
-                      title={previewDoc.fileName}
-                    />
-                  );
-                }
-
-                if (previewType === "image") {
-                  return (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={url}
-                      alt={previewDoc.fileName}
-                      className="max-w-full max-h-[75vh] mx-auto rounded"
-                    />
-                  );
-                }
-
-                return (
-                  <div className="flex flex-col items-center justify-center gap-3 py-12">
-                    <FileQuestion className="h-12 w-12 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">
-                      Preview not available for this file type
-                    </p>
-                    <button
-                      onClick={() =>
-                        window.open(
-                          `/api/documents/${previewDoc.id}`,
-                          "_blank",
-                        )
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download File
-                    </button>
-                  </div>
-                );
-              })()}
+            {previewDoc && <PreviewContent doc={previewDoc} />}
           </div>
 
           {/* Footer: download button */}
