@@ -546,6 +546,7 @@ const LISTING_ALERT_SENDERS = [
   "sunbeltnetwork.com",
   "transactionadvisors.com",
   "tworld.com",
+  "businessesforsale.com",
 ];
 
 function isLikelyListingAlert(
@@ -579,6 +580,8 @@ function isLikelyListingAlert(
       "just posted",             // DealStream "new listings that were just posted"
       "price reduced",           // Price drop alerts
       "businesses for sale",     // Common listing digest subject
+      "related listings",        // BizBuySell "Related listings just added"
+      "we found",                // BizBuySell "We found 5 Business for Sale listings"
     ];
     if (alertPatterns.some((pattern) => lowerSubject.includes(pattern))) {
       return true;

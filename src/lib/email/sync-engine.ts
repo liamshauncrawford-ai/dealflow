@@ -35,6 +35,7 @@ interface GraphMessage {
   id: string;
   subject?: string;
   bodyPreview?: string;
+  body?: { contentType: string; content: string };
   from?: GraphEmailAddress;
   toRecipients?: GraphEmailAddress[];
   ccRecipients?: GraphEmailAddress[];
@@ -74,6 +75,7 @@ const MESSAGE_SELECT_FIELDS = [
   "id",
   "subject",
   "bodyPreview",
+  "body",
   "from",
   "toRecipients",
   "ccRecipients",
@@ -93,6 +95,60 @@ const DELTA_MESSAGES_URL =
   `${GRAPH_BASE}/me/messages/delta?$select=${MESSAGE_SELECT_FIELDS}&$top=100`;
 
 const MAX_RETRY_ATTEMPTS = 3;
+
+// Listing alert sender domains (same as gmail-sync-engine)
+const LISTING_ALERT_SENDERS = [
+  "bizbuysell.com",
+  "bizquest.com",
+  "dealstream.com",
+  "transworld.com",
+  "loopnet.com",
+  "businessbroker.net",
+  "sunbeltnetwork.com",
+  "transactionadvisors.com",
+  "tworld.com",
+  "businessesforsale.com",
+];
+
+function isLikelyListingAlert(
+  fromAddress: string,
+  subject: string | null
+): boolean {
+  const normalizedFrom = fromAddress.toLowerCase();
+
+  // Check if sender is from a known listing platform
+  if (LISTING_ALERT_SENDERS.some((sender) => normalizedFrom.includes(sender))) {
+    return true;
+  }
+
+  // Check subject for listing alert patterns
+  if (subject) {
+    const lowerSubject = subject.toLowerCase();
+    const alertPatterns = [
+      "new listing",
+      "new business",
+      "new opportunity",
+      "matches your search",
+      "alert:",
+      "business for sale",
+      "listing alert",
+      "saved search",
+      "new results",
+      "search genius",
+      "today's new listings",
+      "just posted",
+      "price reduced",
+      "businesses for sale",
+      "related listings",
+      "we found",
+    ];
+    if (alertPatterns.some((pattern) => lowerSubject.includes(pattern))) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Helper: Authenticated Graph API GET request
@@ -202,12 +258,15 @@ export async function syncEmails(
 
   const { syncCursor } = emailAccount;
 
+  const accountEmail = emailAccount.email;
+
   if (syncCursor) {
     // ── Delta sync (incremental) ────────────────────────────────────────
     const { deltaLink, processedCount, processErrors } = await fetchAllPages(
       syncCursor,
       accessToken,
       emailAccountId,
+      accountEmail,
     );
 
     synced += processedCount;
@@ -227,7 +286,7 @@ export async function syncEmails(
     // Step A: Fetch recent messages from the standard messages endpoint.
     // This gives us a good initial batch ordered by receivedDateTime desc.
     const { processedCount: initialCount, processErrors: initialErrors } =
-      await fetchAllPages(INITIAL_MESSAGES_URL, accessToken, emailAccountId);
+      await fetchAllPages(INITIAL_MESSAGES_URL, accessToken, emailAccountId, accountEmail);
 
     synced += initialCount;
     errors.push(...initialErrors);
@@ -236,7 +295,7 @@ export async function syncEmails(
     // The delta endpoint may return messages we already upserted above,
     // which is fine because we upsert on externalMessageId.
     const { deltaLink, processedCount: deltaCount, processErrors: deltaErrors } =
-      await fetchAllPages(DELTA_MESSAGES_URL, accessToken, emailAccountId);
+      await fetchAllPages(DELTA_MESSAGES_URL, accessToken, emailAccountId, accountEmail);
 
     synced += deltaCount;
     errors.push(...deltaErrors);
@@ -440,6 +499,7 @@ async function fetchAllPages(
   startUrl: string,
   accessToken: string,
   emailAccountId: string,
+  accountEmail?: string,
 ): Promise<{
   deltaLink: string | null;
   processedCount: number;
@@ -462,7 +522,7 @@ async function fetchAllPages(
             continue;
           }
 
-          await upsertEmail(message, emailAccountId);
+          await upsertEmail(message, emailAccountId, accountEmail);
           processedCount++;
         } catch (error: unknown) {
           const errMsg =
@@ -499,7 +559,11 @@ async function fetchAllPages(
  * with the same hash already exists from another account, we skip it
  * (the first account to sync "owns" the canonical copy).
  */
-async function upsertEmail(message: GraphMessage, emailAccountId: string): Promise<void> {
+async function upsertEmail(
+  message: GraphMessage,
+  emailAccountId: string,
+  accountEmail?: string
+): Promise<void> {
   const fromAddress =
     message.from?.emailAddress?.address?.toLowerCase().trim() ?? "unknown";
   const fromName = message.from?.emailAddress?.name ?? null;
@@ -533,6 +597,19 @@ async function upsertEmail(message: GraphMessage, emailAccountId: string): Promi
     return;
   }
 
+  // Detect listing alert emails
+  const isAlert = isLikelyListingAlert(fromAddress, message.subject ?? null);
+
+  // Extract HTML body from Graph API response
+  const bodyHtml = message.body?.contentType === "html"
+    ? message.body.content
+    : null;
+
+  // Derive user domain from the account email (e.g., crawfordholdings.co)
+  const userDomain = accountEmail
+    ? accountEmail.split("@")[1] ?? "crawfordholdings.co"
+    : "crawfordholdings.co";
+
   // Categorize email for deal pipeline
   const category = categorizeEmail(
     {
@@ -542,7 +619,7 @@ async function upsertEmail(message: GraphMessage, emailAccountId: string): Promi
       bodyPreview: message.bodyPreview ?? null,
     },
     {
-      userDomain: "gmail.com",
+      userDomain,
       targetDomains: [...TARGET_DOMAINS],
       brokerDomains: [...BROKER_DOMAINS],
     }
@@ -553,6 +630,7 @@ async function upsertEmail(message: GraphMessage, emailAccountId: string): Promi
     messageHash,
     subject: message.subject ?? null,
     bodyPreview: message.bodyPreview ?? null,
+    bodyHtml,
     fromAddress,
     fromName,
     toAddresses,
@@ -565,6 +643,7 @@ async function upsertEmail(message: GraphMessage, emailAccountId: string): Promi
     importance: message.importance ?? null,
     webLink: message.webLink ?? null,
     emailCategory: category,
+    isListingAlert: isAlert,
   };
 
   await prisma.email.upsert({
