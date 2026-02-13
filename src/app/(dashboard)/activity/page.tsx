@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  Check,
   Clock,
   Mail,
   MessageSquare,
@@ -11,6 +12,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Circle,
+  PenLine,
+  X,
 } from "lucide-react";
 import { usePipeline } from "@/hooks/use-pipeline";
 import { useTasks, useUpdateTask } from "@/hooks/use-tasks";
@@ -29,6 +32,41 @@ export default function ActivityPage() {
   const { data, isLoading } = usePipeline();
   const { data: tasksData } = useTasks({ status: "pending", limit: 20 });
   const updateTask = useUpdateTask();
+
+  // Inline editing state
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editPriority, setEditPriority] = useState("MEDIUM");
+
+  const startEdit = (task: { id: string; title: string; dueDate: string | null; priority: string }) => {
+    setEditingTaskId(task.id);
+    setEditTitle(task.title);
+    setEditDueDate(task.dueDate ? new Date(task.dueDate).toISOString().split("T")[0] : "");
+    setEditPriority(task.priority);
+  };
+
+  const cancelEdit = () => {
+    setEditingTaskId(null);
+    setEditTitle("");
+    setEditDueDate("");
+    setEditPriority("MEDIUM");
+  };
+
+  const saveEdit = () => {
+    if (!editingTaskId || !editTitle.trim()) return;
+    updateTask.mutate(
+      {
+        id: editingTaskId,
+        data: {
+          title: editTitle.trim(),
+          dueDate: editDueDate ? new Date(editDueDate).toISOString() : null,
+          priority: editPriority,
+        },
+      },
+      { onSuccess: cancelEdit }
+    );
+  };
 
   const opportunities = data?.opportunities ?? [];
 
@@ -86,8 +124,58 @@ export default function ActivityPage() {
           <div className="divide-y">
             {tasksData.tasks.slice(0, 10).map((task) => {
               const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+              const isEditing = editingTaskId === task.id;
+
+              if (isEditing) {
+                return (
+                  <div key={task.id} className="p-3 space-y-2 bg-muted/20">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveEdit();
+                        if (e.key === "Escape") cancelEdit();
+                      }}
+                      className="w-full rounded border bg-background px-2 py-1.5 text-xs"
+                      autoFocus
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="date"
+                        value={editDueDate}
+                        onChange={(e) => setEditDueDate(e.target.value)}
+                        className="rounded border bg-background px-2 py-1 text-xs"
+                      />
+                      <select
+                        value={editPriority}
+                        onChange={(e) => setEditPriority(e.target.value)}
+                        className="rounded border bg-background px-2 py-1 text-xs"
+                      >
+                        <option value="LOW">Low</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="HIGH">High</option>
+                        <option value="CRITICAL">Critical</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={cancelEdit} className="rounded border px-2 py-1 text-xs hover:bg-muted flex items-center gap-1">
+                        <X className="h-3 w-3" /> Cancel
+                      </button>
+                      <button
+                        onClick={saveEdit}
+                        disabled={!editTitle.trim() || updateTask.isPending}
+                        className="rounded bg-primary px-2 py-1 text-xs text-white hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
+                      >
+                        <Check className="h-3 w-3" /> Save
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
-                <div key={task.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div key={task.id} className="group flex items-center gap-3 px-4 py-2.5">
                   <button
                     onClick={() => updateTask.mutate({ id: task.id, data: { isCompleted: true } })}
                     className="text-muted-foreground hover:text-primary"
@@ -107,6 +195,13 @@ export default function ActivityPage() {
                       {isOverdue ? "Overdue: " : ""}{formatRelativeDate(task.dueDate)}
                     </span>
                   )}
+                  <button
+                    onClick={() => startEdit(task)}
+                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary p-0.5"
+                    aria-label="Edit task"
+                  >
+                    <PenLine className="h-3 w-3" />
+                  </button>
                 </div>
               );
             })}

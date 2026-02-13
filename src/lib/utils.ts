@@ -47,6 +47,17 @@ export function formatRelativeDate(date: Date | string | null | undefined): stri
   const diffMs = now.getTime() - d.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
+  // Future dates
+  if (diffDays < 0) {
+    const futureDays = Math.abs(diffDays);
+    if (futureDays === 1) return "Tomorrow";
+    if (futureDays < 7) return `in ${futureDays}d`;
+    if (futureDays < 30) return `in ${Math.floor(futureDays / 7)}w`;
+    if (futureDays < 365) return `in ${Math.floor(futureDays / 30)}mo`;
+    return `in ${Math.floor(futureDays / 365)}y`;
+  }
+
+  // Past dates
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
