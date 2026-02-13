@@ -77,7 +77,7 @@ export default function OpportunityDetailPage({
           </ErrorBoundary>
 
           <ErrorBoundary>
-            <DocumentsSection documents={opportunity.documents ?? []} />
+            <DocumentsSection opportunityId={opportunity.id} documents={opportunity.documents ?? []} />
           </ErrorBoundary>
 
           <ErrorBoundary>

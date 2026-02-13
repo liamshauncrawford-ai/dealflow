@@ -495,11 +495,16 @@ model DealDocument {
   opportunityId   String
   opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  filePath        String
+  filePath        String?           // Legacy import path (null for uploaded docs)
   fileName        String
   fileType        String
   fileSize        Int?
   category        DocumentCategory
+
+  fileData        Bytes?            // Actual file content (PostgreSQL bytea)
+  mimeType        String?           // MIME type (e.g. "application/pdf")
+  description     String?           // Optional user notes about the document
+  uploadedAt      DateTime?         // Set for uploaded docs, null for legacy imports
 
   importedAt      DateTime          @default(now())
 

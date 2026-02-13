@@ -35,7 +35,21 @@ export async function GET(
         },
         stageHistory: { orderBy: { createdAt: "desc" } },
         tags: { include: { tag: true } },
-        documents: { orderBy: { category: "asc" } },
+        documents: {
+          orderBy: [{ category: "asc" }, { importedAt: "desc" }],
+          select: {
+            id: true,
+            fileName: true,
+            fileType: true,
+            fileSize: true,
+            category: true,
+            mimeType: true,
+            description: true,
+            uploadedAt: true,
+            importedAt: true,
+            // fileData intentionally excluded — can be multi-MB per document
+          },
+        },
         contacts: { orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }] },
       },
     });

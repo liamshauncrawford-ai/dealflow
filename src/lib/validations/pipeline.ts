@@ -197,6 +197,24 @@ const contactInPromoteSchema = z.object({
   interestLevel: z.enum(contactInterestLevels).optional(),
 });
 
+// ─────────────────────────────────────────────
+// Documents
+// ─────────────────────────────────────────────
+
+const documentCategories = [
+  "CIM", "FINANCIAL_MODEL", "FINANCIAL_STATEMENT",
+  "TAX_RETURN", "LOI", "NDA", "VALUATION", "OTHER",
+] as const;
+
+export const updateDocumentSchema = z.object({
+  category: z.enum(documentCategories).optional(),
+  description: z.string().max(1000).nullable().optional(),
+});
+
+// ─────────────────────────────────────────────
+// Promote Listing to Pipeline
+// ─────────────────────────────────────────────
+
 export const promoteToOpportunitySchema = z.object({
   title: z.string().max(500).optional(),
   description: z.string().max(5000).optional(),
