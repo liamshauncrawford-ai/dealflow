@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { MINIMUM_EBITDA, MINIMUM_SDE } from "@/lib/constants";
+import { checkStaleAndOverdue } from "@/lib/workflow-engine";
 
 export async function GET() {
   try {
+    // Run stale/overdue detection (rate-limited internally to once per 5 min)
+    await checkStaleAndOverdue();
+
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

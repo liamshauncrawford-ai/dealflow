@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { parseBody } from "@/lib/validations/common";
+import { executeTaskCompletionChain } from "@/lib/workflow-engine";
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -45,6 +46,11 @@ export async function PATCH(
         opportunity: { select: { id: true, title: true } },
       },
     });
+
+    // If task was just completed and is linked to an opportunity, run follow-up chain
+    if (body.isCompleted === true && task.opportunityId) {
+      await executeTaskCompletionChain(task.id);
+    }
 
     return NextResponse.json(task);
   } catch (error) {

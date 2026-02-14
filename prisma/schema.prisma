@@ -852,6 +852,14 @@ model AppSetting {
 // TASKS / REMINDERS
 // ─────────────────────────────────────────────
 
+enum TaskSource {
+  MANUAL
+  STAGE_TRIGGER
+  FOLLOW_UP_CHAIN
+  STALE_DETECTION
+  OVERDUE_DETECTION
+}
+
 model Task {
   id              String        @id @default(cuid())
 
@@ -865,10 +873,15 @@ model Task {
   completedAt     DateTime?
   priority        String        @default("MEDIUM")
 
+  // Workflow automation fields
+  source          TaskSource    @default(MANUAL)
+  triggerStage    String?       // Pipeline stage that triggered this task (dedup key)
+
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([opportunityId])
   @@index([dueDate])
   @@index([isCompleted])
+  @@index([opportunityId, triggerStage, isCompleted])
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Circle, Clock, PenLine, Plus, Trash2, X, Check } from "lucide-react";
+import { CheckCircle2, Circle, Clock, PenLine, Plus, Trash2, X, Check, Zap } from "lucide-react";
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask } from "@/hooks/use-tasks";
 import { cn, formatRelativeDate } from "@/lib/utils";
 
@@ -224,6 +224,19 @@ export function TasksPanel({ opportunityId }: TasksPanelProps) {
               </button>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
+                  {task.source !== "MANUAL" && (
+                    <span
+                      title={
+                        task.source === "STAGE_TRIGGER" ? "Auto-created on stage change" :
+                        task.source === "FOLLOW_UP_CHAIN" ? "Follow-up chain" :
+                        task.source === "STALE_DETECTION" ? "Stale contact detected" :
+                        task.source === "OVERDUE_DETECTION" ? "Overdue follow-up" :
+                        "Automated"
+                      }
+                    >
+                      <Zap className="h-3 w-3 flex-shrink-0 text-amber-500" />
+                    </span>
+                  )}
                   <p className={cn("text-sm", PRIORITY_COLORS[task.priority])}>{task.title}</p>
                   {task.priority !== "MEDIUM" && (
                     <span className={cn("rounded-full px-1.5 py-0.5 text-[9px] font-medium", PRIORITY_BG[task.priority])}>
@@ -274,7 +287,12 @@ export function TasksPanel({ opportunityId }: TasksPanelProps) {
                 >
                   <CheckCircle2 className="h-4 w-4" />
                 </button>
-                <p className="text-sm line-through flex-1">{task.title}</p>
+                <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  {task.source !== "MANUAL" && (
+                    <Zap className="h-3 w-3 flex-shrink-0 text-amber-500/60" />
+                  )}
+                  <p className="text-sm line-through truncate">{task.title}</p>
+                </div>
                 <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
                   <button
                     onClick={() => startEdit(task)}

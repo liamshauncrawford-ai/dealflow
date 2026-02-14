@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { PipelineStage } from "@prisma/client";
 import { parseBody } from "@/lib/validations/common";
 import { updateOpportunitySchema } from "@/lib/validations/pipeline";
+import { executeStageChangeTriggers } from "@/lib/workflow-engine";
 
 export async function GET(
   request: NextRequest,
@@ -107,6 +108,9 @@ export async function PATCH(
             note: body.stageNote || null,
           },
         });
+
+        // Execute workflow triggers (auto-create tasks, update contacts)
+        await executeStageChangeTriggers(id, current.stage, body.stage as PipelineStage);
 
         // Auto-set date fields based on stage
         const stageDateMap: Record<string, string> = {

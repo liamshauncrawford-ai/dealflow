@@ -17,6 +17,8 @@ interface Task {
   isCompleted: boolean;
   completedAt: string | null;
   priority: string;
+  source: "MANUAL" | "STAGE_TRIGGER" | "FOLLOW_UP_CHAIN" | "STALE_DETECTION" | "OVERDUE_DETECTION";
+  triggerStage: string | null;
   opportunityId: string | null;
   opportunity: { id: string; title: string } | null;
   createdAt: string;
