@@ -15,6 +15,7 @@ import {
   User,
   CalendarClock,
 } from "lucide-react";
+import { toast } from "sonner";
 import { usePipeline, useUpdateOpportunity } from "@/hooks/use-pipeline";
 import { PIPELINE_STAGES, PRIORITY_LEVELS, PRIMARY_TRADES, type PipelineStageKey, type PrimaryTradeKey } from "@/lib/constants";
 import { cn, formatCurrency, formatRelativeDate } from "@/lib/utils";
@@ -43,6 +44,95 @@ const KANBAN_ROW_2: PipelineStageKey[] = [
 // Combined for drag-and-drop lookups
 const ALL_KANBAN_STAGES = [...KANBAN_ROW_1, ...KANBAN_ROW_2];
 
+// ─────────────────────────────────────────────
+// Deal Aging Thresholds (per stage)
+// Tuple: [greenMax, yellowMax, amberMax] in days
+// Beyond amberMax = red
+// ─────────────────────────────────────────────
+
+const AGING_THRESHOLDS: Record<string, [number, number, number]> = {
+  CONTACTING:             [7,  14, 30],
+  REQUESTED_CIM:          [7,  14, 30],
+  SIGNED_NDA:             [7,  14, 21],
+  DUE_DILIGENCE:          [14, 30, 60],
+  OFFER_SENT:             [5,  10, 21],
+  COUNTER_OFFER_RECEIVED: [3,  7,  14],
+  UNDER_CONTRACT:         [7,  14, 30],
+};
+const DEFAULT_AGING: [number, number, number] = [7, 14, 30];
+
+function getAgingStatus(days: number, stageKey: string): {
+  label: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+} {
+  const [greenMax, yellowMax, amberMax] =
+    AGING_THRESHOLDS[stageKey] ?? DEFAULT_AGING;
+
+  if (days <= greenMax) {
+    return { label: `${days}d`, color: "text-green-700 dark:text-green-400", bgColor: "bg-green-100 dark:bg-green-900/30", borderColor: "border-l-green-400" };
+  }
+  if (days <= yellowMax) {
+    return { label: `${days}d`, color: "text-yellow-700 dark:text-yellow-400", bgColor: "bg-yellow-100 dark:bg-yellow-900/30", borderColor: "border-l-yellow-400" };
+  }
+  if (days <= amberMax) {
+    return { label: `${days}d`, color: "text-amber-700 dark:text-amber-400", bgColor: "bg-amber-100 dark:bg-amber-900/30", borderColor: "border-l-amber-400" };
+  }
+  return { label: `${days}d`, color: "text-red-700 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30", borderColor: "border-l-red-500" };
+}
+
+// ─────────────────────────────────────────────
+// Implied Enterprise Value waterfall
+// ─────────────────────────────────────────────
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function getImpliedEV(opp: any): number | null {
+  if (opp.dealValue && Number(opp.dealValue) > 0) return Number(opp.dealValue);
+  if (opp.offerPrice && Number(opp.offerPrice) > 0) return Number(opp.offerPrice);
+
+  const ebitdaVal = opp.listing?.ebitda
+    ? Number(opp.listing.ebitda)
+    : opp.listing?.inferredEbitda
+      ? Number(opp.listing.inferredEbitda)
+      : null;
+  if (ebitdaVal && ebitdaVal > 0) {
+    const mLow = opp.listing?.targetMultipleLow ?? 3.0;
+    const mHigh = opp.listing?.targetMultipleHigh ?? 5.0;
+    return ebitdaVal * ((mLow + mHigh) / 2);
+  }
+
+  if (opp.listing?.askingPrice && Number(opp.listing.askingPrice) > 0) {
+    return Number(opp.listing.askingPrice);
+  }
+  return null;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+// ─────────────────────────────────────────────
+// Stage-Gate Validation (soft gates — warn but allow)
+// ─────────────────────────────────────────────
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const STAGE_GATE_RULES: Record<string, { check: (opp: any) => boolean; message: string }[]> = {
+  REQUESTED_CIM: [
+    { check: (opp) => (opp._count?.contacts ?? 0) >= 1, message: "No contacts added — consider adding a contact before requesting CIM" },
+  ],
+  SIGNED_NDA: [
+    { check: (opp) => !!opp.contactedAt, message: "Contacted date not set — stage may be premature" },
+  ],
+  DUE_DILIGENCE: [
+    { check: (opp) => !!opp.ndaSignedAt, message: "NDA signed date not set — confirm NDA is in place" },
+  ],
+  OFFER_SENT: [
+    { check: (opp) => !!opp.offerPrice, message: "Offer price not set — add an offer price before sending" },
+  ],
+  UNDER_CONTRACT: [
+    { check: (opp) => !!opp.offerSentAt, message: "Offer sent date not set — confirm the offer was sent" },
+  ],
+};
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 type ViewMode = "stage" | "activity";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -67,6 +157,20 @@ function KanbanColumn({
 }) {
   const stage = PIPELINE_STAGES[stageKey];
 
+  // Column value subtotal
+  const columnValue = useMemo(() => {
+    let total = 0;
+    let hasAny = false;
+    for (const opp of stageOpps) {
+      const ev = getImpliedEV(opp);
+      if (ev !== null) {
+        total += ev;
+        hasAny = true;
+      }
+    }
+    return hasAny ? total : null;
+  }, [stageOpps]);
+
   return (
     <div
       className={cn(
@@ -81,9 +185,16 @@ function KanbanColumn({
       <div className="flex items-center gap-2 border-b px-3 py-2.5">
         <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
         <span className="text-sm font-medium">{stage.label}</span>
-        <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-          {stageOpps.length}
-        </span>
+        <div className="ml-auto flex items-center gap-2">
+          {columnValue !== null && (
+            <span className="text-[10px] font-medium text-muted-foreground" title="Column total implied EV">
+              {formatCurrency(columnValue)}
+            </span>
+          )}
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+            {stageOpps.length}
+          </span>
+        </div>
       </div>
 
       {/* Cards */}
@@ -93,160 +204,200 @@ function KanbanColumn({
             Drop here
           </div>
         ) : (
-          stageOpps.map((opp: any) => (
-            <div
-              key={opp.id}
-              draggable
-              onDragStart={(e) => onDragStart(e, opp.id)}
-              className={cn(
-                "cursor-grab rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing",
-                draggedId === opp.id && "opacity-50"
-              )}
-            >
-              <div className="flex items-start gap-2">
-                <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={`/pipeline/${opp.id}`}
-                    className="text-sm font-medium text-foreground hover:text-primary hover:underline"
-                  >
-                    {opp.title}
-                  </Link>
+          stageOpps.map((opp: any) => {
+            // Precompute aging status for border + badge
+            const daysInStage = opp.stageHistory?.[0]?.createdAt
+              ? Math.max(0, Math.floor((Date.now() - new Date(opp.stageHistory[0].createdAt).getTime()) / 86400000))
+              : null;
+            const aging = daysInStage !== null ? getAgingStatus(daysInStage, stageKey) : null;
 
-                  {/* Owner name */}
-                  {opp.contacts?.[0]?.name && (
-                    <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <User className="h-2.5 w-2.5" />
-                      <span>{opp.contacts[0].name}</span>
-                    </div>
-                  )}
+            return (
+              <div
+                key={opp.id}
+                draggable
+                onDragStart={(e) => onDragStart(e, opp.id)}
+                className={cn(
+                  "cursor-grab rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing border-l-[3px]",
+                  draggedId === opp.id && "opacity-50",
+                  aging ? aging.borderColor : "border-l-transparent"
+                )}
+              >
+                <div className="flex items-start gap-2">
+                  <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
+                  <div className="min-w-0 flex-1">
+                    <Link
+                      href={`/pipeline/${opp.id}`}
+                      className="text-sm font-medium text-foreground hover:text-primary hover:underline"
+                    >
+                      {opp.title}
+                    </Link>
 
-                  {opp.listing && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      {opp.listing.city && (
-                        <span>{opp.listing.city}, {opp.listing.state}</span>
-                      )}
-                      {opp.listing.tier && <TierBadge tier={opp.listing.tier} size="sm" />}
-                      {opp.listing.fitScore !== null && opp.listing.fitScore !== undefined && (
-                        <FitScoreGauge score={opp.listing.fitScore} size="sm" showLabel={false} />
-                      )}
-                      {opp.listing.primaryTrade && (
-                        <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
-                          {PRIMARY_TRADES[opp.listing.primaryTrade as PrimaryTradeKey]?.label ?? opp.listing.primaryTrade}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                    {/* Owner name */}
+                    {opp.contacts?.[0]?.name && (
+                      <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <User className="h-2.5 w-2.5" />
+                        <span>{opp.contacts[0].name}</span>
+                      </div>
+                    )}
 
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="flex flex-col gap-0.5">
-                      {/* Implied EV or asking price */}
-                      {(() => {
-                        const ebitdaVal = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
-                        const multLow = opp.listing?.targetMultipleLow ?? 3.0;
-                        const multHigh = opp.listing?.targetMultipleHigh ?? 5.0;
-                        if (ebitdaVal && ebitdaVal > 0) {
+                    {/* Priority & Win Probability */}
+                    {(opp.priority === "CRITICAL" || opp.priority === "HIGH" || opp.priority === "MEDIUM" || (opp.winProbability != null && opp.winProbability > 0)) && (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {opp.priority === "CRITICAL" && (
+                          <span className="inline-flex items-center gap-0.5 text-destructive animate-pulse">
+                            <Flag className="h-3 w-3" />
+                            <span className="text-[10px] font-semibold">CRITICAL</span>
+                          </span>
+                        )}
+                        {opp.priority === "HIGH" && (
+                          <span className="inline-flex items-center gap-0.5 text-warning">
+                            <Flag className="h-3 w-3" />
+                            <span className="text-[10px] font-semibold">HIGH</span>
+                          </span>
+                        )}
+                        {opp.priority === "MEDIUM" && (
+                          <Flag className="h-3 w-3 text-info opacity-60" />
+                        )}
+                        {opp.winProbability != null && opp.winProbability > 0 && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                            {Math.round(opp.winProbability * 100)}%
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {opp.listing && (
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                        {opp.listing.city && (
+                          <span>{opp.listing.city}, {opp.listing.state}</span>
+                        )}
+                        {opp.listing.tier && <TierBadge tier={opp.listing.tier} size="sm" />}
+                        {opp.listing.fitScore !== null && opp.listing.fitScore !== undefined && (
+                          <FitScoreGauge score={opp.listing.fitScore} size="sm" showLabel={false} />
+                        )}
+                        {opp.listing.primaryTrade && (
+                          <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                            {PRIMARY_TRADES[opp.listing.primaryTrade as PrimaryTradeKey]?.label ?? opp.listing.primaryTrade}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="flex flex-col gap-0.5">
+                        {/* Implied EV or asking price */}
+                        {(() => {
+                          const ebitdaVal = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
+                          const multLow = opp.listing?.targetMultipleLow ?? 3.0;
+                          const multHigh = opp.listing?.targetMultipleHigh ?? 5.0;
+                          if (ebitdaVal && ebitdaVal > 0) {
+                            return (
+                              <span className="text-xs font-medium text-foreground" title={`EBITDA × ${multLow}–${multHigh}x`}>
+                                {formatCurrency(ebitdaVal * multLow)} – {formatCurrency(ebitdaVal * multHigh)}
+                              </span>
+                            );
+                          }
                           return (
-                            <span className="text-xs font-medium text-foreground" title={`EBITDA × ${multLow}–${multHigh}x`}>
-                              {formatCurrency(ebitdaVal * multLow)} – {formatCurrency(ebitdaVal * multHigh)}
+                            <span className="text-xs font-medium text-foreground">
+                              {opp.listing?.askingPrice
+                                ? formatCurrency(Number(opp.listing.askingPrice))
+                                : "Price N/A"}
                             </span>
                           );
-                        }
-                        return (
-                          <span className="text-xs font-medium text-foreground">
-                            {opp.listing?.askingPrice
-                              ? formatCurrency(Number(opp.listing.askingPrice))
-                              : "Price N/A"}
+                        })()}
+                        {opp.offerPrice && (
+                          <span className="text-[10px] font-medium text-emerald-600">
+                            Offer: {formatCurrency(Number(opp.offerPrice))}
                           </span>
-                        );
-                      })()}
-                      {opp.offerPrice && (
-                        <span className="text-[10px] font-medium text-emerald-600">
-                          Offer: {formatCurrency(Number(opp.offerPrice))}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      {opp.emails && opp.emails.length > 0 && (
-                        <span className="flex items-center gap-0.5">
-                          <Mail className="h-3 w-3" />
-                          {opp.emails.length}
-                        </span>
-                      )}
-                      {opp.notes && opp.notes.length > 0 && (
-                        <span className="flex items-center gap-0.5">
-                          <MessageSquare className="h-3 w-3" />
-                          {opp.notes.length}
-                        </span>
-                      )}
-                      {/* Days in current stage */}
-                      {opp.stageHistory?.[0]?.createdAt && (
-                        <span className="flex items-center gap-0.5" title="Days in current stage">
-                          <Clock className="h-3 w-3" />
-                          {Math.max(0, Math.floor((Date.now() - new Date(opp.stageHistory[0].createdAt).getTime()) / (1000 * 60 * 60 * 24)))}d
-                        </span>
-                      )}
-                      {!opp.stageHistory?.[0]?.createdAt && (
-                        <span className="flex items-center gap-0.5">
-                          <Clock className="h-3 w-3" />
-                          {formatRelativeDate(opp.updatedAt)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Next follow-up date */}
-                  {opp.contacts?.[0]?.nextFollowUpDate && (
-                    <div className={cn(
-                      "mt-1.5 flex items-center gap-1 text-[10px]",
-                      new Date(opp.contacts[0].nextFollowUpDate) < new Date()
-                        ? "text-red-600 font-medium"
-                        : "text-muted-foreground"
-                    )}>
-                      <CalendarClock className="h-2.5 w-2.5" />
-                      Follow-up: {new Date(opp.contacts[0].nextFollowUpDate).toLocaleDateString()}
-                    </div>
-                  )}
-
-                  {/* Last email preview */}
-                  {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
-                    <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <Mail className="h-2.5 w-2.5 flex-shrink-0" />
-                      <span className="truncate">
-                        {opp.emails[0].email.subject || "(no subject)"}
-                      </span>
-                      {opp.emails[0].email.sentAt && (
-                        <span className="flex-shrink-0 ml-auto">
-                          {formatRelativeDate(opp.emails[0].email.sentAt)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Source badges */}
-                  {opp.listing?.sources && opp.listing.sources.length > 0 && (
-                    <div className="mt-2 flex gap-1">
-                      {opp.listing.sources
-                        .filter((s: { sourceUrl: string }) => !s.sourceUrl.startsWith("manual://"))
-                        .slice(0, 3)
-                        .map((s: { id: string; sourceUrl: string }) => (
-                          <a
-                            key={s.id}
-                            href={s.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded p-0.5 text-muted-foreground hover:text-primary"
-                            onClick={(e) => e.stopPropagation()}
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {opp.emails && opp.emails.length > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <Mail className="h-3 w-3" />
+                            {opp.emails.length}
+                          </span>
+                        )}
+                        {opp.notes && opp.notes.length > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <MessageSquare className="h-3 w-3" />
+                            {opp.notes.length}
+                          </span>
+                        )}
+                        {/* Color-coded aging badge */}
+                        {aging ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                              aging.bgColor, aging.color
+                            )}
+                            title={`${daysInStage} days in ${stage.label}`}
                           >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))}
+                            <Clock className="h-2.5 w-2.5" />
+                            {aging.label}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="h-3 w-3" />
+                            {formatRelativeDate(opp.updatedAt)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  )}
+
+                    {/* Next follow-up date */}
+                    {opp.contacts?.[0]?.nextFollowUpDate && (
+                      <div className={cn(
+                        "mt-1.5 flex items-center gap-1 text-[10px]",
+                        new Date(opp.contacts[0].nextFollowUpDate) < new Date()
+                          ? "text-red-600 font-medium"
+                          : "text-muted-foreground"
+                      )}>
+                        <CalendarClock className="h-2.5 w-2.5" />
+                        Follow-up: {new Date(opp.contacts[0].nextFollowUpDate).toLocaleDateString()}
+                      </div>
+                    )}
+
+                    {/* Last email preview */}
+                    {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
+                      <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Mail className="h-2.5 w-2.5 flex-shrink-0" />
+                        <span className="truncate">
+                          {opp.emails[0].email.subject || "(no subject)"}
+                        </span>
+                        {opp.emails[0].email.sentAt && (
+                          <span className="flex-shrink-0 ml-auto">
+                            {formatRelativeDate(opp.emails[0].email.sentAt)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Source badges */}
+                    {opp.listing?.sources && opp.listing.sources.length > 0 && (
+                      <div className="mt-2 flex gap-1">
+                        {opp.listing.sources
+                          .filter((s: { sourceUrl: string }) => !s.sourceUrl.startsWith("manual://"))
+                          .slice(0, 3)
+                          .map((s: { id: string; sourceUrl: string }) => (
+                            <a
+                              key={s.id}
+                              href={s.sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded p-0.5 text-muted-foreground hover:text-primary"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -288,6 +439,84 @@ export default function PipelinePage() {
     return groups;
   }, [opportunities]);
 
+  // Pipeline quick stats (computed from already-loaded data)
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const pipelineStats = useMemo(() => {
+    const activeOpps = (opportunities as any[]).filter(
+      (opp) => !["CLOSED_WON", "CLOSED_LOST", "ON_HOLD"].includes(opp.stage)
+    );
+
+    const totalActive = activeOpps.length;
+
+    // Pipeline value range
+    let totalValueLow = 0;
+    let totalValueHigh = 0;
+    let hasValue = false;
+    for (const opp of activeOpps) {
+      const ebitdaVal = opp.listing?.ebitda
+        ? Number(opp.listing.ebitda)
+        : opp.listing?.inferredEbitda
+          ? Number(opp.listing.inferredEbitda)
+          : null;
+      if (ebitdaVal && ebitdaVal > 0) {
+        const mL = opp.listing?.targetMultipleLow ?? 3.0;
+        const mH = opp.listing?.targetMultipleHigh ?? 5.0;
+        totalValueLow += ebitdaVal * mL;
+        totalValueHigh += ebitdaVal * mH;
+        hasValue = true;
+      } else if (opp.offerPrice) {
+        const v = Number(opp.offerPrice);
+        totalValueLow += v;
+        totalValueHigh += v;
+        hasValue = true;
+      } else if (opp.listing?.askingPrice) {
+        const v = Number(opp.listing.askingPrice);
+        totalValueLow += v;
+        totalValueHigh += v;
+        hasValue = true;
+      }
+    }
+
+    // Weighted pipeline value
+    let weightedValue = 0;
+    for (const opp of activeOpps) {
+      const ev = getImpliedEV(opp);
+      const prob = opp.winProbability ?? 0;
+      if (ev !== null && prob > 0) weightedValue += ev * prob;
+    }
+
+    // Avg days in pipeline
+    let totalDays = 0;
+    let daysCount = 0;
+    for (const opp of activeOpps) {
+      if (opp.stageHistory && opp.stageHistory.length > 0) {
+        const firstEntry = opp.stageHistory[opp.stageHistory.length - 1];
+        const days = Math.max(0, Math.floor((Date.now() - new Date(firstEntry.createdAt).getTime()) / 86400000));
+        totalDays += days;
+        daysCount++;
+      }
+    }
+
+    // Overdue follow-ups
+    const now = new Date();
+    let overdueFollowUps = 0;
+    for (const opp of activeOpps) {
+      if (opp.contacts?.[0]?.nextFollowUpDate && new Date(opp.contacts[0].nextFollowUpDate) < now) {
+        overdueFollowUps++;
+      }
+    }
+
+    return {
+      totalActive,
+      totalValueLow: hasValue ? totalValueLow : null,
+      totalValueHigh: hasValue ? totalValueHigh : null,
+      weightedValue: weightedValue > 0 ? weightedValue : null,
+      avgDays: daysCount > 0 ? Math.round(totalDays / daysCount) : 0,
+      overdueFollowUps,
+    };
+  }, [opportunities]);
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedId(id);
     e.dataTransfer.effectAllowed = "move";
@@ -308,8 +537,20 @@ export default function PipelinePage() {
     setDragOverStage(null);
 
     if (draggedId) {
-      const opp = opportunities.find((o) => o.id === draggedId);
+      const opp = opportunities.find((o) => o.id === draggedId) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
       if (opp && opp.stage !== stage) {
+        // Stage-gate validation (soft gate — warn but allow)
+        const rules = STAGE_GATE_RULES[stage];
+        if (rules) {
+          const failures = rules.filter((rule) => !rule.check(opp));
+          for (const failure of failures) {
+            toast.warning(failure.message, {
+              description: `Moving "${opp.title}" to ${PIPELINE_STAGES[stage as PipelineStageKey]?.label}`,
+              duration: 6000,
+            });
+          }
+        }
+
         updateOpportunity.mutate({
           id: draggedId,
           data: { stage },
@@ -367,6 +608,45 @@ export default function PipelinePage() {
           </Link>
         </div>
       </div>
+
+      {/* Pipeline Quick Stats Bar */}
+      {!isLoading && viewMode === "stage" && (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Active Deals</div>
+            <div className="text-lg font-semibold text-foreground">{pipelineStats.totalActive}</div>
+          </div>
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Pipeline Value</div>
+            <div className="text-sm font-semibold text-foreground">
+              {pipelineStats.totalValueLow !== null
+                ? `${formatCurrency(pipelineStats.totalValueLow)} – ${formatCurrency(pipelineStats.totalValueHigh!)}`
+                : "N/A"}
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Weighted Value</div>
+            <div className="text-sm font-semibold text-foreground">
+              {pipelineStats.weightedValue !== null
+                ? formatCurrency(pipelineStats.weightedValue)
+                : "N/A"}
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Avg Days</div>
+            <div className="text-lg font-semibold text-foreground">{pipelineStats.avgDays}d</div>
+          </div>
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Overdue Follow-ups</div>
+            <div className={cn(
+              "text-lg font-semibold",
+              pipelineStats.overdueFollowUps > 0 ? "text-red-600" : "text-foreground"
+            )}>
+              {pipelineStats.overdueFollowUps}
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground" role="status" aria-label="Loading pipeline">
