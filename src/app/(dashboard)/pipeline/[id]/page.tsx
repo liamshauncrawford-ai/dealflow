@@ -65,9 +65,9 @@ export default function OpportunityDetailPage({
         <DealAnalysisPanel opportunity={opportunity} />
       </ErrorBoundary>
 
-      {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Left column */}
+      {/* Two-column layout — left column wider for detailed content */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        {/* Left column — detailed content */}
         <div className="space-y-6">
           <ErrorBoundary>
             {listing ? (
@@ -94,18 +94,18 @@ export default function OpportunityDetailPage({
           </ErrorBoundary>
         </div>
 
-        {/* Right column */}
+        {/* Right column — compact panels */}
         <div className="space-y-6">
-          <ErrorBoundary>
-            <DocumentsSection opportunityId={opportunity.id} documents={opportunity.documents ?? []} />
-          </ErrorBoundary>
-
           <ErrorBoundary>
             <TasksPanel opportunityId={opportunity.id} />
           </ErrorBoundary>
 
           <ErrorBoundary>
             <ContactsPanel opportunityId={opportunity.id} />
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <DocumentsSection opportunityId={opportunity.id} documents={opportunity.documents ?? []} />
           </ErrorBoundary>
 
           <ErrorBoundary>

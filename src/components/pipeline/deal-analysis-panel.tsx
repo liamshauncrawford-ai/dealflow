@@ -8,6 +8,9 @@ import {
   X,
   AlertTriangle,
   TrendingUp,
+  MapPin,
+  Users,
+  Calendar,
 } from "lucide-react";
 import { useUpdateOpportunity } from "@/hooks/use-pipeline";
 import { formatCurrency } from "@/lib/utils";
@@ -41,8 +44,14 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
 
-  // Check if there is any thesis data to display
-  const hasData = opportunity.actualRevenue || opportunity.actualEbitda ||
+  // Check if there is any thesis data or listing data to display
+  const listing = opportunity.listing;
+  const hasListingFinancials = listing && (
+    listing.askingPrice || listing.revenue || listing.ebitda || listing.inferredEbitda ||
+    listing.sde || listing.cashFlow || listing.employees || listing.established ||
+    listing.city || listing.state
+  );
+  const hasData = hasListingFinancials || opportunity.actualRevenue || opportunity.actualEbitda ||
     opportunity.recurringRevenuePct !== null || opportunity.customerConcentration !== null ||
     opportunity.integrationComplexity || opportunity.keyPersonRisk ||
     opportunity.dealStructure || opportunity.offeredMultiple ||
@@ -264,6 +273,43 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
                       <div className="text-sm font-bold text-primary">{offerRev.toFixed(1)}x</div>
                     </div>
                   )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Listing Snapshot — key metrics from the linked listing */}
+          {hasListingFinancials && (() => {
+            const loc = [listing.city, listing.state].filter(Boolean).join(", ");
+            const ebitdaVal = listing.ebitda ? Number(listing.ebitda) : (listing.inferredEbitda ? Number(listing.inferredEbitda) : null);
+            const isEstimated = !listing.ebitda && !!listing.inferredEbitda;
+
+            const metrics: Array<{ label: string; value: string; icon?: React.ReactNode }> = [];
+
+            if (listing.askingPrice) metrics.push({ label: "Asking Price", value: formatCurrency(Number(listing.askingPrice)) });
+            if (listing.revenue) metrics.push({ label: "Revenue", value: formatCurrency(Number(listing.revenue)) });
+            if (ebitdaVal) metrics.push({ label: isEstimated ? "EBITDA (est.)" : "EBITDA", value: formatCurrency(ebitdaVal) });
+            if (listing.sde) metrics.push({ label: "SDE", value: formatCurrency(Number(listing.sde)) });
+            if (listing.cashFlow) metrics.push({ label: "Cash Flow", value: formatCurrency(Number(listing.cashFlow)) });
+            if (listing.employees) metrics.push({ label: "Employees", value: String(listing.employees), icon: <Users className="h-2.5 w-2.5" /> });
+            if (listing.established) metrics.push({ label: "Est.", value: String(listing.established), icon: <Calendar className="h-2.5 w-2.5" /> });
+            if (loc) metrics.push({ label: "Location", value: loc, icon: <MapPin className="h-2.5 w-2.5" /> });
+
+            if (metrics.length === 0) return null;
+
+            return (
+              <div className="rounded-md border bg-muted/10 p-3">
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Listing Snapshot
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {metrics.map((m) => (
+                    <div key={m.label} className="inline-flex items-center gap-1">
+                      {m.icon}
+                      <span className="text-[10px] text-muted-foreground">{m.label}:</span>
+                      <span className="text-xs font-medium">{m.value}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             );

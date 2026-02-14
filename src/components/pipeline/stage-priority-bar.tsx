@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ChevronDown, Clock, DollarSign, FileText, Flag, Phone, Send, TrendingUp } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock, DollarSign, FileText, Flag, Globe, Phone, Send, TrendingUp } from "lucide-react";
 import { useUpdateOpportunity } from "@/hooks/use-pipeline";
 import {
   PIPELINE_STAGES,
@@ -36,6 +36,9 @@ interface StagePriorityBarProps {
     updatedAt: string;
     winProbability: number | null;
     dealValue: number | null;
+    listing?: {
+      website?: string | null;
+    } | null;
   };
 }
 
@@ -272,6 +275,25 @@ export function StagePriorityBar({ opportunity }: StagePriorityBarProps) {
             </button>
           )}
         </div>
+
+        {/* Website link */}
+        {opportunity.listing?.website && (() => {
+          const raw = String(opportunity.listing.website);
+          const href = raw.startsWith("http") ? raw : `https://${raw}`;
+          const display = raw.replace(/^https?:\/\//, "").replace(/\/$/, "");
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-primary hover:bg-primary/5"
+              title="Company website"
+            >
+              <Globe className="h-3 w-3" />
+              {display}
+            </a>
+          );
+        })()}
 
         {/* Key dates */}
         <div className="ml-auto flex flex-wrap items-center gap-4 text-xs text-muted-foreground">

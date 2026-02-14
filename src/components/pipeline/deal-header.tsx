@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PenLine, Trash2, X, Save } from "lucide-react";
+import { PenLine, Trash2, X, Save, Sparkles, Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useUpdateOpportunity, useDeleteOpportunity } from "@/hooks/use-pipeline";
 import { TierBadge } from "@/components/listings/tier-badge";
 import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
@@ -22,12 +24,28 @@ interface DealHeaderProps {
 
 export function DealHeader({ opportunity }: DealHeaderProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const updateOpportunity = useUpdateOpportunity();
   const deleteOpportunity = useDeleteOpportunity();
 
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    setIsSummarizing(true);
+    try {
+      const res = await fetch(`/api/pipeline/${opportunity.id}/summarize`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to generate summary");
+      queryClient.invalidateQueries({ queryKey: ["opportunity", opportunity.id] });
+      toast.success("Description generated");
+    } catch {
+      toast.error("Failed to generate summary");
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
 
   const startEditing = () => {
     setEditData({
@@ -141,9 +159,29 @@ export function DealHeader({ opportunity }: DealHeaderProps) {
                   )}
                 </div>
                 {opportunity.description && (
-                  <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {opportunity.description}
                   </p>
+                )}
+                {/* AI summary button: show when no description or very long raw blurb */}
+                {opportunity.listing && (!opportunity.description || opportunity.description.length > 500) && (
+                  <button
+                    onClick={handleGenerateSummary}
+                    disabled={isSummarizing}
+                    className="mt-1.5 inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    {isSummarizing ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Generating summary...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        {opportunity.description ? "Regenerate summary with AI" : "Generate description with AI"}
+                      </>
+                    )}
+                  </button>
                 )}
               </>
             )}
