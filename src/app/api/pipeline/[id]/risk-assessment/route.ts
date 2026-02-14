@@ -2,6 +2,48 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assessDealRisk } from "@/lib/ai/risk-assessment";
 import { isAIEnabled } from "@/lib/ai/claude-client";
+import { z } from "zod";
+
+// ─────────────────────────────────────────────
+// GET /api/pipeline/[id]/risk-assessment
+//
+// Returns the latest cached AI risk assessment for an opportunity,
+// or null if none exists.
+// ─────────────────────────────────────────────
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id: opportunityId } = await params;
+
+    const latest = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        opportunityId,
+        analysisType: "RISK_ASSESSMENT",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (!latest) {
+      return NextResponse.json({ result: null });
+    }
+
+    return NextResponse.json({
+      analysisId: latest.id,
+      result: latest.resultData,
+      modelUsed: latest.modelUsed,
+      createdAt: latest.createdAt,
+    });
+  } catch (err) {
+    console.error("[risk-assessment] GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch risk assessment" },
+      { status: 500 },
+    );
+  }
+}
 
 // ─────────────────────────────────────────────
 // POST /api/pipeline/[id]/risk-assessment
@@ -87,5 +129,69 @@ export async function POST(
     const message =
       err instanceof Error ? err.message : "Failed to generate risk assessment";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// ─────────────────────────────────────────────
+// PATCH /api/pipeline/[id]/risk-assessment
+//
+// Updates the latest risk assessment's resultData (for editing
+// recommendation, strengths, concerns, etc.)
+// ─────────────────────────────────────────────
+
+const patchSchema = z.object({
+  analysisId: z.string(),
+  resultData: z.record(z.string(), z.unknown()),
+});
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id: opportunityId } = await params;
+    const body = await request.json();
+    const parsed = patchSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { analysisId, resultData } = parsed.data;
+
+    // Verify the analysis belongs to this opportunity
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        opportunityId,
+        analysisType: "RISK_ASSESSMENT",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Risk assessment not found" },
+        { status: 404 },
+      );
+    }
+
+    const updated = await prisma.aIAnalysisResult.update({
+      where: { id: analysisId },
+      data: { resultData: resultData as object },
+    });
+
+    return NextResponse.json({
+      analysisId: updated.id,
+      result: updated.resultData,
+    });
+  } catch (err) {
+    console.error("[risk-assessment] PATCH error:", err);
+    return NextResponse.json(
+      { error: "Failed to update risk assessment" },
+      { status: 500 },
+    );
   }
 }

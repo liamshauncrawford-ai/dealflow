@@ -226,7 +226,7 @@ export default function ListingDetailPage({
   const evHigh = effectiveEbitda ? effectiveEbitda * multHigh : null;
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground">Home</Link>

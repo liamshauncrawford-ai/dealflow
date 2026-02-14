@@ -18,6 +18,7 @@ import {
   EmailsPanel,
   TasksPanel,
   DealAnalysisPanel,
+  AIRiskPanel,
 } from "@/components/pipeline";
 
 export default function OpportunityDetailPage({
@@ -50,7 +51,7 @@ export default function OpportunityDetailPage({
   const listing = opportunity.listing;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
       <ErrorBoundary>
         <DealHeader opportunity={opportunity} />
       </ErrorBoundary>
@@ -59,10 +60,15 @@ export default function OpportunityDetailPage({
         <StagePriorityBar opportunity={opportunity} />
       </ErrorBoundary>
 
+      {/* Deal Analysis — full width below stage bar */}
+      <ErrorBoundary>
+        <DealAnalysisPanel opportunity={opportunity} />
+      </ErrorBoundary>
+
       {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main column */}
-        <div className="space-y-6 lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Left column */}
+        <div className="space-y-6">
           <ErrorBoundary>
             {listing ? (
               <LinkedListingCard
@@ -77,7 +83,7 @@ export default function OpportunityDetailPage({
           </ErrorBoundary>
 
           <ErrorBoundary>
-            <DocumentsSection opportunityId={opportunity.id} documents={opportunity.documents ?? []} />
+            <AIRiskPanel opportunityId={opportunity.id} />
           </ErrorBoundary>
 
           <ErrorBoundary>
@@ -88,14 +94,25 @@ export default function OpportunityDetailPage({
           </ErrorBoundary>
         </div>
 
-        {/* Sidebar column */}
+        {/* Right column */}
         <div className="space-y-6">
+          <ErrorBoundary>
+            <DocumentsSection opportunityId={opportunity.id} documents={opportunity.documents ?? []} />
+          </ErrorBoundary>
+
           <ErrorBoundary>
             <TasksPanel opportunityId={opportunity.id} />
           </ErrorBoundary>
 
           <ErrorBoundary>
-            <DealAnalysisPanel opportunity={opportunity} />
+            <ContactsPanel opportunityId={opportunity.id} />
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <EmailsPanel
+              opportunityId={opportunity.id}
+              emails={opportunity.emails}
+            />
           </ErrorBoundary>
 
           <ErrorBoundary>
@@ -111,17 +128,6 @@ export default function OpportunityDetailPage({
 
           <ErrorBoundary>
             <TagsPanel tags={opportunity.tags} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <ContactsPanel opportunityId={opportunity.id} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <EmailsPanel
-              opportunityId={opportunity.id}
-              emails={opportunity.emails}
-            />
           </ErrorBoundary>
         </div>
       </div>

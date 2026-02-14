@@ -139,6 +139,9 @@ export function useRiskAssessment(opportunityId: string) {
       queryClient.invalidateQueries({
         queryKey: ["opportunity", opportunityId],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["risk-data", opportunityId],
+      });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Risk assessment failed");
