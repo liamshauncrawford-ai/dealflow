@@ -212,6 +212,23 @@ export const updateDocumentSchema = z.object({
 });
 
 // ─────────────────────────────────────────────
+// Contacts Page (cross-opportunity)
+// ─────────────────────────────────────────────
+
+export const contactsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  sortBy: z.enum(["name", "company", "nextFollowUpDate", "lastInteractionDate", "createdAt"]).default("createdAt"),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
+  search: z.string().optional(),
+  interestLevel: z.enum(contactInterestLevels).optional(),
+  outreachStatus: z.enum(outreachStatuses).optional(),
+  sentiment: z.enum(contactSentiments).optional(),
+  dealStage: z.enum(pipelineStages).optional(),
+  overdueOnly: z.coerce.boolean().optional(),
+});
+
+// ─────────────────────────────────────────────
 // Promote Listing to Pipeline
 // ─────────────────────────────────────────────
 
