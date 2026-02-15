@@ -17,8 +17,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { usePipeline, useUpdateOpportunity } from "@/hooks/use-pipeline";
+import { useThesisSettings } from "@/hooks/use-thesis-settings";
 import { PIPELINE_STAGES, PRIORITY_LEVELS, PRIMARY_TRADES, type PipelineStageKey, type PrimaryTradeKey } from "@/lib/constants";
 import { cn, formatCurrency, formatRelativeDate } from "@/lib/utils";
+import { getImpliedEV, getOpportunityValueRange } from "@/lib/valuation";
 import { TierBadge } from "@/components/listings/tier-badge";
 import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
 import {
@@ -32,10 +34,10 @@ const KANBAN_ROW_1: PipelineStageKey[] = [
   "CONTACTING",
   "REQUESTED_CIM",
   "SIGNED_NDA",
-  "DUE_DILIGENCE",
 ];
 
 const KANBAN_ROW_2: PipelineStageKey[] = [
+  "DUE_DILIGENCE",
   "OFFER_SENT",
   "COUNTER_OFFER_RECEIVED",
   "UNDER_CONTRACT",
@@ -81,33 +83,6 @@ function getAgingStatus(days: number, stageKey: string): {
   }
   return { label: `${days}d`, color: "text-red-700 dark:text-red-400", bgColor: "bg-red-100 dark:bg-red-900/30", borderColor: "border-l-red-500" };
 }
-
-// ─────────────────────────────────────────────
-// Implied Enterprise Value waterfall
-// ─────────────────────────────────────────────
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function getImpliedEV(opp: any): number | null {
-  if (opp.dealValue && Number(opp.dealValue) > 0) return Number(opp.dealValue);
-  if (opp.offerPrice && Number(opp.offerPrice) > 0) return Number(opp.offerPrice);
-
-  const ebitdaVal = opp.listing?.ebitda
-    ? Number(opp.listing.ebitda)
-    : opp.listing?.inferredEbitda
-      ? Number(opp.listing.inferredEbitda)
-      : null;
-  if (ebitdaVal && ebitdaVal > 0) {
-    const mLow = opp.listing?.targetMultipleLow ?? 3.0;
-    const mHigh = opp.listing?.targetMultipleHigh ?? 5.0;
-    return ebitdaVal * ((mLow + mHigh) / 2);
-  }
-
-  if (opp.listing?.askingPrice && Number(opp.listing.askingPrice) > 0) {
-    return Number(opp.listing.askingPrice);
-  }
-  return null;
-}
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // ─────────────────────────────────────────────
 // Stage-Gate Validation (soft gates — warn but allow)
@@ -171,6 +146,8 @@ function KanbanColumn({
     return hasAny ? total : null;
   }, [stageOpps]);
 
+  const isEmpty = stageOpps.length === 0;
+
   return (
     <div
       className={cn(
@@ -198,7 +175,10 @@ function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 space-y-2 p-2 max-h-[60vh] overflow-y-auto">
+      <div className={cn(
+        "flex-1 space-y-2 p-2 overflow-y-auto",
+        isEmpty ? "max-h-[80px]" : "max-h-[60vh]"
+      )}>
         {stageOpps.length === 0 ? (
           <div className="rounded-md border border-dashed p-4 text-center text-xs text-muted-foreground">
             Drop here
@@ -407,6 +387,7 @@ function KanbanColumn({
 
 export default function PipelinePage() {
   const { data, isLoading } = usePipeline();
+  const { data: thesisConfig } = useThesisSettings();
   const updateOpportunity = useUpdateOpportunity();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
@@ -448,31 +429,21 @@ export default function PipelinePage() {
 
     const totalActive = activeOpps.length;
 
-    // Pipeline value range
+    // Pipeline value range — only include stages from thesis config
+    // Uses shared 5-tier waterfall: dealValue → offerPrice → actualEbitda × mult → listing EBITDA × mult → askingPrice
+    const valueStages = thesisConfig?.pipelineValueStages ?? [
+      "SIGNED_NDA", "DUE_DILIGENCE", "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "UNDER_CONTRACT",
+    ];
+    const valueOpps = activeOpps.filter((opp) => valueStages.includes(opp.stage));
+
     let totalValueLow = 0;
     let totalValueHigh = 0;
     let hasValue = false;
-    for (const opp of activeOpps) {
-      const ebitdaVal = opp.listing?.ebitda
-        ? Number(opp.listing.ebitda)
-        : opp.listing?.inferredEbitda
-          ? Number(opp.listing.inferredEbitda)
-          : null;
-      if (ebitdaVal && ebitdaVal > 0) {
-        const mL = opp.listing?.targetMultipleLow ?? 3.0;
-        const mH = opp.listing?.targetMultipleHigh ?? 5.0;
-        totalValueLow += ebitdaVal * mL;
-        totalValueHigh += ebitdaVal * mH;
-        hasValue = true;
-      } else if (opp.offerPrice) {
-        const v = Number(opp.offerPrice);
-        totalValueLow += v;
-        totalValueHigh += v;
-        hasValue = true;
-      } else if (opp.listing?.askingPrice) {
-        const v = Number(opp.listing.askingPrice);
-        totalValueLow += v;
-        totalValueHigh += v;
+    for (const opp of valueOpps) {
+      const range = getOpportunityValueRange(opp);
+      if (range) {
+        totalValueLow += range.low;
+        totalValueHigh += range.high;
         hasValue = true;
       }
     }
@@ -514,7 +485,7 @@ export default function PipelinePage() {
       avgDays: daysCount > 0 ? Math.round(totalDays / daysCount) : 0,
       overdueFollowUps,
     };
-  }, [opportunities]);
+  }, [opportunities, thesisConfig]);
   /* eslint-enable @typescript-eslint/no-explicit-any */
 
   const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -657,15 +628,15 @@ export default function PipelinePage() {
         <>
           {/* Kanban Board — Two-Row Grid Layout */}
           <div className="space-y-4">
-            {/* Row 1: Active Negotiation */}
+            {/* Row 1: Early Pipeline */}
             <div>
               <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                Active Negotiation
+                Early Pipeline
                 <span className="h-px flex-1 bg-border" />
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {KANBAN_ROW_2.map((stageKey) => (
+                {KANBAN_ROW_1.map((stageKey) => (
                   <KanbanColumn
                     key={stageKey}
                     stageKey={stageKey}
@@ -681,15 +652,15 @@ export default function PipelinePage() {
               </div>
             </div>
 
-            {/* Row 2: Early Pipeline */}
+            {/* Row 2: Active Negotiation */}
             <div>
               <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                Early Pipeline
+                Active Negotiation
                 <span className="h-px flex-1 bg-border" />
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {KANBAN_ROW_1.map((stageKey) => (
+                {KANBAN_ROW_2.map((stageKey) => (
                   <KanbanColumn
                     key={stageKey}
                     stageKey={stageKey}

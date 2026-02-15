@@ -1,17 +1,33 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { MINIMUM_EBITDA, MINIMUM_SDE } from "@/lib/constants";
 import { checkStaleAndOverdue } from "@/lib/workflow-engine";
+import { loadThesisConfig } from "@/lib/thesis-loader";
+import { getOpportunityValueRange } from "@/lib/valuation";
+import type { PipelineStage } from "@prisma/client";
 
 export async function GET() {
   try {
     // Run stale/overdue detection (rate-limited internally to once per 5 min)
     await checkStaleAndOverdue();
 
+    // Load configurable thesis parameters from DB (with defaults fallback)
+    const thesisConfig = await loadThesisConfig();
+
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Platform query: if a specific listing is designated, fetch it; otherwise fall back to tier=OWNED
+    const platformListingQuery = thesisConfig.platformListingId
+      ? prisma.listing.findMany({
+          where: { id: thesisConfig.platformListingId },
+          select: { revenue: true, ebitda: true, inferredEbitda: true },
+        })
+      : prisma.listing.findMany({
+          where: { isActive: true, tier: "OWNED" },
+          select: { revenue: true, ebitda: true, inferredEbitda: true },
+        });
 
     const [
       totalActive,
@@ -37,16 +53,16 @@ export async function GET() {
       offerPriceAgg,
       dealsWithBothPrices,
     ] = await Promise.all([
-      // Total active listings meeting threshold
+      // Total active listings meeting threshold (uses configurable thresholds)
       prisma.listing.count({
         where: {
           isActive: true,
           isHidden: false,
           OR: [
-            { ebitda: { gte: MINIMUM_EBITDA } },
-            { sde: { gte: MINIMUM_SDE } },
-            { inferredEbitda: { gte: MINIMUM_EBITDA } },
-            { inferredSde: { gte: MINIMUM_SDE } },
+            { ebitda: { gte: thesisConfig.minimumEbitda } },
+            { sde: { gte: thesisConfig.minimumSde } },
+            { inferredEbitda: { gte: thesisConfig.minimumEbitda } },
+            { inferredSde: { gte: thesisConfig.minimumSde } },
             {
               AND: [
                 { ebitda: null },
@@ -138,10 +154,10 @@ export async function GET() {
 
       // ── Thesis KPIs ──
 
-      // Pipeline Value: All active pipeline opportunities with financials
+      // Pipeline Value: configurable stages
       prisma.opportunity.findMany({
         where: {
-          stage: { notIn: ["CLOSED_WON", "CLOSED_LOST", "ON_HOLD"] },
+          stage: { in: thesisConfig.pipelineValueStages as PipelineStage[] },
         },
         select: {
           id: true,
@@ -161,11 +177,8 @@ export async function GET() {
         },
       }),
 
-      // Platform: OWNED listings
-      prisma.listing.findMany({
-        where: { isActive: true, tier: "OWNED" },
-        select: { revenue: true, ebitda: true, inferredEbitda: true },
-      }),
+      // Platform: OWNED listings (or specific platform listing)
+      platformListingQuery,
 
       // Closed Won opportunities (capital deployed + platform metrics)
       prisma.opportunity.findMany({
@@ -221,57 +234,24 @@ export async function GET() {
       ? wonCount / (wonCount + lostCount)
       : null;
 
-    // Pipeline Value (sum across ALL active pipeline opportunities)
-    // Waterfall per opp: dealValue → offerPrice → actualEbitda × multiple → listing EBITDA × multiple → listing askingPrice
+    // Pipeline Value (sum across configured pipeline opportunities)
+    // Uses shared 5-tier waterfall: dealValue → offerPrice → actualEbitda × mult → listing EBITDA × mult → askingPrice
     let pipelineValueLow = 0;
     let pipelineValueHigh = 0;
     let pipelineValuedCount = 0;
     const valueByStageMap = new Map<string, { valueLow: number; valueHigh: number }>();
     for (const opp of pipelineOppsForValue) {
-      const dv = opp.dealValue ? Number(opp.dealValue) : null;
-      const op = opp.offerPrice ? Number(opp.offerPrice) : null;
-      const ae = opp.actualEbitda ? Number(opp.actualEbitda) : null;
-      const le = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
-      const ask = opp.listing?.askingPrice ? Number(opp.listing.askingPrice) : null;
-      const mLow = opp.listing?.targetMultipleLow ?? 3.0;
-      const mHigh = opp.listing?.targetMultipleHigh ?? 5.0;
-
-      let oppLow = 0;
-      let oppHigh = 0;
-      let valued = false;
-
-      if (dv && dv > 0) {
-        oppLow = dv;
-        oppHigh = dv;
-        valued = true;
-      } else if (op && op > 0) {
-        oppLow = op;
-        oppHigh = op;
-        valued = true;
-      } else if (ae && ae > 0) {
-        oppLow = ae * mLow;
-        oppHigh = ae * mHigh;
-        valued = true;
-      } else if (le && le > 0) {
-        oppLow = le * mLow;
-        oppHigh = le * mHigh;
-        valued = true;
-      } else if (ask && ask > 0) {
-        oppLow = ask;
-        oppHigh = ask;
-        valued = true;
-      }
-
-      if (valued) {
-        pipelineValueLow += oppLow;
-        pipelineValueHigh += oppHigh;
+      const range = getOpportunityValueRange(opp);
+      if (range) {
+        pipelineValueLow += range.low;
+        pipelineValueHigh += range.high;
         pipelineValuedCount++;
 
         // Accumulate per stage
         const stageKey = opp.stage;
         const existing = valueByStageMap.get(stageKey) ?? { valueLow: 0, valueHigh: 0 };
-        existing.valueLow += oppLow;
-        existing.valueHigh += oppHigh;
+        existing.valueLow += range.low;
+        existing.valueHigh += range.high;
         valueByStageMap.set(stageKey, existing);
       }
     }
@@ -296,13 +276,14 @@ export async function GET() {
       }
     }
 
-    // Implied Platform Multiple & MOIC
+    // Implied Platform Multiple & MOIC (using configurable exit multiples)
     const impliedPlatformMultiple = platformEbitda > 0 && capitalDeployed > 0
       ? capitalDeployed / platformEbitda
       : null;
-    const platformValuation7x = platformEbitda * 7;
+    const platformValuationLow = platformEbitda * thesisConfig.exitMultipleLow;
+    const platformValuationHigh = platformEbitda * thesisConfig.exitMultipleHigh;
     const targetMoic = capitalDeployed > 0
-      ? platformValuation7x / capitalDeployed
+      ? platformValuationLow / capitalDeployed
       : null;
 
     // Offer price metrics
@@ -385,8 +366,10 @@ export async function GET() {
       impliedPlatformMultiple: impliedPlatformMultiple
         ? Math.round(impliedPlatformMultiple * 10) / 10
         : null,
-      platformValuation7x,
-      platformValuation10x: platformEbitda * 10,
+      platformValuationLow,
+      platformValuationHigh,
+      exitMultipleLow: thesisConfig.exitMultipleLow,
+      exitMultipleHigh: thesisConfig.exitMultipleHigh,
       targetMoic: targetMoic
         ? Math.round(targetMoic * 10) / 10
         : null,

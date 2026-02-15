@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen } from "lucide-react";
+import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target } from "lucide-react";
 
 const settingsSections = [
   {
@@ -33,6 +33,14 @@ const settingsSections = [
     href: "/settings/email",
     icon: Mail,
     color: "text-success",
+  },
+  {
+    title: "Thesis Configuration",
+    description:
+      "Configure pipeline value stages, platform company, exit multiples, and fit score weights",
+    href: "/settings/thesis",
+    icon: Target,
+    color: "text-purple-600",
   },
   {
     title: "Notifications",

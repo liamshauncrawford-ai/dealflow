@@ -238,13 +238,23 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">Platform EBITDA</p>
               </div>
               <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.platformEbitda)}</p>
+              {stats.platformValuationLow > 0 && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Valuation: {formatCurrency(stats.platformValuationLow)} ({stats.exitMultipleLow}x)
+                  {stats.exitMultipleHigh !== stats.exitMultipleLow && (
+                    <> – {formatCurrency(stats.platformValuationHigh)} ({stats.exitMultipleHigh}x)</>
+                  )}
+                </p>
+              )}
             </div>
           )}
           {stats.targetMoic !== null && stats.targetMoic !== undefined && (
             <div className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">Target MOIC</p>
+                <p className="text-xs text-muted-foreground">
+                  Target MOIC ({stats.exitMultipleLow ?? 7}x exit)
+                </p>
               </div>
               <p className="mt-1 text-xl font-semibold">{stats.targetMoic.toFixed(1)}x</p>
             </div>
