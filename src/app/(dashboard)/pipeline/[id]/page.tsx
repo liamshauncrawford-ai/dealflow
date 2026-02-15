@@ -19,6 +19,7 @@ import {
   TasksPanel,
   DealAnalysisPanel,
   AIRiskPanel,
+  AuditLogPanel,
 } from "@/components/pipeline";
 
 export default function OpportunityDetailPage({
@@ -112,6 +113,8 @@ export default function OpportunityDetailPage({
             <EmailsPanel
               opportunityId={opportunity.id}
               emails={opportunity.emails}
+              dealTitle={opportunity.title}
+              contacts={opportunity.contacts?.map((c: { name: string; email: string | null }) => ({ name: c.name, email: c.email })) ?? []}
             />
           </ErrorBoundary>
 
@@ -120,6 +123,10 @@ export default function OpportunityDetailPage({
               opportunityId={opportunity.id}
               stageHistory={opportunity.stageHistory}
             />
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <AuditLogPanel opportunityId={opportunity.id} />
           </ErrorBoundary>
 
           <ErrorBoundary>

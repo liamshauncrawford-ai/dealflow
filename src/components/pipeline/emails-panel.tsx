@@ -9,17 +9,21 @@ import {
   Link2,
   Mail,
   Paperclip,
+  Reply,
   Search,
+  Send,
   Unlink,
 } from "lucide-react";
 import { useLinkEmail, useUnlinkEmail } from "@/hooks/use-pipeline";
 import { useEmailMessages } from "@/hooks/use-email";
 import { formatRelativeDate } from "@/lib/utils";
+import { ComposeEmailModal } from "./compose-email-modal";
 
 interface EmailLink {
   id: string;
   email: {
     id: string;
+    externalMessageId: string;
     subject: string | null;
     bodyPreview: string | null;
     bodyHtml: string | null;
@@ -29,6 +33,8 @@ interface EmailLink {
     isRead: boolean;
     hasAttachments: boolean;
     webLink: string | null;
+    conversationId?: string | null;
+    isSent?: boolean;
     aiSummary?: string | null;
     attachments?: Array<{
       id: string;
@@ -39,9 +45,19 @@ interface EmailLink {
   };
 }
 
+interface ReplyTo {
+  externalMessageId: string;
+  conversationId: string | null;
+  fromAddress: string;
+  fromName: string | null;
+  subject: string | null;
+}
+
 interface EmailsPanelProps {
   opportunityId: string;
   emails: EmailLink[] | null;
+  dealTitle: string;
+  contacts: Array<{ name: string; email: string | null }>;
 }
 
 function formatFileSize(bytes: number): string {
@@ -51,19 +67,42 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
+export function EmailsPanel({
+  opportunityId,
+  emails,
+  dealTitle,
+  contacts,
+}: EmailsPanelProps) {
   const linkEmailMutation = useLinkEmail(opportunityId);
   const unlinkEmailMutation = useUnlinkEmail(opportunityId);
 
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showCompose, setShowCompose] = useState(false);
+  const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
 
   const { data: searchResults } = useEmailMessages(
     showSearch && searchQuery.length >= 2
       ? { search: searchQuery, limit: 10 }
       : undefined
   );
+
+  const handleNewEmail = () => {
+    setReplyTo(null);
+    setShowCompose(true);
+  };
+
+  const handleReply = (link: EmailLink) => {
+    setReplyTo({
+      externalMessageId: link.email.externalMessageId,
+      conversationId: link.email.conversationId || null,
+      fromAddress: link.email.fromAddress,
+      fromName: link.email.fromName,
+      subject: link.email.subject,
+    });
+    setShowCompose(true);
+  };
 
   return (
     <div className="rounded-lg border bg-card shadow-sm">
@@ -75,13 +114,22 @@ export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
             {emails?.length ?? 0}
           </span>
         </div>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-        >
-          <Link2 className="h-3 w-3" />
-          Link Email
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleNewEmail}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Send className="h-3 w-3" />
+            New Email
+          </button>
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <Link2 className="h-3 w-3" />
+            Link Email
+          </button>
+        </div>
       </div>
 
       {showSearch && (
@@ -163,6 +211,9 @@ export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
                       {!link.email.isRead && (
                         <div className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
                       )}
+                      {link.email.isSent && (
+                        <Send className="h-2.5 w-2.5 text-muted-foreground flex-shrink-0" />
+                      )}
                       <p className="truncate text-sm font-medium">
                         {link.email.subject ?? "(no subject)"}
                       </p>
@@ -174,6 +225,7 @@ export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
                     )}
                     <div className="mt-0.5 flex items-center gap-1.5">
                       <p className="text-xs text-muted-foreground">
+                        {link.email.isSent ? "To: " : ""}
                         {link.email.fromName ?? link.email.fromAddress}
                       </p>
                       {link.email.hasAttachments && (
@@ -221,6 +273,18 @@ export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
                     )}
 
                     <div className="mt-2 flex items-center gap-2">
+                      {!link.email.isSent && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReply(link);
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline"
+                        >
+                          <Reply className="h-2.5 w-2.5" />
+                          Reply
+                        </button>
+                      )}
                       {link.email.webLink && (
                         <a
                           href={link.email.webLink}
@@ -257,6 +321,16 @@ export function EmailsPanel({ opportunityId, emails }: EmailsPanelProps) {
           </div>
         )}
       </div>
+
+      {/* Compose / Reply modal */}
+      <ComposeEmailModal
+        open={showCompose}
+        onOpenChange={setShowCompose}
+        opportunityId={opportunityId}
+        dealTitle={dealTitle}
+        contacts={contacts}
+        replyTo={replyTo}
+      />
     </div>
   );
 }
