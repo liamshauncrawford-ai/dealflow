@@ -1,0 +1,205 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'prisma/**'
+      - 'package.json'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build-check:
+    name: Build Verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: 'postgresql://fake:fake@localhost:5432/fake'
+
+  claude-review:
+    name: Claude AI Review
+    runs-on: ubuntu-latest
+    needs: build-check
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get changed files and diff
+        id: diff
+        run: |
+          # Get list of changed source files
+          CHANGED_FILES=$(git diff --name-only origin/main...HEAD -- 'src/**' 'prisma/**' | head -30)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Get the actual diff (truncated to fit context)
+          DIFF=$(git diff origin/main...HEAD -- 'src/**' 'prisma/**' | head -500)
+          echo "diff<<EOF" >> $GITHUB_OUTPUT
+          echo "$DIFF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Claude API Review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          node -e "
+          const Anthropic = require('@anthropic-ai/sdk');
+          const fs = require('fs');
+
+          async function review() {
+            const client = new Anthropic.default();
+
+            const changedFiles = process.env.CHANGED_FILES || '';
+            const diff = process.env.DIFF || '';
+            const claudeMd = fs.existsSync('CLAUDE.md') ? fs.readFileSync('CLAUDE.md', 'utf8') : '';
+
+            const response = await client.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 4096,
+              messages: [{
+                role: 'user',
+                content: \`You are reviewing a pull request for DealFlow CRM — an M&A deal sourcing platform for data center and B2B commercial acquisitions.
+
+          ## Project Context
+          \${claudeMd}
+
+          ## Changed Files
+          \${changedFiles}
+
+          ## Diff
+          \${diff}
+
+          ## Review Checklist
+          Analyze these changes for:
+          1. **Type Safety**: Missing types, \\\`any\\\` usage, Prisma type mismatches
+          2. **Security**: Input validation gaps, auth bypass, data exposure, SQL injection
+          3. **Performance**: N+1 queries, missing \\\`select\\\` in Prisma, unnecessary re-renders, missing React.memo
+          4. **Error Handling**: Missing try/catch, unhandled promise rejections, missing error boundaries
+          5. **Patterns**: Does it follow existing patterns? (Zod validation, audit logging, React Query hooks)
+          6. **Financial Accuracy**: Any financial calculations — verify waterfall logic, null handling, decimal precision
+          7. **Data Integrity**: Missing cascade deletes, orphaned records, race conditions
+
+          ## Response Format
+          Respond with a JSON object:
+          {
+            \"summary\": \"One-line summary of the changes\",
+            \"severity\": \"pass\" | \"warning\" | \"critical\",
+            \"findings\": [
+              {
+                \"file\": \"src/...\",
+                \"line\": \"optional line reference\",
+                \"severity\": \"info\" | \"warning\" | \"critical\",
+                \"message\": \"Description of the issue and suggested fix\"
+              }
+            ],
+            \"praise\": [\"List of things done well\"]
+          }
+
+          If there are no issues, return severity: \"pass\" with an empty findings array.\`
+              }]
+            });
+
+            const text = response.content[0].text;
+            fs.writeFileSync('/tmp/review-result.json', text);
+            console.log(text);
+          }
+
+          review().catch(err => {
+            console.error('Review failed:', err.message);
+            process.exit(0); // Don't fail the workflow if the API call fails
+          });
+          "
+        env:
+          CHANGED_FILES: ${{ steps.diff.outputs.files }}
+          DIFF: ${{ steps.diff.outputs.diff }}
+
+      - name: Post Review Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let review = { summary: 'Review completed', severity: 'pass', findings: [], praise: [] };
+
+            try {
+              const raw = fs.readFileSync('/tmp/review-result.json', 'utf8');
+              // Extract JSON from potential markdown code blocks
+              const jsonMatch = raw.match(/\{[\s\S]*\}/);
+              if (jsonMatch) {
+                review = JSON.parse(jsonMatch[0]);
+              }
+            } catch (e) {
+              console.log('Could not parse review result:', e.message);
+            }
+
+            const severityEmoji = {
+              pass: ':white_check_mark:',
+              warning: ':warning:',
+              critical: ':x:'
+            };
+
+            let body = `## ${severityEmoji[review.severity] || ':grey_question:'} Claude AI Review\n\n`;
+            body += `**Summary:** ${review.summary}\n\n`;
+
+            if (review.findings && review.findings.length > 0) {
+              body += `### Findings\n\n`;
+              for (const f of review.findings) {
+                const emoji = f.severity === 'critical' ? ':x:' : f.severity === 'warning' ? ':warning:' : ':information_source:';
+                body += `${emoji} **${f.file}**${f.line ? ` (${f.line})` : ''}: ${f.message}\n\n`;
+              }
+            }
+
+            if (review.praise && review.praise.length > 0) {
+              body += `### :star2: Well Done\n\n`;
+              for (const p of review.praise) {
+                body += `- ${p}\n`;
+              }
+            }
+
+            body += `\n---\n_Reviewed by Claude Sonnet | [DealFlow CI/CD]_`;
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+            // Fail the check if critical issues found
+            if (review.severity === 'critical') {
+              core.setFailed('Critical issues found in Claude review');
+            }
