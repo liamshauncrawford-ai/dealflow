@@ -21,7 +21,7 @@ import {
   X,
   BarChart3,
 } from "lucide-react";
-import { useUpdateListing } from "@/hooks/use-listings";
+import { useUpdateListing, useUpdateListingSource } from "@/hooks/use-listings";
 import { PLATFORMS, PRIMARY_TRADES, type PlatformKey, type PrimaryTradeKey } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import { TierBadge } from "@/components/listings/tier-badge";
@@ -38,8 +38,10 @@ interface LinkedListingCardProps {
 
 export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMultiples }: LinkedListingCardProps) {
   const updateListing = useUpdateListing();
+  const updateSource = useUpdateListingSource();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [editingSources, setEditingSources] = useState<Record<string, string>>({});
 
   const startEditing = () => {
     setEditData({
@@ -56,11 +58,21 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
       state: listing.state || "",
       employees: listing.employees || "",
       established: listing.established || "",
+      website: listing.website || "",
+      phone: listing.phone || "",
       brokerName: listing.brokerName || "",
       brokerCompany: listing.brokerCompany || "",
       brokerPhone: listing.brokerPhone || "",
       brokerEmail: listing.brokerEmail || "",
     });
+    // Initialize source URL editing
+    const sourceEdits: Record<string, string> = {};
+    if (listing.sources) {
+      for (const s of listing.sources) {
+        sourceEdits[s.id] = s.sourceUrl;
+      }
+    }
+    setEditingSources(sourceEdits);
     setIsEditing(true);
   };
 
@@ -68,7 +80,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
     const payload: Record<string, unknown> = {};
     const numericFields = ["askingPrice", "revenue", "ebitda", "sde", "cashFlow", "inventory", "ffe", "realEstate"];
     const intFields = ["employees", "established"];
-    const stringFields = ["industry", "city", "state", "brokerName", "brokerCompany", "brokerPhone", "brokerEmail"];
+    const stringFields = ["industry", "city", "state", "website", "phone", "brokerName", "brokerCompany", "brokerPhone", "brokerEmail"];
     for (const f of numericFields) {
       const v = editData[f];
       payload[f] = v === "" || v === null || v === undefined ? null : Number(v);
@@ -85,6 +97,19 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
       { id: String(listing.id), data: payload },
       { onSuccess: () => setIsEditing(false) }
     );
+    // Save any source URL changes
+    if (listing.sources) {
+      for (const s of listing.sources) {
+        const newUrl = editingSources[s.id];
+        if (newUrl && newUrl !== s.sourceUrl) {
+          updateSource.mutate({
+            listingId: String(listing.id),
+            sourceId: s.id,
+            sourceUrl: newUrl,
+          });
+        }
+      }
+    }
   };
 
   const updateField = (field: string, value: unknown) => {
@@ -147,6 +172,17 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
               <div>
                 <label className="text-xs text-muted-foreground">Established</label>
                 <input type="number" value={editData.established === null || editData.established === undefined || editData.established === "" ? "" : String(editData.established)} onChange={(e) => updateField("established", e.target.value ? parseInt(e.target.value) : "")} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground">Website URL</label>
+                <input type="url" value={String(editData.website || "")} onChange={(e) => updateField("website", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" placeholder="https://example.com" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Company Phone</label>
+                <input type="text" value={String(editData.phone || "")} onChange={(e) => updateField("phone", e.target.value)} className="mt-1 w-full rounded border bg-background px-2 py-1 text-sm" placeholder="(555) 555-5555" />
               </div>
             </div>
 
@@ -518,6 +554,30 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                     {PLATFORMS[s.platform as PlatformKey]?.shortLabel ?? s.platform}
                     <ExternalLink className="h-2.5 w-2.5" />
                   </a>
+                ))}
+              </div>
+            )}
+
+            {/* Editable source URLs — shown inline below badges in view mode */}
+            {isEditing && listing.sources && listing.sources.length > 0 && (
+              <div className="mt-2 space-y-2">
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Source URLs</div>
+                {listing.sources.map((s: { id: string; platform: string; sourceUrl: string }) => (
+                  <div key={s.id} className="flex items-center gap-2">
+                    <span
+                      className="shrink-0 inline-flex items-center rounded px-2 py-0.5 text-[10px] font-medium text-white"
+                      style={{ backgroundColor: PLATFORMS[s.platform as PlatformKey]?.color ?? "#6b7280" }}
+                    >
+                      {PLATFORMS[s.platform as PlatformKey]?.shortLabel ?? s.platform}
+                    </span>
+                    <input
+                      type="url"
+                      value={editingSources[s.id] || ""}
+                      onChange={(e) => setEditingSources((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                      className="flex-1 rounded border bg-background px-2 py-1 text-xs"
+                      placeholder="https://..."
+                    />
+                  </div>
                 ))}
               </div>
             )}

@@ -34,10 +34,10 @@ const KANBAN_ROW_1: PipelineStageKey[] = [
   "CONTACTING",
   "REQUESTED_CIM",
   "SIGNED_NDA",
+  "DUE_DILIGENCE",
 ];
 
 const KANBAN_ROW_2: PipelineStageKey[] = [
-  "DUE_DILIGENCE",
   "OFFER_SENT",
   "COUNTER_OFFER_RECEIVED",
   "UNDER_CONTRACT",
@@ -635,7 +635,7 @@ export default function PipelinePage() {
                 Early Pipeline
                 <span className="h-px flex-1 bg-border" />
               </h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {KANBAN_ROW_1.map((stageKey) => (
                   <KanbanColumn
                     key={stageKey}
@@ -659,7 +659,7 @@ export default function PipelinePage() {
                 Active Negotiation
                 <span className="h-px flex-1 bg-border" />
               </h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {KANBAN_ROW_2.map((stageKey) => (
                   <KanbanColumn
                     key={stageKey}

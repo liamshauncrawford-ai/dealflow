@@ -27,6 +27,7 @@ import {
 import {
   useListing,
   useUpdateListing,
+  useUpdateListingSource,
   useToggleHidden,
   usePromoteToPipeline,
 } from "@/hooks/use-listings";
@@ -48,6 +49,7 @@ export default function ListingDetailPage({
   const { id } = use(params);
   const { data: listing, isLoading, error } = useListing(id);
   const updateListing = useUpdateListing();
+  const updateSource = useUpdateListingSource();
   const toggleHidden = useToggleHidden();
   const promoteToPipeline = usePromoteToPipeline();
   const queryClient = useQueryClient();
@@ -55,6 +57,7 @@ export default function ListingDetailPage({
   const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
+  const [editingSources, setEditingSources] = useState<Record<string, string>>({});
   const [showPromoteDialog, setShowPromoteDialog] = useState(false);
 
   const recomputeScore = useMutation({
@@ -137,6 +140,14 @@ export default function ListingDetailPage({
       disqualificationReason: listing.disqualificationReason || "",
       synergyNotes: listing.synergyNotes || "",
     });
+    // Initialize source URL editing
+    const sourceEdits: Record<string, string> = {};
+    if (listing.sources) {
+      for (const s of listing.sources) {
+        sourceEdits[s.id] = s.sourceUrl;
+      }
+    }
+    setEditingSources(sourceEdits);
     setIsEditing(true);
   };
 
@@ -203,11 +214,25 @@ export default function ListingDetailPage({
         onSuccess: () => setIsEditing(false),
       }
     );
+    // Save any source URL changes
+    if (listing.sources) {
+      for (const s of listing.sources as { id: string; sourceUrl: string }[]) {
+        const newUrl = editingSources[s.id];
+        if (newUrl && newUrl !== s.sourceUrl) {
+          updateSource.mutate({
+            listingId: listing.id,
+            sourceId: s.id,
+            sourceUrl: newUrl,
+          });
+        }
+      }
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
     setEditData({});
+    setEditingSources({});
   };
 
   const updateField = (field: string, value: unknown) => {
@@ -964,29 +989,43 @@ export default function ListingDetailPage({
               lastScrapedAt: string;
               isStale: boolean;
             }) => (
-              <div key={source.id} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium">{source.platform}</span>
-                  {!source.sourceUrl.startsWith("manual://") && (
-                    <a
-                      href={source.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      <ExternalLink className="inline h-3 w-3" />
-                    </a>
-                  )}
+              <div key={source.id} className="space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{source.platform}</span>
+                    {!source.sourceUrl.startsWith("manual://") && (
+                      <a
+                        href={source.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        <ExternalLink className="inline h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4 text-muted-foreground">
+                    <span>First seen: {formatDate(source.firstScrapedAt)}</span>
+                    <span>Last seen: {formatDate(source.lastScrapedAt)}</span>
+                    {source.isStale && (
+                      <span className="rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
+                        Stale
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-muted-foreground">
-                  <span>First seen: {formatDate(source.firstScrapedAt)}</span>
-                  <span>Last seen: {formatDate(source.lastScrapedAt)}</span>
-                  {source.isStale && (
-                    <span className="rounded bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
-                      Stale
-                    </span>
-                  )}
-                </div>
+                {isEditing && (
+                  <div className="flex items-center gap-2 pl-0">
+                    <label className="text-xs text-muted-foreground shrink-0">URL:</label>
+                    <input
+                      type="url"
+                      value={editingSources[source.id] || ""}
+                      onChange={(e) => setEditingSources((prev) => ({ ...prev, [source.id]: e.target.value }))}
+                      className="flex-1 rounded-md border bg-background px-2 py-1 text-xs"
+                      placeholder="https://..."
+                    />
+                  </div>
+                )}
               </div>
             )
           )}

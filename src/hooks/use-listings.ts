@@ -127,6 +127,36 @@ export function useToggleHidden() {
   });
 }
 
+export function useUpdateListingSource() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ listingId, sourceId, sourceUrl }: { listingId: string; sourceId: string; sourceUrl: string }) => {
+      const res = await fetch(`/api/listings/${listingId}/sources/${sourceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceUrl }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to update source URL");
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      toast.success("Source URL updated");
+      queryClient.invalidateQueries({ queryKey: ["listing", variables.listingId] });
+      queryClient.invalidateQueries({ queryKey: ["listings"] });
+      // Also invalidate opportunity queries since listing is nested
+      queryClient.invalidateQueries({ queryKey: ["opportunity"] });
+      queryClient.invalidateQueries({ queryKey: ["pipeline"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update source URL");
+    },
+  });
+}
+
 export function usePromoteToPipeline() {
   const queryClient = useQueryClient();
 
