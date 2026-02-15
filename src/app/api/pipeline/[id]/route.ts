@@ -73,7 +73,39 @@ export async function GET(
       });
     }
 
-    return NextResponse.json({ ...opportunity, industryMultiples });
+    // Fetch latest financial period summary
+    const latestFinancials = await prisma.financialPeriod.findFirst({
+      where: { opportunityId: id },
+      orderBy: [{ year: "desc" }, { periodType: "asc" }],
+      select: {
+        id: true,
+        periodType: true,
+        year: true,
+        quarter: true,
+        label: true,
+        totalRevenue: true,
+        ebitda: true,
+        adjustedEbitda: true,
+        sde: true,
+        ebitdaMargin: true,
+        adjustedEbitdaMargin: true,
+        totalAddBacks: true,
+        dataSource: true,
+        confidence: true,
+        _count: { select: { addBacks: true, lineItems: true } },
+      },
+    });
+
+    const financialPeriodCount = await prisma.financialPeriod.count({
+      where: { opportunityId: id },
+    });
+
+    return NextResponse.json({
+      ...opportunity,
+      industryMultiples,
+      latestFinancials,
+      financialPeriodCount,
+    });
   } catch (error) {
     console.error("Error fetching opportunity:", error);
     return NextResponse.json(

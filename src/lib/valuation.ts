@@ -1,12 +1,13 @@
 /**
  * Shared Opportunity Valuation Utility
  *
- * Canonical 5-tier waterfall for computing opportunity value:
+ * Canonical 6-tier waterfall for computing opportunity value:
  *   1. dealValue (manually set deal value — highest priority)
  *   2. offerPrice (submitted offer)
- *   3. actualEbitda × targetMultiple (opp-level EBITDA override)
- *   4. listing ebitda/inferredEbitda × targetMultiple
- *   5. askingPrice (listing asking price — lowest priority)
+ *   3. latestFinancials.adjustedEbitda × targetMultiple (from financial periods)
+ *   4. actualEbitda × targetMultiple (opp-level EBITDA override)
+ *   5. listing ebitda/inferredEbitda × targetMultiple
+ *   6. askingPrice (listing asking price — lowest priority)
  *
  * Used by: stats API, pipeline page stats, kanban column totals.
  */
@@ -50,17 +51,25 @@ export function getOpportunityValueRange(opp: any): ValueRange | null {
     return { low: op, high: op };
   }
 
-  // Tier 3: Actual EBITDA (opp-level override) × multiple range
+  // Tier 3: Adjusted EBITDA from financial periods (most accurate)
+  const fpEbitda = opp.latestFinancials?.adjustedEbitda
+    ? Number(opp.latestFinancials.adjustedEbitda)
+    : null;
+  if (fpEbitda && fpEbitda > 0) {
+    return { low: fpEbitda * mLow, high: fpEbitda * mHigh };
+  }
+
+  // Tier 4: Actual EBITDA (opp-level override) × multiple range
   if (ae && ae > 0) {
     return { low: ae * mLow, high: ae * mHigh };
   }
 
-  // Tier 4: Listing EBITDA (or inferred) × multiple range
+  // Tier 5: Listing EBITDA (or inferred) × multiple range
   if (le && le > 0) {
     return { low: le * mLow, high: le * mHigh };
   }
 
-  // Tier 5: Asking price (fallback)
+  // Tier 6: Asking price (fallback)
   if (ask && ask > 0) {
     return { low: ask, high: ask };
   }

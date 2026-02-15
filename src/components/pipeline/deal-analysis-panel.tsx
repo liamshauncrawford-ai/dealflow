@@ -315,8 +315,41 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
             );
           })()}
 
-          {/* Actual financials grid */}
-          {(opportunity.actualRevenue || opportunity.actualEbitda) && (
+          {/* Financial Period data — overrides flat fields when available */}
+          {opportunity.latestFinancials && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {opportunity.latestFinancials.totalRevenue && (
+                <div className="rounded-md border bg-emerald-50/50 dark:bg-emerald-900/10 p-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">Revenue</span>
+                    <span className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-medium text-primary">Periods</span>
+                  </div>
+                  <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.totalRevenue))}</div>
+                </div>
+              )}
+              {opportunity.latestFinancials.adjustedEbitda && (
+                <div className="rounded-md border bg-emerald-50/50 dark:bg-emerald-900/10 p-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">Adj. EBITDA</span>
+                    <span className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-medium text-primary">Periods</span>
+                  </div>
+                  <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.adjustedEbitda))}</div>
+                </div>
+              )}
+              {opportunity.latestFinancials.sde && (
+                <div className="rounded-md border bg-emerald-50/50 dark:bg-emerald-900/10 p-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-muted-foreground">SDE</span>
+                    <span className="rounded bg-primary/10 px-1 py-0.5 text-[8px] font-medium text-primary">Periods</span>
+                  </div>
+                  <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.sde))}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Actual financials grid — shown when no financial periods exist */}
+          {!opportunity.latestFinancials && (opportunity.actualRevenue || opportunity.actualEbitda) && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {opportunity.actualRevenue && (
                 <div className="rounded-md border bg-muted/20 p-2">

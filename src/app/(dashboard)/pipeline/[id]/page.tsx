@@ -21,6 +21,7 @@ import {
   AIRiskPanel,
   AuditLogPanel,
 } from "@/components/pipeline";
+import { FinancialsLinkCard } from "@/components/financials/financials-link-card";
 
 export default function OpportunityDetailPage({
   params,
@@ -64,6 +65,15 @@ export default function OpportunityDetailPage({
       {/* Deal Analysis — full width below stage bar */}
       <ErrorBoundary>
         <DealAnalysisPanel opportunity={opportunity} />
+      </ErrorBoundary>
+
+      {/* Financials Link Card */}
+      <ErrorBoundary>
+        <FinancialsLinkCard
+          opportunityId={opportunity.id}
+          latestFinancials={opportunity.latestFinancials ?? null}
+          financialPeriodCount={opportunity.financialPeriodCount ?? 0}
+        />
       </ErrorBoundary>
 
       {/* Two-column layout — left column wider for detailed content */}

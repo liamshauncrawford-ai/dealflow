@@ -377,6 +377,7 @@ model Opportunity {
   tasks           Task[]
   aiAnalyses      AIAnalysisResult[]
   auditLogs       AuditLog[]
+  financialPeriods FinancialPeriod[]
 
   @@index([stage])
   @@index([priority])
@@ -727,6 +728,7 @@ enum AuditEntityType {
   DOCUMENT
   TASK
   EMAIL
+  FINANCIAL
 }
 
 enum AuditActorType {
@@ -963,4 +965,138 @@ model Task {
   @@index([dueDate])
   @@index([isCompleted])
   @@index([opportunityId, triggerStage, isCompleted])
+}
+
+// ─────────────────────────────────────────────
+// FINANCIAL PERIODS & LINE ITEMS
+// ─────────────────────────────────────────────
+
+enum FinancialPeriodType {
+  ANNUAL
+  QUARTERLY
+  LTM
+  YTD
+  PROJECTED
+}
+
+enum FinancialDataSource {
+  MANUAL
+  CSV_IMPORT
+  AI_EXTRACTION
+  CIM_PARSER
+}
+
+enum AddBackCategory {
+  OWNER_COMPENSATION
+  PERSONAL_EXPENSES
+  ONE_TIME_COSTS
+  DISCRETIONARY
+  RELATED_PARTY
+  NON_CASH
+  OTHER
+}
+
+model FinancialPeriod {
+  id              String              @id @default(cuid())
+
+  opportunityId   String
+  opportunity     Opportunity         @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  // Period identification
+  periodType      FinancialPeriodType
+  year            Int
+  quarter         Int?
+  label           String?
+
+  // Provenance
+  dataSource      FinancialDataSource @default(MANUAL)
+  sourceDocumentId String?
+  confidence      Float?
+
+  // Computed / cached summary values (recomputed on line item changes)
+  totalRevenue        Decimal?        @db.Decimal(14, 2)
+  totalCogs           Decimal?        @db.Decimal(14, 2)
+  grossProfit         Decimal?        @db.Decimal(14, 2)
+  totalOpex           Decimal?        @db.Decimal(14, 2)
+  ebitda              Decimal?        @db.Decimal(14, 2)
+  depreciationAmort   Decimal?        @db.Decimal(14, 2)
+  ebit                Decimal?        @db.Decimal(14, 2)
+  interestExpense     Decimal?        @db.Decimal(14, 2)
+  taxExpense          Decimal?        @db.Decimal(14, 2)
+  netIncome           Decimal?        @db.Decimal(14, 2)
+
+  // Adjusted values (after add-backs)
+  totalAddBacks       Decimal?        @db.Decimal(14, 2)
+  adjustedEbitda      Decimal?        @db.Decimal(14, 2)
+  sde                 Decimal?        @db.Decimal(14, 2)
+
+  // Computed margins
+  grossMargin          Float?
+  ebitdaMargin         Float?
+  adjustedEbitdaMargin Float?
+  netMargin            Float?
+
+  // Metadata
+  notes               String?         @db.Text
+  isLocked            Boolean         @default(false)
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // Relations
+  lineItems       FinancialLineItem[]
+  addBacks        AddBack[]
+
+  @@unique([opportunityId, periodType, year, quarter])
+  @@index([opportunityId])
+  @@index([year])
+}
+
+model FinancialLineItem {
+  id              String            @id @default(cuid())
+
+  periodId        String
+  period          FinancialPeriod   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  // Canonical mapping
+  category        String            // REVENUE, COGS, OPEX, D_AND_A, INTEREST, TAX, OTHER_INCOME, OTHER_EXPENSE
+  subcategory     String?
+  rawLabel        String
+  displayOrder    Int               @default(0)
+
+  amount          Decimal           @db.Decimal(14, 2)
+  isNegative      Boolean           @default(false)
+
+  notes           String?
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([periodId])
+  @@index([category])
+}
+
+model AddBack {
+  id              String            @id @default(cuid())
+
+  periodId        String
+  period          FinancialPeriod   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  category        AddBackCategory
+  description     String
+  amount          Decimal           @db.Decimal(14, 2)
+  confidence      Float?
+  isVerified      Boolean           @default(false)
+
+  includeInSde    Boolean           @default(true)
+  includeInEbitda Boolean           @default(true)
+
+  notes           String?
+  sourceLabel     String?
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([periodId])
+  @@index([category])
 }
