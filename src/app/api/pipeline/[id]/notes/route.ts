@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseBody } from "@/lib/validations/common";
 import { createNoteSchema } from "@/lib/validations/pipeline";
+import { createAuditLog } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -39,6 +40,14 @@ export async function POST(
         content: parsed.data.content,
         opportunityId: id,
       },
+    });
+
+    await createAuditLog({
+      eventType: "CREATED",
+      entityType: "NOTE",
+      entityId: note.id,
+      opportunityId: id,
+      summary: "Added a note",
     });
 
     return NextResponse.json(note, { status: 201 });

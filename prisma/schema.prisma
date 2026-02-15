@@ -376,6 +376,7 @@ model Opportunity {
   contacts        Contact[]
   tasks           Task[]
   aiAnalyses      AIAnalysisResult[]
+  auditLogs       AuditLog[]
 
   @@index([stage])
   @@index([priority])
@@ -627,6 +628,10 @@ model Email {
   aiSummary            String?       @db.Text
   aiClassifiedAt       DateTime?
 
+  // Outbound email fields
+  isSent               Boolean       @default(false)
+  inReplyToExternalId  String?
+
   createdAt       DateTime      @default(now())
 
   links           EmailLink[]
@@ -638,6 +643,7 @@ model Email {
   @@index([sentAt])
   @@index([isListingAlert])
   @@index([messageHash])
+  @@index([isSent])
 }
 
 model EmailAttachment {
@@ -674,6 +680,79 @@ model EmailLink {
   @@unique([emailId, opportunityId])
   @@index([emailId])
   @@index([opportunityId])
+}
+
+enum EmailTemplateCategory {
+  CIM_REQUEST
+  NDA_REQUEST
+  INTRODUCTION
+  FOLLOW_UP
+  LOI
+  GENERAL
+}
+
+model EmailTemplate {
+  id          String                 @id @default(cuid())
+
+  name        String
+  subject     String
+  bodyHtml    String                 @db.Text
+  category    EmailTemplateCategory  @default(GENERAL)
+  isDefault   Boolean                @default(false)
+
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────
+
+enum AuditEventType {
+  CREATED
+  UPDATED
+  DELETED
+  STAGE_CHANGED
+  LINKED
+  UNLINKED
+  SENT
+  UPLOADED
+  COMPLETED
+}
+
+enum AuditEntityType {
+  OPPORTUNITY
+  CONTACT
+  NOTE
+  DOCUMENT
+  TASK
+  EMAIL
+}
+
+enum AuditActorType {
+  USER
+  SYSTEM
+  WORKFLOW
+}
+
+model AuditLog {
+  id              String           @id @default(cuid())
+  eventType       AuditEventType
+  entityType      AuditEntityType
+  entityId        String
+  opportunityId   String?
+  opportunity     Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  fieldName       String?
+  oldValue        String?          @db.Text
+  newValue        String?          @db.Text
+  summary         String           @db.Text
+  actorType       AuditActorType   @default(USER)
+  createdAt       DateTime         @default(now())
+
+  @@index([opportunityId])
+  @@index([entityType])
+  @@index([eventType])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────────────────────

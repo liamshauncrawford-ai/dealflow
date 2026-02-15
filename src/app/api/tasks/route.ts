@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { parseBody, parseSearchParams } from "@/lib/validations/common";
+import { createAuditLog } from "@/lib/audit";
 
 const tasksQuerySchema = z.object({
   opportunityId: z.string().optional(),
@@ -75,6 +76,14 @@ export async function POST(request: NextRequest) {
       include: {
         opportunity: { select: { id: true, title: true } },
       },
+    });
+
+    await createAuditLog({
+      eventType: "CREATED",
+      entityType: "TASK",
+      entityId: task.id,
+      opportunityId: task.opportunityId,
+      summary: `Created task: ${title}`,
     });
 
     return NextResponse.json(task, { status: 201 });

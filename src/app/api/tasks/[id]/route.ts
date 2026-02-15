@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { parseBody } from "@/lib/validations/common";
 import { executeTaskCompletionChain } from "@/lib/workflow-engine";
+import { createAuditLog, diffAndLog } from "@/lib/audit";
 
 const updateTaskSchema = z.object({
   title: z.string().min(1).max(500).optional(),
@@ -21,6 +22,12 @@ export async function PATCH(
     const parsed = await parseBody(updateTaskSchema, request);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+
+    // Fetch old state for audit
+    const oldTask = await prisma.task.findUnique({
+      where: { id },
+      select: { title: true, priority: true, dueDate: true, isCompleted: true, opportunityId: true },
+    });
 
     const updateData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(body)) {
@@ -47,6 +54,36 @@ export async function PATCH(
       },
     });
 
+    // Audit logging
+    if (oldTask) {
+      if (body.isCompleted === true) {
+        await createAuditLog({
+          eventType: "COMPLETED",
+          entityType: "TASK",
+          entityId: id,
+          opportunityId: task.opportunityId,
+          summary: `Completed task: ${task.title}`,
+        });
+      } else {
+        await diffAndLog(
+          oldTask as unknown as Record<string, unknown>,
+          updateData,
+          {
+            entityType: "TASK",
+            entityId: id,
+            opportunityId: task.opportunityId,
+            fieldLabels: {
+              title: "title",
+              priority: "priority",
+              dueDate: "due date",
+              isCompleted: "completed",
+            },
+            ignoreFields: ["completedAt"],
+          }
+        );
+      }
+    }
+
     // If task was just completed and is linked to an opportunity, run follow-up chain
     if (body.isCompleted === true && task.opportunityId) {
       await executeTaskCompletionChain(task.id);
@@ -65,7 +102,25 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    // Fetch before delete for audit
+    const taskToDelete = await prisma.task.findUnique({
+      where: { id },
+      select: { title: true, opportunityId: true },
+    });
+
     await prisma.task.delete({ where: { id } });
+
+    if (taskToDelete) {
+      await createAuditLog({
+        eventType: "DELETED",
+        entityType: "TASK",
+        entityId: id,
+        opportunityId: taskToDelete.opportunityId,
+        summary: `Deleted task: ${taskToDelete.title}`,
+      });
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting task:", error);

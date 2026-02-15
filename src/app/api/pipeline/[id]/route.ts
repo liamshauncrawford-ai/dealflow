@@ -4,6 +4,7 @@ import { PipelineStage } from "@prisma/client";
 import { parseBody } from "@/lib/validations/common";
 import { updateOpportunitySchema } from "@/lib/validations/pipeline";
 import { executeStageChangeTriggers } from "@/lib/workflow-engine";
+import { createAuditLog, diffAndLog } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
@@ -92,25 +93,45 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
+    // Fetch current state for audit diffing
+    const currentState = await prisma.opportunity.findUnique({
+      where: { id },
+      select: {
+        stage: true,
+        priority: true,
+        title: true,
+        offerPrice: true,
+        offerTerms: true,
+        winProbability: true,
+        dealValue: true,
+        lostReason: true,
+        lostCategory: true,
+        contactedAt: true,
+        cimRequestedAt: true,
+        ndaSignedAt: true,
+        offerSentAt: true,
+        underContractAt: true,
+        closedAt: true,
+        loiDate: true,
+        dueDiligenceStart: true,
+        targetCloseDate: true,
+      },
+    });
+
     // If stage is changing, record the stage change
     if (body.stage) {
-      const current = await prisma.opportunity.findUnique({
-        where: { id },
-        select: { stage: true },
-      });
-
-      if (current && current.stage !== body.stage) {
+      if (currentState && currentState.stage !== body.stage) {
         await prisma.stageChange.create({
           data: {
             opportunityId: id,
-            fromStage: current.stage,
+            fromStage: currentState.stage,
             toStage: body.stage as PipelineStage,
             note: body.stageNote || null,
           },
         });
 
         // Execute workflow triggers (auto-create tasks, update contacts)
-        await executeStageChangeTriggers(id, current.stage, body.stage as PipelineStage);
+        await executeStageChangeTriggers(id, currentState.stage, body.stage as PipelineStage);
 
         // Auto-set date fields based on stage
         const stageDateMap: Record<string, string> = {
@@ -159,6 +180,58 @@ export async function PATCH(
       },
     });
 
+    // ── Audit logging ──
+    if (currentState) {
+      // Log stage change as a dedicated event
+      if (body.stage && currentState.stage !== body.stage) {
+        await createAuditLog({
+          eventType: "STAGE_CHANGED",
+          entityType: "OPPORTUNITY",
+          entityId: id,
+          opportunityId: id,
+          fieldName: "stage",
+          oldValue: currentState.stage,
+          newValue: body.stage,
+          summary: `Stage changed from ${formatStage(currentState.stage)} to ${formatStage(body.stage)}`,
+        });
+      }
+
+      // Log all other field-level changes
+      const auditFieldLabels: Record<string, string> = {
+        priority: "priority",
+        title: "title",
+        offerPrice: "offer price",
+        offerTerms: "offer terms",
+        winProbability: "win probability",
+        dealValue: "deal value",
+        lostReason: "lost reason",
+        lostCategory: "lost category",
+        contactedAt: "contacted date",
+        cimRequestedAt: "CIM requested date",
+        ndaSignedAt: "NDA signed date",
+        offerSentAt: "offer sent date",
+        underContractAt: "under contract date",
+        closedAt: "closed date",
+        loiDate: "LOI date",
+        dueDiligenceStart: "due diligence start",
+        targetCloseDate: "target close date",
+      };
+
+      // Build a comparable snapshot from updateData (excluding stage which is logged above)
+      const { stage: _s, ...fieldsForDiff } = updateData as Record<string, unknown>;
+      await diffAndLog(
+        currentState as unknown as Record<string, unknown>,
+        fieldsForDiff,
+        {
+          entityType: "OPPORTUNITY",
+          entityId: id,
+          opportunityId: id,
+          fieldLabels: auditFieldLabels,
+          ignoreFields: ["stageNote"],
+        }
+      );
+    }
+
     return NextResponse.json(opportunity);
   } catch (error) {
     console.error("Error updating opportunity:", error);
@@ -176,9 +249,24 @@ export async function DELETE(
   try {
     const { id } = await params;
 
+    // Fetch title before deleting for audit
+    const existing = await prisma.opportunity.findUnique({
+      where: { id },
+      select: { title: true },
+    });
+
     await prisma.opportunity.delete({
       where: { id },
     });
+
+    if (existing) {
+      await createAuditLog({
+        eventType: "DELETED",
+        entityType: "OPPORTUNITY",
+        entityId: id,
+        summary: `Deleted opportunity: ${existing.title}`,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -188,4 +276,15 @@ export async function DELETE(
       { status: 500 }
     );
   }
+}
+
+// ─────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────
+
+function formatStage(stage: string): string {
+  return stage
+    .split("_")
+    .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+    .join(" ");
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseBody } from "@/lib/validations/common";
 import { linkEmailSchema } from "@/lib/validations/pipeline";
+import { createAuditLog } from "@/lib/audit";
 
 /**
  * POST /api/pipeline/[id]/emails
@@ -79,6 +80,14 @@ export async function POST(
       });
     }
 
+    await createAuditLog({
+      eventType: "LINKED",
+      entityType: "EMAIL",
+      entityId: emailId,
+      opportunityId: id,
+      summary: `Linked email: ${link.email.subject || "(no subject)"}`,
+    });
+
     return NextResponse.json(link, { status: 201 });
   } catch (error) {
     console.error("Error linking email to opportunity:", error);
@@ -116,6 +125,14 @@ export async function DELETE(
 
     await prisma.emailLink.delete({
       where: { id: existing.id },
+    });
+
+    await createAuditLog({
+      eventType: "UNLINKED",
+      entityType: "EMAIL",
+      entityId: emailId,
+      opportunityId: id,
+      summary: "Unlinked email",
     });
 
     return NextResponse.json({ success: true });

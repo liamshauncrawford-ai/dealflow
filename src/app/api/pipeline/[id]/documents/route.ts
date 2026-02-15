@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { DocumentCategory } from "@prisma/client";
 import { parseBody } from "@/lib/validations/common";
 import { updateDocumentSchema } from "@/lib/validations/pipeline";
+import { createAuditLog, diffAndLog } from "@/lib/audit";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -147,6 +148,14 @@ export async function POST(
       select: DOC_SELECT,
     });
 
+    await createAuditLog({
+      eventType: "UPLOADED",
+      entityType: "DOCUMENT",
+      entityId: document.id,
+      opportunityId: id,
+      summary: `Uploaded document: ${file.name} (${category})`,
+    });
+
     return NextResponse.json(document, { status: 201 });
   } catch (error) {
     console.error("Error uploading document:", error);
@@ -204,6 +213,20 @@ export async function PATCH(
       select: DOC_SELECT,
     });
 
+    await diffAndLog(
+      existing as unknown as Record<string, unknown>,
+      updateData,
+      {
+        entityType: "DOCUMENT",
+        entityId: documentId,
+        opportunityId: id,
+        fieldLabels: {
+          category: "category",
+          description: "description",
+        },
+      }
+    );
+
     return NextResponse.json(document);
   } catch (error) {
     console.error("Error updating document:", error);
@@ -246,6 +269,14 @@ export async function DELETE(
     }
 
     await prisma.dealDocument.delete({ where: { id: documentId } });
+
+    await createAuditLog({
+      eventType: "DELETED",
+      entityType: "DOCUMENT",
+      entityId: documentId,
+      opportunityId: id,
+      summary: `Deleted document: ${existing.fileName}`,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

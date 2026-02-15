@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { ContactInterest } from "@prisma/client";
 import { parseBody } from "@/lib/validations/common";
 import { createContactSchema, updateContactSchema } from "@/lib/validations/pipeline";
+import { createAuditLog, diffAndLog } from "@/lib/audit";
 
 /**
  * GET /api/pipeline/[id]/contacts
@@ -79,6 +80,14 @@ export async function POST(
       },
     });
 
+    await createAuditLog({
+      eventType: "CREATED",
+      entityType: "CONTACT",
+      entityId: contact.id,
+      opportunityId: id,
+      summary: `Created contact: ${data.name}`,
+    });
+
     return NextResponse.json(contact, { status: 201 });
   } catch (error) {
     console.error("Error creating contact:", error);
@@ -145,6 +154,30 @@ export async function PATCH(
       data: updateData,
     });
 
+    await diffAndLog(
+      existing as unknown as Record<string, unknown>,
+      updateData,
+      {
+        entityType: "CONTACT",
+        entityId: contactId,
+        opportunityId: id,
+        fieldLabels: {
+          name: "name",
+          email: "email",
+          phone: "phone",
+          company: "company",
+          role: "role",
+          interestLevel: "interest level",
+          isPrimary: "primary contact",
+          notes: "notes",
+          sentiment: "sentiment",
+          outreachStatus: "outreach status",
+          linkedinUrl: "LinkedIn URL",
+          nextFollowUpDate: "next follow-up date",
+        },
+      }
+    );
+
     return NextResponse.json(contact);
   } catch (error) {
     console.error("Error updating contact:", error);
@@ -188,6 +221,14 @@ export async function DELETE(
 
     await prisma.contact.delete({
       where: { id: contactId },
+    });
+
+    await createAuditLog({
+      eventType: "DELETED",
+      entityType: "CONTACT",
+      entityId: contactId,
+      opportunityId: id,
+      summary: `Deleted contact: ${existing.name}`,
     });
 
     return NextResponse.json({ success: true });

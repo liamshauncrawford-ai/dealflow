@@ -15,6 +15,7 @@ import {
   STALE_CONTACT_CONFIG,
   OUTREACH_PROGRESSION,
 } from "@/lib/workflow-config";
+import { createAuditLog } from "@/lib/audit";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -57,7 +58,7 @@ export async function executeStageChangeTriggers(
       });
 
       if (!existing) {
-        await prisma.task.create({
+        const newTask = await prisma.task.create({
           data: {
             opportunityId,
             title: config.task.title,
@@ -71,6 +72,14 @@ export async function executeStageChangeTriggers(
         console.log(
           `[Workflow] Created task "${config.task.title}" for opp ${opportunityId} (stage → ${toStage})`,
         );
+        await createAuditLog({
+          eventType: "CREATED",
+          entityType: "TASK",
+          entityId: newTask.id,
+          opportunityId,
+          summary: `Auto-created task: ${config.task.title}`,
+          actorType: "WORKFLOW",
+        });
       }
     }
 
@@ -106,6 +115,14 @@ export async function executeStageChangeTriggers(
         console.log(
           `[Workflow] Updated contact "${primaryContact.name}" — ${JSON.stringify(contactUpdates)}`,
         );
+        await createAuditLog({
+          eventType: "UPDATED",
+          entityType: "CONTACT",
+          entityId: primaryContact.id,
+          opportunityId,
+          summary: `Auto-updated contact ${primaryContact.name} outreach status`,
+          actorType: "WORKFLOW",
+        });
       }
     }
   } catch (error) {
@@ -151,7 +168,7 @@ export async function executeTaskCompletionChain(taskId: string): Promise<void> 
     });
 
     if (!existing) {
-      await prisma.task.create({
+      const chainedTask = await prisma.task.create({
         data: {
           opportunityId: task.opportunity.id,
           title: chainConfig.nextTask.title,
@@ -164,6 +181,14 @@ export async function executeTaskCompletionChain(taskId: string): Promise<void> 
       console.log(
         `[Workflow] Chained task "${chainConfig.nextTask.title}" for opp ${task.opportunity.id}`,
       );
+      await createAuditLog({
+        eventType: "CREATED",
+        entityType: "TASK",
+        entityId: chainedTask.id,
+        opportunityId: task.opportunity.id,
+        summary: `Auto-created task: ${chainConfig.nextTask.title}`,
+        actorType: "WORKFLOW",
+      });
     }
 
     // Update primary contact follow-up date
