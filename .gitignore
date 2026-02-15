@@ -46,3 +46,6 @@ next-env.d.ts
 
 # database backups
 /backups
+
+# GitHub workflows (PAT lacks workflow scope — re-add when token is updated)
+.github/workflows/
