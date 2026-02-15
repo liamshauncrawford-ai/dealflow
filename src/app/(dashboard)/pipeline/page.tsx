@@ -29,18 +29,18 @@ import {
   getActivityDescription,
 } from "@/lib/activity-utils";
 
-// Pipeline stages split into two rows to eliminate horizontal scrolling
+// Pipeline stages split into two rows — mature deals on top for quick access
 const KANBAN_ROW_1: PipelineStageKey[] = [
-  "CONTACTING",
-  "REQUESTED_CIM",
-  "SIGNED_NDA",
   "DUE_DILIGENCE",
-];
-
-const KANBAN_ROW_2: PipelineStageKey[] = [
   "OFFER_SENT",
   "COUNTER_OFFER_RECEIVED",
   "UNDER_CONTRACT",
+];
+
+const KANBAN_ROW_2: PipelineStageKey[] = [
+  "CONTACTING",
+  "REQUESTED_CIM",
+  "SIGNED_NDA",
 ];
 
 // Combined for drag-and-drop lookups
@@ -628,11 +628,11 @@ export default function PipelinePage() {
         <>
           {/* Kanban Board — Two-Row Grid Layout */}
           <div className="space-y-4">
-            {/* Row 1: Early Pipeline */}
+            {/* Row 1: Active Negotiation — most mature deals first */}
             <div>
               <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                Early Pipeline
+                Active Negotiation
                 <span className="h-px flex-1 bg-border" />
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -652,11 +652,11 @@ export default function PipelinePage() {
               </div>
             </div>
 
-            {/* Row 2: Active Negotiation */}
+            {/* Row 2: Early Pipeline */}
             <div>
               <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />
-                Active Negotiation
+                Early Pipeline
                 <span className="h-px flex-1 bg-border" />
               </h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
