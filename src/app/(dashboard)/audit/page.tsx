@@ -29,6 +29,9 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   DOCUMENT: "Document",
   TASK: "Task",
   EMAIL: "Email",
+  FINANCIAL: "Financial",
+  USER: "User",
+  ACCESS: "Access",
 };
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
@@ -231,8 +234,23 @@ export default function AuditLogPage() {
                     </div>
                   </div>
 
-                  {/* Footer: entity type, deal link, timestamp */}
+                  {/* Footer: user, entity type, deal link, timestamp */}
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    {log.user && (
+                      <>
+                        <span className="flex items-center gap-1">
+                          {log.user.image ? (
+                            <img src={log.user.image} alt="" className="h-3.5 w-3.5 rounded-full" />
+                          ) : (
+                            <span className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary/10 text-[8px] font-medium text-primary">
+                              {(log.user.name ?? log.user.email ?? "?").charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                          {log.user.name ?? log.user.email}
+                        </span>
+                        <span>&middot;</span>
+                      </>
+                    )}
                     <span>{ENTITY_TYPE_LABELS[log.entityType] ?? log.entityType}</span>
                     {log.opportunity && (
                       <>

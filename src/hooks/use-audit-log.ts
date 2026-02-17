@@ -8,6 +8,7 @@ interface AuditLogEntry {
   entityType: string;
   entityId: string;
   opportunityId: string | null;
+  userId: string | null;
   fieldName: string | null;
   oldValue: string | null;
   newValue: string | null;
@@ -17,6 +18,12 @@ interface AuditLogEntry {
   opportunity: {
     id: string;
     title: string;
+  } | null;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
   } | null;
 }
 

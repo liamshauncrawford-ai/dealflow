@@ -16,6 +16,10 @@ const nextConfig: NextConfig = {
       "./node_modules/.prisma/client/**/*",
       "./node_modules/@prisma/client/**/*",
     ],
+    "/api/auth/[...nextauth]": [
+      "./node_modules/.prisma/client/**/*",
+      "./node_modules/@prisma/client/**/*",
+    ],
   },
 };
 

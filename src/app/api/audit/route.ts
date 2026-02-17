@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
           opportunity: {
             select: { id: true, title: true },
           },
+          user: {
+            select: { id: true, name: true, email: true, image: true },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,

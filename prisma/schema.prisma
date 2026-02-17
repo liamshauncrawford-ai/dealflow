@@ -729,6 +729,8 @@ enum AuditEntityType {
   TASK
   EMAIL
   FINANCIAL
+  USER
+  ACCESS
 }
 
 enum AuditActorType {
@@ -744,6 +746,8 @@ model AuditLog {
   entityId        String
   opportunityId   String?
   opportunity     Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  userId          String?
+  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   fieldName       String?
   oldValue        String?          @db.Text
   newValue        String?          @db.Text
@@ -755,6 +759,7 @@ model AuditLog {
   @@index([entityType])
   @@index([eventType])
   @@index([createdAt])
+  @@index([userId])
 }
 
 // ─────────────────────────────────────────────
@@ -917,6 +922,7 @@ enum NotificationType {
   DEDUP_CANDIDATE
   EMAIL_RECEIVED
   IMPORT
+  ACCESS_REQUEST
 }
 
 // ─────────────────────────────────────────────
@@ -1099,4 +1105,117 @@ model AddBack {
 
   @@index([periodId])
   @@index([category])
+}
+
+// ─────────────────────────────────────────────
+// AUTHENTICATION & ACCESS CONTROL
+// ─────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum AccessRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model User {
+  id              String        @id @default(cuid())
+  name            String?
+  email           String        @unique
+  emailVerified   DateTime?
+  image           String?
+  role            UserRole      @default(USER)
+  isApproved      Boolean       @default(false)
+
+  lastLoginAt     DateTime?
+  lastActiveAt    DateTime?
+  lastActivePath  String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  accounts        AuthAccount[]
+  sessions        Session[]
+  accessRequest   AccessRequest?
+  loginHistory    LoginHistory[]
+  auditLogs       AuditLog[]
+}
+
+model AuthAccount {
+  id                    String    @id @default(cuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type                  String
+  provider              String
+  providerAccountId     String
+
+  refresh_token         String?   @db.Text
+  access_token          String?   @db.Text
+  expires_at            Int?
+  token_type            String?
+  scope                 String?
+  id_token              String?   @db.Text
+  session_state         String?
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@map("auth_account")
+}
+
+model Session {
+  id              String    @id @default(cuid())
+  sessionToken    String    @unique
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires         DateTime
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model VerificationToken {
+  identifier      String
+  token           String    @unique
+  expires         DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_token")
+}
+
+model AccessRequest {
+  id              String              @id @default(cuid())
+  userId          String              @unique
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  reason          String?             @db.Text
+  status          AccessRequestStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNote      String?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model LoginHistory {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  provider        String
+  ipAddress       String?
+  userAgent       String?
+
+  createdAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }

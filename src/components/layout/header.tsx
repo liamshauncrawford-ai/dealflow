@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { RefreshCw, Search, Loader2, CheckCircle2 } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { RefreshCw, Search, Loader2, CheckCircle2, LogOut, Crown, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTriggerScrape } from "@/hooks/use-scraping";
 import { NotificationBell } from "./notification-bell";
@@ -20,6 +21,7 @@ const breadcrumbMap: Record<string, string> = {
   "/settings/import": "Historical Deals",
   "/settings/dedup": "Duplicates",
   "/settings/scraping": "Scraping",
+  "/settings/admin": "Users & Access",
 };
 
 // Check if a segment looks like a CUID (detail page ID)
@@ -261,7 +263,86 @@ export function Header() {
 
         {/* Notification Bell */}
         <NotificationBell />
+
+        {/* User Menu */}
+        <UserMenu />
       </div>
     </header>
+  );
+}
+
+function UserMenu() {
+  const { data: session } = useSession();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [open]);
+
+  if (!session?.user) return null;
+
+  const user = session.user;
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 rounded-lg p-1 transition-colors hover:bg-muted"
+      >
+        {user.image ? (
+          <img src={user.image} alt="" className="h-8 w-8 rounded-full" />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+            {(user.name ?? user.email ?? "?").charAt(0).toUpperCase()}
+          </div>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border bg-card shadow-lg">
+          <div className="border-b p-3">
+            <p className="text-sm font-medium">{user.name ?? "User"}</p>
+            <p className="text-xs text-muted-foreground">{user.email}</p>
+            {user.role === "ADMIN" && (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                <Crown className="h-2.5 w-2.5" />
+                Admin
+              </span>
+            )}
+          </div>
+          <div className="p-1">
+            {user.role === "ADMIN" && (
+              <button
+                onClick={() => {
+                  router.push("/settings/admin");
+                  setOpen(false);
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
+              >
+                <Settings className="h-4 w-4 text-muted-foreground" />
+                Users & Access
+              </button>
+            )}
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

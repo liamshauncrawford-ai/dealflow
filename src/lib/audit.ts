@@ -10,6 +10,7 @@ interface CreateAuditLogParams {
   entityType: AuditEntityType;
   entityId: string;
   opportunityId?: string | null;
+  userId?: string | null;
   fieldName?: string;
   oldValue?: unknown;
   newValue?: unknown;
@@ -22,6 +23,7 @@ interface DiffAndLogOptions {
   entityType: AuditEntityType;
   entityId: string;
   opportunityId?: string | null;
+  userId?: string | null;
   actorType?: AuditActorType;
   /** Map of field keys to human-readable labels */
   fieldLabels?: Record<string, string>;
@@ -101,6 +103,7 @@ export async function createAuditLog(params: CreateAuditLogParams): Promise<void
         entityType: params.entityType,
         entityId: params.entityId,
         opportunityId: params.opportunityId ?? undefined,
+        userId: params.userId ?? undefined,
         fieldName: params.fieldName ?? undefined,
         oldValue: stringifyValue(params.oldValue),
         newValue: stringifyValue(params.newValue),
@@ -127,6 +130,7 @@ export async function diffAndLog(
     entityType,
     entityId,
     opportunityId,
+    userId,
     actorType,
     fieldLabels = {},
     ignoreFields = [],
@@ -151,6 +155,7 @@ export async function diffAndLog(
       entityType,
       entityId,
       opportunityId,
+      userId,
       fieldName: key,
       oldValue: oldVal,
       newValue: newVal,

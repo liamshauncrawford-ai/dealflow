@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target } from "lucide-react";
+import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users } from "lucide-react";
 
 const settingsSections = [
   {
@@ -61,13 +61,12 @@ const settingsSections = [
     comingSoon: true,
   },
   {
-    title: "Security",
+    title: "Users & Access",
     description:
-      "Manage encryption keys, API tokens, and access settings",
-    href: "/settings/security",
-    icon: Shield,
+      "Manage user accounts, approve access requests, and view login history",
+    href: "/settings/admin",
+    icon: Users,
     color: "text-destructive",
-    comingSoon: true,
   },
 ];
 

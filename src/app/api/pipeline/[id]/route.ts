@@ -5,6 +5,7 @@ import { parseBody } from "@/lib/validations/common";
 import { updateOpportunitySchema } from "@/lib/validations/pipeline";
 import { executeStageChangeTriggers } from "@/lib/workflow-engine";
 import { createAuditLog, diffAndLog } from "@/lib/audit";
+import { auth } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
@@ -213,6 +214,9 @@ export async function PATCH(
     });
 
     // ── Audit logging ──
+    const session = await auth();
+    const userId = session?.user?.id ?? null;
+
     if (currentState) {
       // Log stage change as a dedicated event
       if (body.stage && currentState.stage !== body.stage) {
@@ -221,6 +225,7 @@ export async function PATCH(
           entityType: "OPPORTUNITY",
           entityId: id,
           opportunityId: id,
+          userId,
           fieldName: "stage",
           oldValue: currentState.stage,
           newValue: body.stage,
@@ -258,6 +263,7 @@ export async function PATCH(
           entityType: "OPPORTUNITY",
           entityId: id,
           opportunityId: id,
+          userId,
           fieldLabels: auditFieldLabels,
           ignoreFields: ["stageNote"],
         }
@@ -292,10 +298,12 @@ export async function DELETE(
     });
 
     if (existing) {
+      const delSession = await auth();
       await createAuditLog({
         eventType: "DELETED",
         entityType: "OPPORTUNITY",
         entityId: id,
+        userId: delSession?.user?.id ?? null,
         summary: `Deleted opportunity: ${existing.title}`,
       });
     }
