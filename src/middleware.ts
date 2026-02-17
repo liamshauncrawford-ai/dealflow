@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 
 /**
- * Combined authentication middleware:
+ * Combined authentication middleware (Edge-compatible — no Prisma).
  *
- * 1. Public routes — always accessible (login, access-request, NextAuth API, static assets)
- * 2. API routes with API_KEY — bypass session auth (cron jobs, external integrations)
- * 3. API routes — require valid session + approved user, or return 401/403
- * 4. Dashboard pages — require valid session + approved user, or redirect to /login
+ * Checks for the session cookie presence only. Actual session validation
+ * (role, approval status) happens in server components / API routes
+ * where PrismaClient can run in the Node.js runtime.
+ *
+ * 1. Public routes — always accessible
+ * 2. API routes with API_KEY — bypass session check
+ * 3. Unauthenticated — redirect to /login (pages) or 401 (API)
+ * 4. Authenticated — pass through (approval checks happen server-side)
  */
-export default auth((request) => {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const session = request.auth;
 
   // ── 1. Public routes — always pass through ──
   if (
@@ -35,8 +37,14 @@ export default auth((request) => {
     }
   }
 
-  // ── 3. Not authenticated ──
-  if (!session?.user) {
+  // ── 3. Check for session cookie ──
+  // NextAuth v5 uses "__Secure-authjs.session-token" in production (HTTPS)
+  // and "authjs.session-token" in development (HTTP)
+  const sessionToken =
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("authjs.session-token")?.value;
+
+  if (!sessionToken) {
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "Unauthorized — sign in required" },
@@ -49,23 +57,10 @@ export default auth((request) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // ── 4. Authenticated but not approved ──
-  if (!session.user.isApproved) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { error: "Forbidden — your account is pending approval" },
-        { status: 403 },
-      );
-    }
-    // Page request — redirect to access-request
-    if (!pathname.startsWith("/access-request")) {
-      return NextResponse.redirect(new URL("/access-request", request.url));
-    }
-  }
-
-  // ── 5. Authenticated + Approved — allow through ──
+  // ── 4. Authenticated — pass through ──
+  // Approval status check is done server-side in layouts/API routes
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [
