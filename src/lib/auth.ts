@@ -12,7 +12,6 @@ const ADMIN_EMAILS = [
 ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  debug: true,
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: "database",
