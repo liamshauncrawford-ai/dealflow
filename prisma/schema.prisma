@@ -1139,14 +1139,14 @@ model User {
   updatedAt       DateTime      @updatedAt
 
   // Relations
-  accounts        AuthAccount[]
+  accounts        Account[]
   sessions        Session[]
   accessRequest   AccessRequest?
   loginHistory    LoginHistory[]
   auditLogs       AuditLog[]
 }
 
-model AuthAccount {
+model Account {
   id                    String    @id @default(cuid())
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
