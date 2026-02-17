@@ -95,37 +95,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   events: {
     async createUser({ user }) {
+      console.log("[Auth][createUser event] Fired for:", user.email, user.id);
       if (!user.email || !user.id) return;
 
       const email = user.email.toLowerCase();
       const isAdmin = ADMIN_EMAILS.includes(email);
 
-      if (isAdmin) {
-        // Auto-approve admin users
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            role: "ADMIN",
-            isApproved: true,
-          },
-        });
-      } else {
-        // Create pending access request for non-admin users
-        await prisma.accessRequest.create({
-          data: {
-            userId: user.id,
-            status: "PENDING",
-          },
-        });
+      try {
+        if (isAdmin) {
+          // Auto-approve admin users
+          await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              role: "ADMIN",
+              isApproved: true,
+            },
+          });
+          console.log("[Auth][createUser event] Admin auto-approved:", email);
+        } else {
+          // Create pending access request for non-admin users
+          await prisma.accessRequest.create({
+            data: {
+              userId: user.id,
+              status: "PENDING",
+            },
+          });
 
-        // Create notification for admins
-        await prisma.notification.create({
-          data: {
-            type: "ACCESS_REQUEST",
-            title: "New Access Request",
-            message: `${user.name || user.email} is requesting access to DealFlow.`,
-          },
-        });
+          // Create notification for admins
+          await prisma.notification.create({
+            data: {
+              type: "ACCESS_REQUEST",
+              title: "New Access Request",
+              message: `${user.name || user.email} is requesting access to DealFlow.`,
+            },
+          });
+          console.log("[Auth][createUser event] Access request created for:", email);
+        }
+      } catch (error) {
+        console.error("[Auth][createUser event] ERROR:", error);
       }
     },
   },
