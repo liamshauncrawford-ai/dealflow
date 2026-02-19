@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 import { useState } from "react";
 import { CommandPalette } from "@/components/command-palette";
+import { PostHogProvider } from "@/components/posthog-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -21,11 +22,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        {children}
-        <CommandPalette />
-        <Toaster position="bottom-right" richColors closeButton />
-      </QueryClientProvider>
+      <PostHogProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+          <CommandPalette />
+          <Toaster position="bottom-right" richColors closeButton />
+        </QueryClientProvider>
+      </PostHogProvider>
     </SessionProvider>
   );
 }

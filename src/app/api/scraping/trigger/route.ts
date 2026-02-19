@@ -101,6 +101,17 @@ export async function POST(request: NextRequest) {
               await apifyScrape(run.id, { state: "CO" });
             } catch (err) {
               console.error(`Apify scrape failed for ${p}:`, err);
+              // Update status to FAILED so it doesn't stay PENDING forever
+              await prisma.scrapeRun.update({
+                where: { id: run.id },
+                data: {
+                  status: "FAILED",
+                  completedAt: new Date(),
+                  errorLog: err instanceof Error ? err.message : String(err),
+                },
+              }).catch((updateErr) =>
+                console.error(`Failed to update scrape run status:`, updateErr)
+              );
             }
           })();
 

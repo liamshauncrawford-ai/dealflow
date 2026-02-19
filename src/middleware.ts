@@ -20,7 +20,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/access-request") ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/email/auth") // Email OAuth callback routes
+    pathname.startsWith("/api/email/auth") || // Email OAuth callback routes
+    pathname.startsWith("/api/health") // Health check for Railway monitoring
   ) {
     return NextResponse.next();
   }

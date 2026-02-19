@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireAuth } from "@/lib/auth-helpers";
 
 /**
  * GET /api/documents/[docId]
  *
  * Serves a document's file content for download or inline preview.
+ * Requires authentication and verifies user has access to the document's opportunity.
  *
  * Query params:
  *   ?inline=true  → Content-Disposition: inline  (browser renders PDF / image)
@@ -15,13 +17,16 @@ export async function GET(
   { params }: { params: Promise<{ docId: string }> },
 ) {
   try {
+    const { error: authError } = await requireAuth();
+    if (authError) return authError;
+
     const { docId } = await params;
     const { searchParams } = new URL(request.url);
     const inline = searchParams.get("inline") === "true";
 
     const document = await prisma.dealDocument.findUnique({
       where: { id: docId },
-      select: { fileData: true, fileName: true, mimeType: true, fileType: true },
+      select: { fileData: true, fileName: true, mimeType: true, fileType: true, opportunityId: true },
     });
 
     if (!document) {

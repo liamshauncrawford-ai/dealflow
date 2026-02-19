@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 export default function GlobalError({
@@ -10,85 +11,41 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Global error:", error);
+    Sentry.captureException(error);
   }, [error]);
 
   return (
     <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          backgroundColor: "#f8fafc",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-        }}
-      >
-        <div style={{ textAlign: "center", padding: "2rem", maxWidth: "400px" }}>
-          <div
-            style={{
-              width: "64px",
-              height: "64px",
-              borderRadius: "50%",
-              backgroundColor: "#fee2e2",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 1rem",
-              fontSize: "28px",
-            }}
-          >
-            ⚠️
-          </div>
-          <h1
-            style={{
-              fontSize: "1.25rem",
-              fontWeight: 600,
-              color: "#0f172a",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Application Error
-          </h1>
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "#64748b",
-              marginBottom: "1.5rem",
-              lineHeight: 1.5,
-            }}
-          >
-            A critical error occurred. Please try refreshing the page.
-          </p>
-          {error.digest && (
-            <p
+      <body>
+        <div style={{ display: "flex", minHeight: "100vh", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+          <div style={{ textAlign: "center", maxWidth: "400px" }}>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+              Something went wrong
+            </h2>
+            <p style={{ fontSize: "0.875rem", color: "#6b7280", marginBottom: "1.5rem" }}>
+              A critical error occurred. Please try refreshing the page.
+            </p>
+            {error.digest && (
+              <p style={{ fontSize: "0.75rem", color: "#9ca3af", marginBottom: "1rem" }}>
+                Error ID: {error.digest}
+              </p>
+            )}
+            <button
+              onClick={reset}
               style={{
-                fontSize: "0.75rem",
-                color: "#94a3b8",
-                marginBottom: "1rem",
+                padding: "0.625rem 1.25rem",
+                backgroundColor: "#2563eb",
+                color: "white",
+                border: "none",
+                borderRadius: "0.5rem",
+                cursor: "pointer",
+                fontSize: "0.875rem",
+                fontWeight: 500,
               }}
             >
-              Error ID: {error.digest}
-            </p>
-          )}
-          <button
-            onClick={reset}
-            style={{
-              backgroundColor: "#6366f1",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              padding: "10px 20px",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            Try Again
-          </button>
+              Try Again
+            </button>
+          </div>
         </div>
       </body>
     </html>
