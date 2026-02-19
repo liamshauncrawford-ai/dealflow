@@ -30,7 +30,7 @@ interface NavItem {
 }
 
 const mainNavItems: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Listings", href: "/listings", icon: List },
   { label: "Pipeline", href: "/pipeline", icon: Kanban },
   { label: "Contacts", href: "/contacts", icon: Users },
@@ -68,7 +68,7 @@ export function Sidebar() {
   }, [mobileOpen]);
 
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/";
+    if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
   };
 
@@ -104,7 +104,7 @@ export function Sidebar() {
       >
         {/* Logo + Mobile Close */}
         <div className="flex h-16 items-center justify-between border-b border-slate-700/50 px-4">
-          <Link href="/" className="flex items-center gap-3 overflow-hidden">
+          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-white">
               D
             </div>
