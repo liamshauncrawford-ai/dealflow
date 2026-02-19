@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { OperatorForm } from "@/components/market-intel/operator-form";
+import { MiniMap } from "@/components/maps/mini-map";
 
 export default function OperatorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -153,6 +154,24 @@ export default function OperatorDetailPage({ params }: { params: Promise<{ id: s
               <h3 className="mb-2 font-semibold">Notes</h3>
               <p className="whitespace-pre-wrap text-sm text-muted-foreground">{operator.notes}</p>
             </div>
+          )}
+
+          {/* Facility Map */}
+          {operator.facilities?.some((f: Record<string, unknown>) => f.latitude && f.longitude) && (
+            <MiniMap
+              markers={operator.facilities
+                .filter((f: Record<string, unknown>) => f.latitude && f.longitude)
+                .map((f: Record<string, unknown>) => ({
+                  id: f.id as string,
+                  lat: f.latitude as number,
+                  lng: f.longitude as number,
+                  label: f.facilityName as string,
+                  tier: operator.tier as string,
+                  capacityMW: f.capacityMW as number | null,
+                  type: "facility" as const,
+                }))}
+              height="250px"
+            />
           )}
 
           {/* Facilities */}

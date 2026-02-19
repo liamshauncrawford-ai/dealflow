@@ -21,6 +21,7 @@ import {
   Building2,
   HardHat,
   Cable,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -45,6 +46,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const marketIntelItems: NavItem[] = [
+  { label: "Market Map", href: "/market-intel/map", icon: Map },
   { label: "DC Operators", href: "/market-intel/operators", icon: Building2 },
   { label: "GC Tracker", href: "/market-intel/gcs", icon: HardHat },
   { label: "Cabling Pipeline", href: "/market-intel/opportunities", icon: Cable },

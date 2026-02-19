@@ -40,6 +40,7 @@ import { PromoteDialog } from "@/components/promote-dialog";
 import { formatCurrency, formatDate, formatRelativeDate } from "@/lib/utils";
 import { PIPELINE_STAGES, PRIMARY_TRADES, TIERS, type PrimaryTradeKey, type TierKey } from "@/lib/constants";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { MiniMap } from "@/components/maps/mini-map";
 
 export default function ListingDetailPage({
   params,
@@ -777,6 +778,19 @@ export default function ListingDetailPage({
                 <DetailRow icon={MapPin} label="Location" value={[listing.city, listing.state].filter(Boolean).join(", ")} />
               )}
               {listing.metroArea && <DetailRow icon={MapPin} label="Metro Area" value={listing.metroArea} />}
+              {listing.latitude && listing.longitude && (
+                <MiniMap
+                  markers={[{
+                    id: listing.id,
+                    lat: listing.latitude,
+                    lng: listing.longitude,
+                    label: listing.title,
+                    type: "listing",
+                  }]}
+                  height="180px"
+                  className="mt-2"
+                />
+              )}
               {listing.phone && <DetailRow icon={Phone} label="Phone" value={listing.phone} />}
               {listing.employees && <DetailRow icon={Users} label="Employees" value={String(listing.employees)} />}
               {listing.established && <DetailRow icon={Calendar} label="Established" value={String(listing.established)} />}

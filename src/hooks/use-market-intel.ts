@@ -328,6 +328,45 @@ export function useDeleteFacility() {
   });
 }
 
+// ── Map Data ──
+
+export function useMapData(params?: Record<string, string>) {
+  const searchParams = new URLSearchParams(params);
+  return useQuery({
+    queryKey: ["map-data", params],
+    queryFn: async () => {
+      const res = await fetch(`/api/market-intel/map?${searchParams.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch map data");
+      return res.json() as Promise<{
+        facilities: Array<{
+          id: string;
+          facilityName: string;
+          latitude: number;
+          longitude: number;
+          capacityMW: number | null;
+          status: string | null;
+          city: string | null;
+          state: string | null;
+          address: string | null;
+          operatorName: string;
+          operatorTier: string | null;
+        }>;
+        listings: Array<{
+          id: string;
+          title: string;
+          latitude: number;
+          longitude: number;
+          askingPrice: number | null;
+          city: string | null;
+          state: string | null;
+          industry: string | null;
+        }>;
+      }>;
+    },
+    staleTime: 5 * 60 * 1000, // 5 min — map data doesn't change often
+  });
+}
+
 // ── Market Intel Stats ──
 
 export function useMarketIntelStats() {

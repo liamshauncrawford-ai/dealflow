@@ -45,6 +45,7 @@ import {
   DEFAULT_ORDER,
   type DashboardCardId,
 } from "@/hooks/use-dashboard-card-order";
+import { DashboardMapCard } from "@/components/maps/dashboard-map-card";
 import { PipelineFunnelChart } from "@/components/charts/pipeline-funnel-chart";
 import { SourceDistributionChart } from "@/components/charts/source-distribution-chart";
 import { TierDistributionChart } from "@/components/charts/tier-distribution-chart";
@@ -146,6 +147,10 @@ export default function DashboardPage() {
     },
     "listings-by-platform": {
       render: () => <ListingsByPlatformCard stats={stats} isLoading={isLoading} />,
+      isVisible: () => true,
+    },
+    "facility-map": {
+      render: () => <DashboardMapCard />,
       isVisible: () => true,
     },
     "market-intel-summary": {

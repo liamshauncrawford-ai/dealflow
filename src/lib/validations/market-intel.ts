@@ -148,3 +148,27 @@ export const createCablingSchema = z.object({
 });
 
 export const updateCablingSchema = createCablingSchema.partial();
+
+// ── Map query validations ──
+
+export const mapQuerySchema = z.object({
+  showFacilities: z
+    .enum(["true", "false"])
+    .default("true")
+    .transform((v) => v === "true"),
+  showListings: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
+  operatorTier: z
+    .enum([
+      "TIER_1_ACTIVE_CONSTRUCTION",
+      "TIER_2_EXPANSION",
+      "TIER_3_EXISTING_MAINTENANCE",
+      "TIER_4_RUMORED",
+    ])
+    .optional(),
+  facilityStatus: z
+    .enum(["OPERATING", "UNDER_CONSTRUCTION", "PLANNED", "RUMORED"])
+    .optional(),
+});
