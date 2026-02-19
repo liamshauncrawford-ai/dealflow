@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { seedMarketIntel } from "./seed-market-intel";
 
 const prisma = new PrismaClient();
 
@@ -906,6 +907,9 @@ Liam Crawford`,
 
   console.log(`Seeded ${targetEmailDomains.length} target email domains.`);
   console.log("Thesis seed data complete.");
+
+  // Seed market intelligence data (operators, GCs, facilities, cabling opportunities)
+  await seedMarketIntel();
 }
 
 main()

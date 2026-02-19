@@ -15,6 +15,8 @@ export const DEFAULT_ORDER = [
   "deal-velocity-chart",
   "pipeline-value-chart",
   "win-loss-indicator",
+  "market-intel-summary",
+  "cabling-pipeline-summary",
   "upcoming-follow-ups",
   "stale-contacts",
   "listings-by-platform",

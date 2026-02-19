@@ -18,6 +18,9 @@ import {
   ChevronRight,
   Menu,
   X,
+  Building2,
+  HardHat,
+  Cable,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -39,6 +42,12 @@ const mainNavItems: NavItem[] = [
   { label: "Historical Deals", href: "/settings/import", icon: FolderOpen },
   { label: "Duplicates", href: "/settings/dedup", icon: Copy, badge: 0 },
   { label: "Hidden", href: "/hidden", icon: EyeOff },
+];
+
+const marketIntelItems: NavItem[] = [
+  { label: "DC Operators", href: "/market-intel/operators", icon: Building2 },
+  { label: "GC Tracker", href: "/market-intel/gcs", icon: HardHat },
+  { label: "Cabling Pipeline", href: "/market-intel/opportunities", icon: Cable },
 ];
 
 const bottomNavItems: NavItem[] = [
@@ -127,6 +136,22 @@ export function Sidebar() {
         {/* Main Navigation */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {mainNavItems.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isActive(item.href)}
+              collapsed={collapsed}
+            />
+          ))}
+
+          {/* Market Intel Section */}
+          <div className="my-3 border-t border-slate-700/50" />
+          {!collapsed && (
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Market Intel
+            </p>
+          )}
+          {marketIntelItems.map((item) => (
             <NavLink
               key={item.href}
               item={item}
