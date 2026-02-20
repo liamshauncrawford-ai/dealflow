@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users, Activity, ScrollText, EyeOff } from "lucide-react";
+import { SeedDataCard } from "@/components/settings/seed-data-card";
 
 const settingsSections = [
   {
@@ -146,6 +147,14 @@ export default function SettingsPage() {
             </Link>
           );
         })}
+      </div>
+
+      {/* Tools Section */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-3">Tools</h2>
+        <div className="grid gap-4 sm:grid-cols-1">
+          <SeedDataCard />
+        </div>
       </div>
     </div>
   );

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn, formatRelativeDate } from "@/lib/utils";
+import { useAnthropicUsage } from "@/hooks/use-anthropic-usage";
 
 // ─────────────────────────────────────────────
 // Types
@@ -149,10 +150,15 @@ export default function AgentDashboardPage() {
   const runs = data?.runs ?? [];
   const totalPages = data?.totalPages ?? 1;
 
-  // Manual trigger mutation
+  // Manual trigger mutation — proxies through /api/agents/trigger
+  // so the CRON_SECRET is attached server-side (never exposed to browser)
   const triggerAgent = useMutation({
     mutationFn: async (endpoint: string) => {
-      const res = await fetch(endpoint, { method: "POST" });
+      const res = await fetch("/api/agents/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint }),
+      });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Agent trigger failed");
@@ -165,8 +171,10 @@ export default function AgentDashboardPage() {
     },
   });
 
-  // Summary stats from all runs on current page
-  const stats = computeStats(runs);
+  // Summary stats — prefer real Anthropic data, fall back to local estimates
+  const { data: usage } = useAnthropicUsage();
+  const localStats = computeStats(runs);
+  const isLiveData = usage?.source === "anthropic";
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -236,22 +244,24 @@ export default function AgentDashboardPage() {
         />
         <StatCard
           label="Success Rate"
-          value={stats.successRate}
+          value={localStats.successRate}
           suffix="%"
           icon={CheckCircle2}
           color="text-emerald-500"
         />
         <StatCard
-          label="Total Cost"
-          value={`$${stats.totalCost.toFixed(2)}`}
+          label={isLiveData ? "API Spend (30d)" : "Total Cost"}
+          value={`$${(usage?.totalCostUsd ?? localStats.totalCost).toFixed(2)}`}
           icon={DollarSign}
           color="text-amber-500"
+          badge={isLiveData ? "Live" : usage ? "Estimated" : undefined}
         />
         <StatCard
-          label="Total Tokens"
-          value={formatNumber(stats.totalTokens)}
+          label={isLiveData ? "Tokens (30d)" : "Total Tokens"}
+          value={formatNumber(usage?.totalTokens ?? localStats.totalTokens)}
           icon={Bot}
           color="text-violet-500"
+          badge={isLiveData ? "Live" : usage ? "Estimated" : undefined}
         />
       </div>
 
@@ -444,12 +454,14 @@ function StatCard({
   suffix,
   icon: Icon,
   color,
+  badge,
 }: {
   label: string;
   value: string | number;
   suffix?: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
+  badge?: string;
 }) {
   return (
     <Card>
@@ -458,7 +470,21 @@ function StatCard({
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs text-muted-foreground">{label}</p>
+            {badge && (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                  badge === "Live"
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+                )}
+              >
+                {badge}
+              </span>
+            )}
+          </div>
           <p className="text-xl font-bold tabular-nums">
             {value}{suffix}
           </p>

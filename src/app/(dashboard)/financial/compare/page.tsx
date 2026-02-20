@@ -18,29 +18,13 @@ import {
   type ValuationInputs,
   type ValuationOutputs,
 } from "@/lib/financial/valuation-engine";
-
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
-
-interface ListingSummary {
-  id: string;
-  businessName: string | null;
-  title: string | null;
-  compositeScore: number | null;
-  revenue: number | null;
-  ebitda: number | null;
-  sde: number | null;
-  askingPrice: number | null;
-  city: string | null;
-  state: string | null;
-  established: number | null;
-  primaryTrade: string | null;
-  certifications: string[] | null;
-  tier: string | null;
-  thesisAlignment: string | null;
-  enrichmentStatus: string | null;
-}
+import {
+  type ListingSummary,
+  buildComparisonInputs,
+  formatListingOption,
+  ebitdaSourceLabel,
+  resolveEbitda,
+} from "@/lib/financial/listing-mapper";
 
 interface ComparisonTarget {
   listing: ListingSummary;
@@ -82,14 +66,7 @@ function scoreBadge(score: number | null): { text: string; color: string } {
 }
 
 function buildInputs(listing: ListingSummary): ValuationInputs {
-  const revenue = Number(listing.revenue) || 0;
-  const ebitda = Number(listing.ebitda || listing.sde) || 0;
-  return {
-    ...DEFAULT_INPUTS,
-    target_revenue: revenue,
-    target_ebitda: ebitda,
-    target_ebitda_margin: revenue > 0 ? ebitda / revenue : 0,
-  };
+  return buildComparisonInputs(listing, DEFAULT_INPUTS);
 }
 
 // ─────────────────────────────────────────────
@@ -175,8 +152,7 @@ export default function DealComparisonPage() {
                 <option value="">+ Add target...</option>
                 {availableListings.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.businessName || l.title || "Unnamed"}{" "}
-                    {l.compositeScore ? `(${l.compositeScore})` : ""}
+                    {formatListingOption(l)}
                   </option>
                 ))}
               </select>
@@ -243,8 +219,10 @@ export default function DealComparisonPage() {
                   <CompareRow
                     label="Est. EBITDA"
                     values={targets.map((t) => {
-                      const ebitda = Number(t.listing.ebitda || t.listing.sde) || 0;
-                      return ebitda > 0 ? fmtK(ebitda) : "N/A";
+                      const ebitda = resolveEbitda(t.listing);
+                      return ebitda > 0 ? (
+                        <span title={ebitdaSourceLabel(t.listing)}>{fmtK(ebitda)}</span>
+                      ) : "N/A";
                     })}
                   />
                   <CompareRow

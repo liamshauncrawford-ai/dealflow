@@ -26,6 +26,12 @@ import {
   type ValuationOutputs,
 } from "@/lib/financial/valuation-engine";
 import type { ValuationCommentary } from "@/lib/ai/valuation-commentary";
+import {
+  type ListingSummary,
+  mapListingToValuationInputs,
+  formatListingOption,
+  ebitdaSourceLabel,
+} from "@/lib/financial/listing-mapper";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -70,18 +76,7 @@ export default function ValuationCalculatorPage() {
     queryFn: async () => {
       const res = await fetch("/api/listings?limit=100&sortBy=compositeScore&sortDir=desc");
       if (!res.ok) return { listings: [] };
-      return res.json() as Promise<{
-        listings: Array<{
-          id: string;
-          businessName: string | null;
-          title: string | null;
-          revenue: number | null;
-          ebitda: number | null;
-          sde: number | null;
-          askingPrice: number | null;
-          compositeScore: number | null;
-        }>;
-      }>;
+      return res.json() as Promise<{ listings: ListingSummary[] }>;
     },
   });
 
@@ -106,16 +101,7 @@ export default function ValuationCalculatorPage() {
     (listingId: string) => {
       const listing = listings?.listings.find((l) => l.id === listingId);
       if (!listing) return;
-      setInputs((prev) => {
-        const revenue = Number(listing.revenue) || 0;
-        const ebitda = Number(listing.ebitda || listing.sde) || 0;
-        return {
-          ...prev,
-          target_revenue: revenue,
-          target_ebitda: ebitda,
-          target_ebitda_margin: revenue > 0 ? ebitda / revenue : 0,
-        };
-      });
+      setInputs((prev) => mapListingToValuationInputs(listing, prev));
     },
     [listings],
   );
@@ -222,8 +208,7 @@ export default function ValuationCalculatorPage() {
                 <option value="">Select a target...</option>
                 {listings.listings.map((l) => (
                   <option key={l.id} value={l.id}>
-                    {l.businessName || l.title || "Unnamed"}{" "}
-                    {l.compositeScore ? `(Score: ${l.compositeScore})` : ""}
+                    {formatListingOption(l)}
                   </option>
                 ))}
               </select>

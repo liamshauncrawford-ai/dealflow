@@ -21,6 +21,11 @@ import {
   type RollupInputs,
   type RollupCompany,
 } from "@/lib/financial/rollup-engine";
+import {
+  type ListingSummary,
+  mapListingToRollupCompany,
+  formatListingOption,
+} from "@/lib/financial/listing-mapper";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -62,16 +67,7 @@ export default function RollUpModelPage() {
     queryFn: async () => {
       const res = await fetch("/api/listings?limit=100&sortBy=compositeScore&sortDir=desc");
       if (!res.ok) return { listings: [] };
-      return res.json() as Promise<{
-        listings: Array<{
-          id: string;
-          businessName: string | null;
-          title: string | null;
-          revenue: number | null;
-          ebitda: number | null;
-          sde: number | null;
-        }>;
-      }>;
+      return res.json() as Promise<{ listings: ListingSummary[] }>;
     },
   });
 
@@ -127,28 +123,33 @@ export default function RollUpModelPage() {
     (listingId: string) => {
       const listing = listings?.listings.find((l) => l.id === listingId);
       if (!listing) return;
+      const mapped = mapListingToRollupCompany(listing, {
+        id: "platform",
+        close_year: 1,
+        entry_multiple: inputs.platform.entry_multiple,
+      });
       setInputs((prev) => ({
         ...prev,
-        platform: {
-          ...prev.platform,
-          name: listing.businessName || listing.title || "Platform",
-          revenue: Number(listing.revenue) || 0,
-          ebitda: Number(listing.ebitda || listing.sde) || 0,
-        },
+        platform: mapped,
       }));
     },
-    [listings],
+    [listings, inputs.platform.entry_multiple],
   );
 
   const loadListingToBoltOn = useCallback(
     (index: number, listingId: string) => {
       const listing = listings?.listings.find((l) => l.id === listingId);
       if (!listing) return;
-      updateBoltOn(index, "name", listing.businessName || listing.title || "Bolt-On");
-      updateBoltOn(index, "revenue", Number(listing.revenue) || 0);
-      updateBoltOn(index, "ebitda", Number(listing.ebitda || listing.sde) || 0);
+      const mapped = mapListingToRollupCompany(listing, {
+        id: `bolton-${index}`,
+        close_year: index + 2,
+      });
+      setInputs((prev) => ({
+        ...prev,
+        boltOns: prev.boltOns.map((b, i) => (i === index ? mapped : b)),
+      }));
     },
-    [listings, updateBoltOn],
+    [listings],
   );
 
   const reset = useCallback(() => setInputs(DEFAULT_ROLLUP_INPUTS), []);
@@ -203,7 +204,7 @@ export default function RollUpModelPage() {
                   <option value="">Load from pipeline...</option>
                   {listings.listings.map((l) => (
                     <option key={l.id} value={l.id}>
-                      {l.businessName || l.title || "Unnamed"}
+                      {formatListingOption(l)}
                     </option>
                   ))}
                 </select>
@@ -268,7 +269,7 @@ export default function RollUpModelPage() {
                     <option value="">Load from pipeline...</option>
                     {listings.listings.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.businessName || l.title || "Unnamed"}
+                        {formatListingOption(l)}
                       </option>
                     ))}
                   </select>
