@@ -65,7 +65,7 @@ export default function RollUpModelPage() {
   const { data: listings } = useQuery({
     queryKey: ["listings-for-rollup"],
     queryFn: async () => {
-      const res = await fetch("/api/listings?limit=100&sortBy=compositeScore&sortDir=desc");
+      const res = await fetch("/api/listings?pageSize=100&sortBy=compositeScore&sortDir=desc&meetsThreshold=false");
       if (!res.ok) return { listings: [] };
       return res.json() as Promise<{ listings: ListingSummary[] }>;
     },

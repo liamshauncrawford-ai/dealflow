@@ -26,7 +26,7 @@ const validSortFields = [
   "inferredEbitda", "inferredSde", "city", "state", "industry",
   "brokerName", "brokerCompany", "employees", "established",
   "firstSeenAt", "lastSeenAt", "listingDate", "createdAt",
-  "tier", "fitScore", "primaryTrade",
+  "tier", "fitScore", "primaryTrade", "compositeScore",
 ] as const;
 
 // ─────────────────────────────────────────────

@@ -79,7 +79,7 @@ export default function DealComparisonPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["listings-for-compare"],
     queryFn: async () => {
-      const res = await fetch("/api/listings?limit=100&sortBy=compositeScore&sortDir=desc");
+      const res = await fetch("/api/listings?pageSize=100&sortBy=compositeScore&sortDir=desc&meetsThreshold=false");
       if (!res.ok) return { listings: [] };
       return res.json() as Promise<{ listings: ListingSummary[] }>;
     },
