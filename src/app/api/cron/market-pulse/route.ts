@@ -4,24 +4,18 @@ import {
   generateWeeklyBrief,
   type WeeklyDataSnapshot,
 } from "@/lib/ai/market-pulse";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 
 /**
  * POST /api/cron/market-pulse
  * Weekly thesis drift monitor — aggregates pipeline, news, and score data
  * from the past 7 days, sends to Claude for strategic assessment.
- *
- * Protected by CRON_SECRET. Designed to run weekly (Sunday 8 PM MT).
+ * Auth: CRON_SECRET (external scheduler) or session cookie (dashboard).
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (CRON_SECRET && token !== CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authResult = await requireCronOrAuth(request);
+    if (!authResult.authorized) return authResult.error;
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(

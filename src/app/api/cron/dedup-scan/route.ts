@@ -4,24 +4,19 @@ import {
   runRecentDeduplication,
   autoMergeCandidates,
 } from "@/lib/dedup/dedup-engine";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 
 /**
  * POST /api/cron/dedup-scan
  * Runs deduplication on recent listings (last 7 days), then auto-merges
  * high-confidence duplicates. Creates notifications for manual review candidates.
  *
- * Protected by CRON_SECRET. Designed for weekly execution.
+ * Auth: CRON_SECRET (external scheduler) or session cookie (dashboard).
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (CRON_SECRET && token !== CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authResult = await requireCronOrAuth(request);
+    if (!authResult.authorized) return authResult.error;
 
     const agentRun = await prisma.aIAgentRun.create({
       data: { agentName: "dedup_scan", status: "running" },

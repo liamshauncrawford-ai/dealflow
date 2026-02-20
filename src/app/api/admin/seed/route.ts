@@ -2,32 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import type { PrimaryTrade } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { computeFitScore, type FitScoreInput } from "@/lib/scoring/fit-score-engine";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 
 /**
  * POST /api/admin/seed
  *
- * Seeds reference data into the production database. Protected by CRON_SECRET.
- * Idempotent — all operations use upsert with deterministic IDs.
+ * Seeds reference data into the production database.
+ * Auth: accepts EITHER CRON_SECRET (for external/CI calls) OR a valid
+ * user session (for dashboard "Seed Now" button). See requireCronOrAuth().
  *
- * Sections:
- *   1. Industry multiples (16 rows)
- *   2. Thesis target companies + opportunities + contacts
- *   3. Email templates
- *   4. Search keywords
- *   5. Broker contacts
- *   6. Target email domains
+ * Idempotent — all operations use upsert with deterministic IDs.
  */
 export async function POST(request: NextRequest) {
-  // Auth check — require CRON_SECRET in production
-  if (CRON_SECRET) {
-    const authHeader = request.headers.get("Authorization");
-    const token = authHeader?.replace("Bearer ", "");
-    if (token !== CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
+  const authResult = await requireCronOrAuth(request);
+  if (!authResult.authorized) return authResult.error;
 
   const results: Record<string, number> = {};
 

@@ -7,25 +7,20 @@ import {
   type NewsClassification,
 } from "@/lib/ai/news-monitor";
 import { processDCConstructionArticle } from "@/lib/market-intel/dc-project-automation";
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const CLASSIFICATION_BATCH_SIZE = 10;
 
 /**
  * POST /api/cron/news-monitor
  * Fetches RSS feeds, deduplicates against existing NewsItems,
  * classifies new articles via Claude, and creates notifications.
- *
- * Protected by CRON_SECRET header. Designed to run every 6 hours.
+ * Auth: CRON_SECRET (external scheduler) or session cookie (dashboard).
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (CRON_SECRET && token !== CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authResult = await requireCronOrAuth(request);
+    if (!authResult.authorized) return authResult.error;
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(

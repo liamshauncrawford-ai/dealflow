@@ -2,27 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { evaluateTargets, type ScanTarget } from "@/lib/ai/daily-scan";
 import { computeFitScore, type FitScoreInput } from "@/lib/scoring/fit-score-engine";
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 
-const CRON_SECRET = process.env.CRON_SECRET;
 const BATCH_SIZE = 10;
 
 /**
  * POST /api/cron/daily-scan
  * Finds unscored or recently-added listings and runs AI evaluation.
- * Protected by CRON_SECRET header.
- *
- * Can also be triggered manually (e.g., from admin UI) by passing
- * { force: true } in the body.
+ * Auth: CRON_SECRET (external scheduler) or session cookie (dashboard).
  */
 export async function POST(request: NextRequest) {
   try {
-    // Auth: check cron secret or session
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (CRON_SECRET && token !== CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authResult = await requireCronOrAuth(request);
+    if (!authResult.authorized) return authResult.error;
 
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(

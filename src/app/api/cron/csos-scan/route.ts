@@ -8,24 +8,18 @@ import {
 import { csosEntityToRawListing } from "@/lib/scrapers/csos-helpers";
 import { processScrapedListings } from "@/lib/scrapers/post-processor";
 import type { RawListing, ScrapeResult } from "@/lib/scrapers/base-scraper";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 
 /**
  * POST /api/cron/csos-scan
  * Searches the Colorado Secretary of State for businesses matching
  * acquisition-relevant trade keywords. New entities become Listing records.
- *
- * Protected by CRON_SECRET. Designed for weekly execution.
+ * Auth: CRON_SECRET (external scheduler) or session cookie (dashboard).
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.replace("Bearer ", "");
-
-    if (CRON_SECRET && token !== CRON_SECRET) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authResult = await requireCronOrAuth(request);
+    if (!authResult.authorized) return authResult.error;
 
     const agentRun = await prisma.aIAgentRun.create({
       data: { agentName: "csos_scan", status: "running" },

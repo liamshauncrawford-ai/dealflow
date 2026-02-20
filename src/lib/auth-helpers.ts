@@ -61,6 +61,47 @@ export async function requireAdmin(): Promise<AdminResult> {
 }
 
 /**
+ * Require EITHER a valid CRON_SECRET Bearer token OR an authenticated user session.
+ *
+ * Use this for routes that need to be callable both by:
+ *   - Railway cron / external schedulers (via Authorization: Bearer <CRON_SECRET>)
+ *   - Logged-in dashboard users (via session cookie from "Run Now" / "Seed" buttons)
+ *
+ * This eliminates the need for proxy-to-self fetch patterns that break behind
+ * reverse proxies, load balancers, or when cookies don't forward.
+ */
+export async function requireCronOrAuth(
+  request: Request,
+): Promise<{ authorized: true; error: null } | { authorized: false; error: NextResponse }> {
+  const CRON_SECRET = process.env.CRON_SECRET;
+
+  // Path 1: CRON_SECRET in Authorization header
+  if (CRON_SECRET) {
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+    if (token === CRON_SECRET) {
+      return { authorized: true, error: null };
+    }
+  }
+
+  // Path 2: Valid user session (cookie-based auth from the browser)
+  const session = await auth();
+  if (session?.user?.isApproved) {
+    return { authorized: true, error: null };
+  }
+
+  // Path 3: No CRON_SECRET set at all (local dev without secrets)
+  if (!CRON_SECRET) {
+    return { authorized: true, error: null };
+  }
+
+  return {
+    authorized: false,
+    error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+  };
+}
+
+/**
  * Get the current auth session, or null if not authenticated.
  * Does NOT enforce approval — useful for pages that need soft auth checks.
  */

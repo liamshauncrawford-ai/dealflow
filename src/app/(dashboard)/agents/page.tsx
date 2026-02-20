@@ -150,15 +150,12 @@ export default function AgentDashboardPage() {
   const runs = data?.runs ?? [];
   const totalPages = data?.totalPages ?? 1;
 
-  // Manual trigger mutation — proxies through /api/agents/trigger
-  // so the CRON_SECRET is attached server-side (never exposed to browser)
+  // Manual trigger — calls cron endpoints directly. Session cookie
+  // passes automatically (same-origin fetch). Routes accept either
+  // CRON_SECRET (Railway scheduler) or session cookie (dashboard).
   const triggerAgent = useMutation({
     mutationFn: async (endpoint: string) => {
-      const res = await fetch("/api/agents/trigger", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ endpoint }),
-      });
+      const res = await fetch(endpoint, { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Agent trigger failed");
