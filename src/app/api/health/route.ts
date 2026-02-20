@@ -32,7 +32,7 @@ export async function GET() {
       status: allHealthy ? "healthy" : "degraded",
       checks,
       // Deploy marker — when you hit /api/health, this confirms which version is live
-      version: "2026-02-20-auth-fix-v2",
+      version: "2026-02-20-migration-fix-v3",
       timestamp: new Date().toISOString(),
     },
     { status: allHealthy ? 200 : 503 },
