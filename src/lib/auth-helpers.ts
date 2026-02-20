@@ -85,9 +85,43 @@ export async function requireCronOrAuth(
   }
 
   // Path 2: Valid user session (cookie-based auth from the browser)
-  const session = await auth();
-  if (session?.user?.isApproved) {
-    return { authorized: true, error: null };
+  try {
+    const session = await auth();
+    if (session?.user?.isApproved) {
+      return { authorized: true, error: null };
+    }
+
+    // Session exists but user not approved
+    if (session?.user && !session.user.isApproved) {
+      console.warn("[requireCronOrAuth] Session found but user not approved:", session.user.email);
+      return {
+        authorized: false,
+        error: NextResponse.json(
+          { error: "Forbidden — account not approved", debug: { hasSession: true, email: session.user.email, isApproved: false } },
+          { status: 403 },
+        ),
+      };
+    }
+
+    // No session at all — log for debugging
+    console.warn("[requireCronOrAuth] No valid session found. CRON_SECRET set:", !!CRON_SECRET);
+  } catch (authError) {
+    // auth() threw an error — this can happen if DB is unreachable, AUTH_SECRET missing, etc.
+    console.error("[requireCronOrAuth] auth() threw error:", authError);
+    return {
+      authorized: false,
+      error: NextResponse.json(
+        {
+          error: "Auth check failed",
+          debug: {
+            message: authError instanceof Error ? authError.message : String(authError),
+            hasCronSecret: !!CRON_SECRET,
+            hasAuthSecret: !!process.env.AUTH_SECRET,
+          },
+        },
+        { status: 500 },
+      ),
+    };
   }
 
   // Path 3: No CRON_SECRET set at all (local dev without secrets)
@@ -97,7 +131,17 @@ export async function requireCronOrAuth(
 
   return {
     authorized: false,
-    error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    error: NextResponse.json(
+      {
+        error: "Unauthorized",
+        debug: {
+          hasCronSecret: true,
+          cronTokenProvided: !!request.headers.get("authorization"),
+          sessionResult: "no_session",
+        },
+      },
+      { status: 401 },
+    ),
   };
 }
 

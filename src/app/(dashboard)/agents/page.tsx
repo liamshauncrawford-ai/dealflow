@@ -157,8 +157,9 @@ export default function AgentDashboardPage() {
     mutationFn: async (endpoint: string) => {
       const res = await fetch(endpoint, { method: "POST" });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Agent trigger failed");
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        const detail = err.detail || err.debug?.message || "";
+        throw new Error(`${err.error || "Agent trigger failed"}${detail ? ` — ${detail}` : ""}`);
       }
       return res.json();
     },

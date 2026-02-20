@@ -31,8 +31,10 @@ export function SeedDataCard() {
     mutationFn: async () => {
       const res = await fetch("/api/admin/seed", { method: "POST" });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Seed failed");
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        // Include debug info and detail if present for diagnosing Railway issues
+        const detail = err.detail || err.debug?.message || "";
+        throw new Error(`${err.error || "Seed failed"}${detail ? ` — ${detail}` : ""}`);
       }
       return res.json();
     },
