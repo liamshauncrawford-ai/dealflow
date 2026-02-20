@@ -15,6 +15,10 @@ export interface ScraperFilters {
   minPrice?: number;
   maxPrice?: number;
   minCashFlow?: number;
+  /** Keyword search term (e.g. "structured cabling") */
+  keyword?: string;
+  /** Category slug for URL path (e.g. "electrical-contractor") */
+  categorySlug?: string;
 }
 
 export interface RawListing {

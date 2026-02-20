@@ -16,14 +16,16 @@ import { prisma } from "@/lib/db";
 import type { RawListing, ScrapeResult, ScraperFilters } from "./base-scraper";
 import { parsePrice, parseLocation } from "./parser-utils";
 import { processScrapedListings } from "./post-processor";
+import { THESIS_SEARCH_QUERIES } from "@/lib/constants";
+import { BizBuySellScraper } from "./bizbuysell";
 
 // ─────────────────────────────────────────────
 // Apify actor configuration
 // ─────────────────────────────────────────────
 
 const ACTOR_ID = "acquistion-automation/bizbuysell-scraper";
-const DEFAULT_MAX_ITEMS = 200;
-const ACTOR_TIMEOUT_SECS = 600; // 10 minutes max
+const DEFAULT_MAX_ITEMS_PER_QUERY = 30;
+const ACTOR_TIMEOUT_SECS = 900; // 15 minutes max (multiple searches)
 
 // ─────────────────────────────────────────────
 // Apify output types
@@ -65,8 +67,14 @@ export function isApifyAvailable(): boolean {
 }
 
 /**
- * Run the Apify BizBuySell scraper and feed results through
- * the existing post-processor pipeline.
+ * Run the Apify BizBuySell scraper using thesis-targeted search queries.
+ *
+ * Instead of scraping ALL Colorado listings, this builds targeted search
+ * URLs for each thesis trade (structured cabling, security, fire alarm, etc.)
+ * and sends them all to the Apify actor. This means:
+ *   - Fewer Apify compute units (crawling targeted pages, not the whole state)
+ *   - Higher signal-to-noise ratio (most results match your thesis)
+ *   - The post-processor still classifies/scores everything after
  */
 export async function apifyScrape(
   runId: string,
@@ -80,7 +88,7 @@ export async function apifyScrape(
       data: { status: "RUNNING", startedAt },
     });
 
-    console.log("[APIFY] Starting BizBuySell scrape via Apify...");
+    console.log("[APIFY] Starting thesis-targeted BizBuySell scrape via Apify...");
 
     // Dynamic import to avoid loading at startup
     const { ApifyClient } = await import("apify-client");
@@ -89,21 +97,39 @@ export async function apifyScrape(
       token: process.env.APIFY_API_TOKEN!,
     });
 
-    // Build search URL from filters
-    const stateInput = (filters.state ?? "colorado").toLowerCase();
-    const state =
-      stateInput === "co" ? "colorado" : stateInput.replace(/\s+/g, "-");
-    const searchUrl = `https://www.bizbuysell.com/${state}-businesses-for-sale/`;
+    // Build thesis-targeted search URLs using the BizBuySell URL builder
+    const scraper = new BizBuySellScraper();
+    const searchUrls: string[] = [];
 
-    console.log(`[APIFY] Search URL: ${searchUrl}`);
+    for (const query of THESIS_SEARCH_QUERIES) {
+      const url = scraper.buildSearchUrl({
+        state: filters.state ?? "CO",
+        keyword: query.keyword,
+        categorySlug: query.categorySlug,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        minCashFlow: filters.minCashFlow,
+        city: filters.city,
+      });
+      searchUrls.push(url);
+      console.log(`[APIFY]   → ${query.label}: ${url}`);
+    }
 
-    // Start the actor and wait for completion
+    console.log(`[APIFY] Sending ${searchUrls.length} thesis-targeted search URLs to Apify actor`);
+
+    // Compute total max items — sum of per-query limits or default
+    const totalMaxItems = THESIS_SEARCH_QUERIES.reduce(
+      (sum, q) => sum + (q.maxItems ?? DEFAULT_MAX_ITEMS_PER_QUERY),
+      0
+    );
+
+    // Start the actor with ALL targeted URLs at once
     const run = await client
       .actor(ACTOR_ID)
       .call(
         {
-          startUrls: [searchUrl],
-          maxItems: DEFAULT_MAX_ITEMS,
+          startUrls: searchUrls,
+          maxItems: totalMaxItems,
         },
         {
           timeout: ACTOR_TIMEOUT_SECS,
@@ -123,13 +149,27 @@ export async function apifyScrape(
 
     console.log(`[APIFY] Retrieved ${items.length} items from dataset`);
 
+    // Deduplicate by source URL (same listing can appear in multiple searches)
+    const seenUrls = new Set<string>();
+    const uniqueItems: ApifyBizBuySellItem[] = [];
+    for (const item of items as ApifyBizBuySellItem[]) {
+      const url = item["LINK TO DEAL"]?.trim();
+      if (!url || seenUrls.has(url)) continue;
+      seenUrls.add(url);
+      uniqueItems.push(item);
+    }
+
+    console.log(
+      `[APIFY] Deduplicated: ${uniqueItems.length} unique listings (${items.length - uniqueItems.length} duplicates removed)`
+    );
+
     // Map Apify items to RawListing[]
-    const listings = (items as ApifyBizBuySellItem[])
+    const listings = uniqueItems
       .map(mapApifyItemToRawListing)
       .filter((l): l is RawListing => l !== null);
 
     console.log(
-      `[APIFY] Mapped ${listings.length} valid listings (${items.length - listings.length} skipped)`
+      `[APIFY] Mapped ${listings.length} valid listings (${uniqueItems.length - listings.length} skipped)`
     );
 
     // Build ScrapeResult and feed through existing pipeline

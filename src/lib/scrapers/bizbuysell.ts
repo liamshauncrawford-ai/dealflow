@@ -21,13 +21,25 @@ export class BizBuySellScraper extends BaseScraper {
   // ── Search URL builder ──
 
   buildSearchUrl(filters: ScraperFilters): string {
-    // BizBuySell URL pattern: /colorado-businesses-for-sale/
+    // BizBuySell URL patterns:
+    //   Category: /colorado-{category}-businesses-for-sale/
+    //   Generic:  /colorado-businesses-for-sale/?q_kw={keyword}
     const stateInput = (filters.state ?? "colorado").toLowerCase();
     const state = stateInput === "co" ? "colorado" : stateInput.replace(/\s+/g, "-");
-    let url = `${BASE_URL}/${state}-businesses-for-sale/`;
+
+    // If a category slug is provided, use it in the URL path
+    const slug = filters.categorySlug
+      ? `${state}-${filters.categorySlug}-businesses-for-sale`
+      : `${state}-businesses-for-sale`;
+
+    let url = `${BASE_URL}/${slug}/`;
 
     const params = new URLSearchParams();
 
+    // Keyword search — thesis-targeted
+    if (filters.keyword) {
+      params.set("q_kw", filters.keyword);
+    }
     if (filters.minPrice !== undefined) {
       params.set("q_price_min", String(filters.minPrice));
     }

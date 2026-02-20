@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { Platform } from "@prisma/client";
+import { THESIS_SEARCH_QUERIES } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,15 +91,22 @@ export async function POST(request: NextRequest) {
             platform: p,
             status: "queued" as const,
             runId: run.id,
+            thesisQueries: THESIS_SEARCH_QUERIES.length,
+            searchLabels: THESIS_SEARCH_QUERIES.map((q) => q.label),
           });
 
-          // Trigger Apify scrape asynchronously
+          // Trigger thesis-targeted Apify scrape asynchronously
           (async () => {
             try {
               const { apifyScrape } = await import(
                 "@/lib/scrapers/apify-scraper"
               );
-              await apifyScrape(run.id, { state: "CO" });
+              await apifyScrape(run.id, {
+                state: "CO",
+                minCashFlow: body.minCashFlow,
+                minPrice: body.minPrice,
+                maxPrice: body.maxPrice,
+              });
             } catch (err) {
               console.error(`Apify scrape failed for ${p}:`, err);
               // Update status to FAILED so it doesn't stay PENDING forever

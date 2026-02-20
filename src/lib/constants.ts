@@ -145,3 +145,52 @@ export const SECONDARY_TARGET_TRADES: PrimaryTradeKey[] = [
 export const TARGET_STATES = ["CO"];
 export const TARGET_METROS = ["Denver Metro", "Colorado Springs", "Front Range", "Fort Collins"];
 export const NEIGHBORING_STATES = ["WY", "NE", "KS", "NM", "UT"];
+
+/**
+ * Thesis-targeted search queries for BizBuySell scraping.
+ *
+ * BizBuySell supports two filtering mechanisms:
+ *   1. Category URL paths: /colorado-{category}-businesses-for-sale/
+ *   2. Keyword search: ?q_kw={keyword}
+ *
+ * Each entry is a separate search that the scraper will execute.
+ * This ensures we pull listings matching your acquisition thesis
+ * (low-voltage trades, IT services, electrical) instead of all
+ * Colorado businesses.
+ */
+export const THESIS_SEARCH_QUERIES: Array<{
+  label: string;
+  /** BizBuySell category slug (replaces "businesses" in URL path) */
+  categorySlug?: string;
+  /** Keyword search term (appended as ?q_kw=) */
+  keyword?: string;
+  /** Max items to pull per search */
+  maxItems?: number;
+}> = [
+  // Core thesis trades — structured cabling & low-voltage
+  { label: "Structured Cabling", keyword: "structured cabling" },
+  { label: "Low Voltage", keyword: "low voltage" },
+  { label: "Fiber Optic", keyword: "fiber optic" },
+  { label: "Data Cabling", keyword: "data cabling" },
+  { label: "Network Cabling", keyword: "network cabling" },
+  // Security & surveillance
+  { label: "Security Systems", keyword: "security systems" },
+  { label: "Surveillance", keyword: "surveillance" },
+  { label: "Access Control", keyword: "access control" },
+  // Building automation & HVAC controls
+  { label: "Building Automation", keyword: "building automation" },
+  { label: "HVAC Controls", keyword: "HVAC" },
+  // Fire & life safety
+  { label: "Fire Alarm", keyword: "fire alarm" },
+  { label: "Fire Protection", keyword: "fire protection" },
+  // Electrical (broad category search)
+  { label: "Electrical Contractor", categorySlug: "electrical-contractor", maxItems: 50 },
+  // IT / MSP
+  { label: "Managed IT Services", keyword: "managed IT" },
+  { label: "IT Services", keyword: "IT services" },
+  // AV Integration
+  { label: "Audio Visual", keyword: "audio visual" },
+  // Telecom / data center
+  { label: "Telecommunications", keyword: "telecommunications" },
+  { label: "Data Center", keyword: "data center" },
+];
