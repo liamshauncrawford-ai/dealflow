@@ -181,9 +181,9 @@ export default function AddListingPage() {
           className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to listings
+          Back to target businesses
         </Link>
-        <h1 className="text-2xl font-semibold text-foreground">Add Listing</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Add Target Business</h1>
         <p className="text-sm text-muted-foreground">
           Paste a listing URL to auto-fill, or enter details manually
         </p>
@@ -489,13 +489,13 @@ export default function AddListingPage() {
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <Save className="h-4 w-4" />
-            {createListing.isPending ? "Saving..." : "Save Listing"}
+            {createListing.isPending ? "Saving..." : "Save Target Business"}
           </button>
         </div>
 
         {createListing.isError && (
           <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-sm text-destructive">
-            Failed to save listing. Please try again.
+            Failed to save target business. Please try again.
           </div>
         )}
       </form>

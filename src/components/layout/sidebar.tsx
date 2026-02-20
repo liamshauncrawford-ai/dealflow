@@ -5,14 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  List,
   Kanban,
   Users,
-  Activity,
-  ScrollText,
-  Copy,
-  EyeOff,
-  FolderOpen,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -41,14 +35,9 @@ interface NavItem {
 
 const mainNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Listings", href: "/listings", icon: List },
+  { label: "Target Businesses", href: "/listings", icon: Building2 },
   { label: "Pipeline", href: "/pipeline", icon: Kanban },
   { label: "Contacts", href: "/contacts", icon: Users },
-  { label: "Activity", href: "/activity", icon: Activity },
-  { label: "Audit Log", href: "/audit", icon: ScrollText },
-  { label: "Historical Deals", href: "/settings/import", icon: FolderOpen },
-  { label: "Duplicates", href: "/settings/dedup", icon: Copy, badge: 0 },
-  { label: "Hidden", href: "/hidden", icon: EyeOff },
 ];
 
 const marketIntelItems: NavItem[] = [

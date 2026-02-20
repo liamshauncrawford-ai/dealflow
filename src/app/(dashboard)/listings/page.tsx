@@ -23,6 +23,7 @@ function loadSavedFilters(): ListingFilters {
 }
 
 export default function ListingsPage() {
+  const [activeTab, setActiveTab] = useState<"targets" | "scraped">("targets");
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
   const [filters, setFilters] = useState<ListingFilters>(loadSavedFilters);
@@ -49,6 +50,7 @@ export default function ListingsPage() {
     pageSize,
     sortBy,
     sortDir,
+    source: activeTab === "targets" ? "target" : "scraped",
     ...filters,
   });
 
@@ -94,7 +96,7 @@ export default function ListingsPage() {
     for (const id of selectedIds) {
       toggleHidden.mutate(id);
     }
-    toast.success(`${selectedIds.length} listing(s) hidden`);
+    toast.success(`${selectedIds.length} target business(es) hidden`);
     setRowSelection({});
   }, [selectedIds, toggleHidden]);
 
@@ -112,9 +114,11 @@ export default function ListingsPage() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Listings</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Target Businesses</h1>
           <p className="text-sm text-muted-foreground">
-            {data ? `${data.total} businesses found` : "Loading..."}
+            {data
+              ? `${data.total} ${activeTab === "targets" ? "target business" : "scraped lead"}${data.total !== 1 ? (activeTab === "targets" ? "es" : "s") : ""}`
+              : "Loading..."}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -130,9 +134,33 @@ export default function ListingsPage() {
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Add Listing
+            Add Target Business
           </Link>
         </div>
+      </div>
+
+      {/* Tab Bar */}
+      <div className="flex gap-1 rounded-lg border bg-muted/50 p-1">
+        <button
+          onClick={() => { setActiveTab("targets"); setPage(1); setRowSelection({}); }}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "targets"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Target Businesses
+        </button>
+        <button
+          onClick={() => { setActiveTab("scraped"); setPage(1); setRowSelection({}); }}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === "scraped"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Scraped Leads
+        </button>
       </div>
 
       {/* Filters */}
@@ -141,7 +169,7 @@ export default function ListingsPage() {
       {/* Error state */}
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm text-destructive">
-          Failed to load listings. Please try again.
+          Failed to load target businesses. Please try again.
         </div>
       )}
 
@@ -149,7 +177,7 @@ export default function ListingsPage() {
       {isLoading && (
         <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground" role="status" aria-label="Loading listings">
           <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
-          <p className="mt-2">Loading listings...</p>
+          <p className="mt-2">Loading target businesses...</p>
         </div>
       )}
 

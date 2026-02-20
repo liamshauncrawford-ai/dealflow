@@ -3,19 +3,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { RefreshCw, Search, Loader2, CheckCircle2, LogOut, Crown, Settings } from "lucide-react";
+import { Search, Loader2, LogOut, Crown, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTriggerScrape } from "@/hooks/use-scraping";
 import { NotificationBell } from "./notification-bell";
 
 const breadcrumbMap: Record<string, string> = {
   "/": "Dashboard",
-  "/listings": "Listings",
-  "/listings/add": "Add Listing",
+  "/listings": "Target Businesses",
+  "/listings/add": "Add Target Business",
   "/pipeline": "Pipeline",
   "/pipeline/add": "Add Opportunity",
   "/activity": "Activity",
-  "/hidden": "Hidden",
+  "/hidden": "Hidden Target Businesses",
   "/settings": "Settings",
   "/settings/email": "Email",
   "/settings/import": "Historical Deals",
@@ -49,7 +48,7 @@ function getBreadcrumbs(pathname: string) {
     } else if (isCuid(segment)) {
       // For detail pages, show "Deal Details" or "Listing Details" based on parent
       const parent = segments[i - 1];
-      const label = parent === "pipeline" ? "Deal Details" : parent === "listings" ? "Listing Details" : "Details";
+      const label = parent === "pipeline" ? "Deal Details" : parent === "listings" ? "Target Business" : "Details";
       crumbs.push({ label, href: currentPath });
     } else {
       const label = segment.charAt(0).toUpperCase() + segment.slice(1);
@@ -71,8 +70,6 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const breadcrumbs = getBreadcrumbs(pathname);
-  const triggerScrape = useTriggerScrape();
-  const [showSuccess, setShowSuccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -140,20 +137,6 @@ export function Header() {
     }
   }, [showResults]);
 
-  // Show success indicator briefly after scrape triggers
-  useEffect(() => {
-    if (triggerScrape.isSuccess) {
-      setShowSuccess(true);
-      const timer = setTimeout(() => setShowSuccess(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [triggerScrape.isSuccess]);
-
-  function handleScrapeNow() {
-    if (triggerScrape.isPending) return;
-    triggerScrape.mutate(undefined); // scrape all platforms
-  }
-
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-4 pl-14 md:px-6 md:pl-6">
       {/* Breadcrumbs */}
@@ -210,7 +193,7 @@ export function Header() {
                         "inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
                         result.type === "deal" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                       )}>
-                        {result.type === "deal" ? "Deal" : "Listing"}
+                        {result.type === "deal" ? "Deal" : "Target"}
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{result.title}</p>
@@ -230,36 +213,6 @@ export function Header() {
             </div>
           )}
         </div>
-
-        {/* Scrape Now Button — icon only on mobile */}
-        <button
-          type="button"
-          onClick={handleScrapeNow}
-          disabled={triggerScrape.isPending}
-          className={cn(
-            "inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white shadow-sm transition-colors md:px-4",
-            triggerScrape.isPending
-              ? "bg-primary/70 cursor-wait"
-              : showSuccess
-              ? "bg-green-600 hover:bg-green-700"
-              : "bg-primary hover:bg-primary/90"
-          )}
-        >
-          {triggerScrape.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : showSuccess ? (
-            <CheckCircle2 className="h-4 w-4" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          <span className="hidden md:inline">
-            {triggerScrape.isPending
-              ? "Scraping..."
-              : showSuccess
-              ? "Triggered!"
-              : "Scrape Now"}
-          </span>
-        </button>
 
         {/* Notification Bell */}
         <NotificationBell />

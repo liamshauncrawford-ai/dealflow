@@ -40,13 +40,13 @@ export default function HiddenListingsPage() {
           Home
         </Link>
         <span>/</span>
-        <span className="font-medium text-foreground">Hidden Listings</span>
+        <span className="font-medium text-foreground">Hidden Target Businesses</span>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold">Hidden Listings</h1>
+        <h1 className="text-2xl font-bold">Hidden Target Businesses</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {hiddenListings.length} listing{hiddenListings.length !== 1 ? "s" : ""}{" "}
+          {hiddenListings.length} target business{hiddenListings.length !== 1 ? "es" : ""}{" "}
           hidden from your main view
         </p>
       </div>
@@ -54,9 +54,9 @@ export default function HiddenListingsPage() {
       {hiddenListings.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <EyeOff className="mx-auto h-12 w-12 text-muted-foreground/30" />
-          <h3 className="mt-4 text-lg font-medium">No Hidden Listings</h3>
+          <h3 className="mt-4 text-lg font-medium">No Hidden Target Businesses</h3>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-            Listings you hide from the main view will appear here. You can
+            Target businesses you hide from the main view will appear here. You can
             unhide them at any time.
           </p>
         </div>

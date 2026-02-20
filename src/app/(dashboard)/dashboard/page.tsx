@@ -188,7 +188,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={BarChart3}
-          label="Active Listings"
+          label="Active Targets"
           value={isLoading ? "..." : String(stats?.totalActive ?? 0)}
           description="Meeting your criteria"
           color="text-primary"
@@ -333,7 +333,7 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
   return (
     <div className="rounded-lg border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
-        <h2 className="font-medium">Recent Listings</h2>
+        <h2 className="font-medium">Recent Target Businesses</h2>
         <Link
           href="/listings"
           className="flex items-center gap-1 text-sm text-primary hover:underline"
@@ -384,12 +384,12 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
           ))
         ) : (
           <div className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">No listings yet</p>
+            <p className="text-sm text-muted-foreground">No target businesses yet</p>
             <Link
               href="/listings/add"
               className="mt-2 inline-block text-sm text-primary hover:underline"
             >
-              Add your first listing
+              Add your first target business
             </Link>
           </div>
         )}
@@ -557,7 +557,7 @@ function ListingsByPlatformCard({ stats, isLoading }: DashboardCardProps) {
   return (
     <div className="rounded-lg border bg-card">
       <div className="border-b px-5 py-3">
-        <h2 className="font-medium">Listings by Platform</h2>
+        <h2 className="font-medium">Sources by Platform</h2>
       </div>
       <div className="p-5">
         {isLoading ? (
@@ -581,7 +581,7 @@ function ListingsByPlatformCard({ stats, isLoading }: DashboardCardProps) {
           </div>
         ) : (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No scraped listings yet. Set up your scrapers in Settings.
+            No scraped leads yet. Set up your scrapers in Settings.
           </p>
         )}
       </div>

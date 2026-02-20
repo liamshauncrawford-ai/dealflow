@@ -19,6 +19,7 @@ export interface ListingsResponse {
 }
 
 export interface ListingFilters {
+  source?: "target" | "scraped";
   search?: string;
   industry?: string;
   city?: string;

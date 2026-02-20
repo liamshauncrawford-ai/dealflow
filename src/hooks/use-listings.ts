@@ -16,6 +16,7 @@ export function useListings(params: UseListingsParams = { sortBy: "lastSeenAt", 
   if (params.pageSize) searchParams.set("pageSize", String(params.pageSize));
   if (params.sortBy) searchParams.set("sortBy", params.sortBy);
   if (params.sortDir) searchParams.set("sortDir", params.sortDir);
+  if (params.source) searchParams.set("source", params.source);
   if (params.search) searchParams.set("search", params.search);
   if (params.industry) searchParams.set("industry", params.industry);
   if (params.city) searchParams.set("city", params.city);

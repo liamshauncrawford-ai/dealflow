@@ -397,7 +397,7 @@ export function ListingsTable({
           {listings.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                No listings found
+                No target businesses found
               </td>
             </tr>
           ) : (

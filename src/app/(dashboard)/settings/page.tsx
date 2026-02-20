@@ -1,7 +1,31 @@
 import Link from "next/link";
-import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users } from "lucide-react";
+import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users, Activity, ScrollText, EyeOff } from "lucide-react";
 
 const settingsSections = [
+  {
+    title: "Activity",
+    description:
+      "Track deal activity and follow-ups across your pipeline",
+    href: "/activity",
+    icon: Activity,
+    color: "text-blue-600",
+  },
+  {
+    title: "Audit Log",
+    description:
+      "Track every change across deals, contacts, documents, and emails",
+    href: "/audit",
+    icon: ScrollText,
+    color: "text-violet-600",
+  },
+  {
+    title: "Hidden Target Businesses",
+    description:
+      "View and restore target businesses hidden from your main view",
+    href: "/hidden",
+    icon: EyeOff,
+    color: "text-slate-500",
+  },
   {
     title: "Listing Sources",
     description:

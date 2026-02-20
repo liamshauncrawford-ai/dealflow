@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     if (parsed.error) return parsed.error;
 
     const {
-      page, pageSize, sortBy, sortDir, search, industry, city, state,
+      page, pageSize, sortBy, sortDir, source, search, industry, city, state,
       metroArea, platform, showHidden, showInactive, meetsThreshold,
       minPrice, maxPrice, minEbitda, maxEbitda, minSde, maxSde,
       minRevenue, maxRevenue,
@@ -26,6 +26,17 @@ export async function GET(request: NextRequest) {
       ...(showHidden ? {} : { isHidden: false }),
       ...(showInactive ? {} : { isActive: true }),
     };
+
+    // Source filter: "target" = manual entries or items in pipeline, "scraped" = auto-discovered without pipeline
+    if (source === "target") {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        { OR: [{ isManualEntry: true }, { opportunity: { isNot: null } }] },
+      ];
+    } else if (source === "scraped") {
+      where.isManualEntry = false;
+      where.opportunity = { is: null };
+    }
 
     // Search filter (across title, businessName, description, industry, brokerName)
     if (search) {

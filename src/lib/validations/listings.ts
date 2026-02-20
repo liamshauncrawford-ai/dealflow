@@ -38,6 +38,7 @@ export const listingQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
   sortBy: z.enum(validSortFields).default("lastSeenAt"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
+  source: z.enum(["target", "scraped"]).optional(),
   search: z.string().optional(),
   industry: z.string().optional(),
   city: z.string().optional(),
