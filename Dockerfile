@@ -21,6 +21,16 @@ RUN npx prisma generate
 
 # Build Next.js
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# NEXT_PUBLIC_ env vars must be available at build time for Next.js to inline them.
+# Railway passes these as Docker build args automatically.
+ARG NEXT_PUBLIC_GOOGLE_MAPS_KEY
+ARG NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_GOOGLE_MAPS_KEY=$NEXT_PUBLIC_GOOGLE_MAPS_KEY
+ENV NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID=$NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 RUN npm run build
 
 # Stage 3: Production runner
