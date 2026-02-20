@@ -58,6 +58,46 @@ export const INFERENCE_METHODS = {
 export const MINIMUM_EBITDA = 600_000;
 export const MINIMUM_SDE = 600_000;
 
+// ─────────────────────────────────────────────
+// NOTIFICATION TYPES — Display config
+// ─────────────────────────────────────────────
+
+export const NOTIFICATION_TYPE_CONFIG: Record<string, { label: string; priority: string }> = {
+  NEW_LISTING: { label: "New Listing", priority: "normal" },
+  LISTING_UPDATED: { label: "Listing Updated", priority: "normal" },
+  LISTING_REMOVED: { label: "Listing Removed", priority: "low" },
+  COOKIE_EXPIRED: { label: "Cookie Expired", priority: "normal" },
+  SCRAPE_FAILED: { label: "Scrape Failed", priority: "normal" },
+  DEDUP_CANDIDATE: { label: "Duplicate Detected", priority: "normal" },
+  EMAIL_RECEIVED: { label: "Email Received", priority: "normal" },
+  IMPORT: { label: "Import Complete", priority: "normal" },
+  ACCESS_REQUEST: { label: "Access Request", priority: "high" },
+  // AI & Intelligence types
+  HIGH_SCORE_DISCOVERY: { label: "High-Score Target Discovered", priority: "high" },
+  DC_PROJECT_NEWS: { label: "DC Construction Update", priority: "normal" },
+  SCORE_CHANGE: { label: "Target Score Changed", priority: "normal" },
+  ENRICHMENT_COMPLETE: { label: "Company Research Complete", priority: "normal" },
+  WEEKLY_BRIEF: { label: "Weekly Intelligence Brief", priority: "normal" },
+  LEGISLATION_UPDATE: { label: "Legislative Update", priority: "normal" },
+  AGENT_ERROR: { label: "Agent Error", priority: "high" },
+};
+
+// Thesis alignment display
+export const THESIS_ALIGNMENT_CONFIG: Record<string, { label: string; color: string }> = {
+  strong: { label: "Strong Fit", color: "text-green-700 bg-green-100" },
+  moderate: { label: "Moderate Fit", color: "text-yellow-700 bg-yellow-100" },
+  weak: { label: "Weak Fit", color: "text-orange-700 bg-orange-100" },
+  disqualified: { label: "Disqualified", color: "text-red-700 bg-red-100" },
+};
+
+// Recommended action display
+export const RECOMMENDED_ACTION_CONFIG: Record<string, { label: string; color: string }> = {
+  pursue_immediately: { label: "Pursue Immediately", color: "text-green-700 bg-green-100" },
+  research_further: { label: "Research Further", color: "text-blue-700 bg-blue-100" },
+  monitor: { label: "Monitor", color: "text-yellow-700 bg-yellow-100" },
+  pass: { label: "Pass", color: "text-red-700 bg-red-100" },
+};
+
 export const DEFAULT_METRO_AREA = "Denver Metro";
 export const DEFAULT_STATE = "CO";
 

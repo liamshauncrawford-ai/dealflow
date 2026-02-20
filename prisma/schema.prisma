@@ -104,9 +104,26 @@ model Listing {
 
   // Tiering & scoring
   tier                    Tier?
-  fitScore                Int?      // 0-100 composite score
+  fitScore                Int?      // 0-100 deterministic score
+  compositeScore          Int?      // Combined deterministic + AI score (0-100)
+  deterministicScore      Int?      // Deterministic component (0-60 in hybrid mode)
+  aiScore                 Int?      // AI qualitative component (0-40)
+  thesisAlignment         String?   // "strong" | "moderate" | "weak" | "disqualified"
+  recommendedAction       String?   // "pursue_immediately" | "research_further" | "monitor" | "pass"
+  lastScoredAt            DateTime?
+  scoreChange             Int?      @default(0)  // Delta vs previous score
   disqualificationReason  String?   @db.Text
   synergyNotes            String?   @db.Text
+
+  // Market intel automation
+  gcRelationshipBoost       Int?      @default(0)
+  nearestFacilityId         String?
+  nearestFacilityDistanceMi Float?
+
+  // Enrichment tracking
+  enrichmentStatus        String?   @default("pending") // "pending" | "in_progress" | "complete" | "failed"
+  enrichmentDate          DateTime?
+  source                  String?   // "manual" | "bizbuysell" | "csos" | "referral"
 
   // Status and visibility
   isHidden        Boolean           @default(false)
@@ -130,6 +147,8 @@ model Listing {
   dedupGroupId    String?
   dedupGroup      DedupGroup?       @relation(fields: [dedupGroupId], references: [id])
   notifications   Notification[]
+  valuationModels ValuationModel[]
+  aiAnalyses      AIAnalysisResult[]
 
   @@index([city, state])
   @@index([industry])
@@ -144,7 +163,9 @@ model Listing {
   @@index([metroArea])
   @@index([tier])
   @@index([fitScore])
+  @@index([compositeScore])
   @@index([primaryTrade])
+  @@index([enrichmentStatus])
 }
 
 model ListingSource {
@@ -522,6 +543,11 @@ model CablingOpportunity {
   lossReason        String?   @db.Text
   competitorWhoWon  String?
 
+  // Automation
+  winProbabilityPct      Float?
+  weightedValue          Decimal?  @db.Decimal(14, 2)
+  surfacedFromNewsId     String?
+
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -660,19 +686,23 @@ model Opportunity {
 model AIAnalysisResult {
   id              String        @id @default(cuid())
 
-  opportunityId   String
-  opportunity     Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId   String?
+  opportunity     Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  listingId       String?
+  listing         Listing?      @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
   documentId      String?       // If analysis was for a specific document
-  analysisType    String        // "CIM_EXTRACTION" | "RISK_ASSESSMENT"
+  analysisType    String        // "DEEP_DIVE" | "ENRICHMENT" | "OUTREACH_DRAFT" | "CIM_EXTRACTION" | "RISK_ASSESSMENT"
   resultData      Json          // Full AI extraction result
-  modelUsed       String        // e.g. "claude-sonnet-4-5-20250514"
+  modelUsed       String        // e.g. "claude-sonnet-4-20250514"
   inputTokens     Int
   outputTokens    Int
 
   createdAt       DateTime      @default(now())
 
   @@index([opportunityId])
+  @@index([listingId])
   @@index([documentId])
 }
 
@@ -1175,12 +1205,22 @@ model Notification {
   listingId       String?
   listing         Listing?          @relation(fields: [listingId], references: [id], onDelete: SetNull)
 
+  // Enhanced fields (Phase 1)
+  priority        String?           @default("normal")  // "high" | "normal" | "low"
+  entityType      String?           // "listing" | "operator" | "gc" | "opportunity" | "news"
+  entityId        String?           // Generic link to related record
+  actionUrl       String?           // Deep link within app
+  isEmailed       Boolean           @default(false)
+
   isRead          Boolean           @default(false)
+  readAt          DateTime?
 
   createdAt       DateTime          @default(now())
 
   @@index([isRead])
   @@index([createdAt])
+  @@index([priority])
+  @@index([type])
 }
 
 enum NotificationType {
@@ -1193,6 +1233,14 @@ enum NotificationType {
   EMAIL_RECEIVED
   IMPORT
   ACCESS_REQUEST
+  // AI & Intelligence (Phase 1)
+  HIGH_SCORE_DISCOVERY
+  DC_PROJECT_NEWS
+  SCORE_CHANGE
+  ENRICHMENT_COMPLETE
+  WEEKLY_BRIEF
+  LEGISLATION_UPDATE
+  AGENT_ERROR
 }
 
 // ─────────────────────────────────────────────
@@ -1488,4 +1536,163 @@ model LoginHistory {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// AI INTELLIGENCE LAYER (Phase 1)
+// ─────────────────────────────────────────────
+
+model AIAgentRun {
+  id              String    @id @default(cuid())
+
+  agentName       String    // "daily_scan" | "news_monitor" | "market_pulse" | "enrichment"
+  status          String    @default("running") // "running" | "success" | "partial" | "error"
+
+  itemsProcessed  Int       @default(0)
+  itemsCreated    Int       @default(0)
+  itemsUpdated    Int       @default(0)
+  apiCallsMade    Int       @default(0)
+  totalTokens     Int       @default(0)
+  totalCost       Float     @default(0)
+
+  errorMessage    String?   @db.Text
+  summary         String?   @db.Text
+
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  @@index([agentName])
+  @@index([startedAt])
+  @@index([status])
+}
+
+model NewsItem {
+  id              String    @id @default(cuid())
+
+  source          String    // "google_alerts" | "rss_dcd" | "rss_dcf" | etc.
+  url             String    @unique
+  headline        String?
+  rawContent      String?   @db.Text
+
+  publishedAt     DateTime?
+  fetchedAt       DateTime  @default(now())
+
+  // AI classification fields
+  category        String?   // "dc_construction" | "gc_award" | "legislation" | etc.
+  urgency         String?   // "immediate" | "this_week" | "monitor" | "background"
+  impactOnThesis  String?   // "positive" | "negative" | "neutral"
+  aiSummary       String?   @db.Text
+  actionItems     Json?     // JSON array of action item strings
+  relatedOperatorIds Json?  // JSON array of operator IDs
+  relatedGcIds    Json?     // JSON array of GC IDs
+  relatedListingIds Json?   // JSON array of listing IDs
+  estimatedCablingValue Decimal? @db.Decimal(14, 2)
+  classifiedAt    DateTime?
+
+  // Automation
+  automationRanAt        DateTime?
+  surfacedTargetIds      Json?     // JSON array of listing IDs surfaced by automation
+
+  @@index([category])
+  @@index([urgency])
+  @@index([fetchedAt])
+}
+
+model WeeklyBrief {
+  id              String    @id @default(cuid())
+
+  weekStart       DateTime
+  weekEnd         DateTime
+
+  thesisHealth    String?   // "strong" | "stable" | "caution" | "at_risk"
+  marketMomentum  String?   // "accelerating" | "stable" | "decelerating"
+
+  rawBrief        Json?     // Full JSON response from Claude
+  keyDevelopments Json?     // JSON array of development strings
+  recommendedActions Json?  // JSON array of action strings
+  pipelineMetrics Json?     // JSON object with pipeline stats
+  marketMetrics   Json?     // JSON object with market stats
+
+  createdAt       DateTime  @default(now())
+
+  @@index([weekStart])
+}
+
+// ─────────────────────────────────────────────
+// FINANCIAL MODELS (Phase 1 schema, Phase 3 UI)
+// ─────────────────────────────────────────────
+
+model ValuationModel {
+  id              String    @id @default(cuid())
+
+  listingId       String?
+  listing         Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  modelName       String?   // User can name scenarios (e.g., "Base Case", "Aggressive")
+  inputs          Json      // All input parameters
+  outputs         Json      // All calculated outputs
+  aiCommentary    Json?     // Claude AI commentary
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([listingId])
+}
+
+model RollupModel {
+  id                  String    @id @default(cuid())
+
+  modelName           String    @default("Primary Roll-Up")
+  platformListingId   String?
+  boltOnListingIds    Json?     // JSON array of listing IDs
+  synergyAssumptions  Json?     // SG&A savings, procurement, cross-sell, margin expansion
+  exitAssumptions     Json?     // Exit year, exit multiple, etc.
+  projectionData      Json?     // Year-by-year projection table
+  valueBridgeData     Json?     // Waterfall chart data
+  aiCommentary        Json?     // Claude AI commentary
+
+  isActive            Boolean   @default(true)
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// DATA SOURCES & SCRAPER CONFIG (Phase 1 schema, Phase 5 implementation)
+// ─────────────────────────────────────────────
+
+model ScraperConfig {
+  id              String    @id @default(cuid())
+
+  sourceName      String    @unique  // "bizbuysell" | "csos" | "dora" | "google_alerts" | "dodge_construction"
+  isActive        Boolean   @default(true)
+  frequency       String?   // "daily" | "weekly" | "every_6_hours"
+  lastRunAt       DateTime?
+  nextRunAt       DateTime?
+  config          Json?     // Source-specific config (URLs, keywords, filters)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ─────────────────────────────────────────────
+// MARKET METRICS TIME SERIES (Phase 1 schema, Phase 6 implementation)
+// ─────────────────────────────────────────────
+
+model MarketMetric {
+  id                        String    @id @default(cuid())
+
+  recordedAt                DateTime
+  totalMwOperating          Float?
+  totalMwUnderConstruction  Float?
+  totalMwPlanned            Float?
+  activeConstructionProjects Int?
+  estimatedCablingTam       Decimal?  @db.Decimal(14, 2) // Total addressable market
+  gcCoveragePct             Float?    // % of projects with GC relationships
+  weightedPipelineValue     Decimal?  @db.Decimal(14, 2)
+  targetsTracked            Int?
+  actionableTargets         Int?      // Targets with composite score >= 70
+  legislationStatus         Json?     // Track both HB26-1030 and SB26-102
+
+  @@index([recordedAt])
 }

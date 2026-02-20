@@ -380,3 +380,55 @@ export function useMarketIntelStats() {
     refetchInterval: 60_000,
   });
 }
+
+// ── Network Graph ──
+
+export function useNetworkGraph() {
+  return useQuery({
+    queryKey: ["network-graph"],
+    queryFn: async () => {
+      const res = await fetch("/api/market-intel/network");
+      if (!res.ok) throw new Error("Failed to fetch network graph");
+      return res.json();
+    },
+  });
+}
+
+// ── Market Metrics ──
+
+export function useMarketMetrics(period: string = "90d") {
+  return useQuery({
+    queryKey: ["market-metrics", period],
+    queryFn: async () => {
+      const res = await fetch(`/api/market-intel/metrics?period=${period}`);
+      if (!res.ok) throw new Error("Failed to fetch market metrics");
+      return res.json();
+    },
+  });
+}
+
+// ── Weighted Pipeline ──
+
+export function useWeightedPipeline() {
+  return useQuery({
+    queryKey: ["pipeline-summary"],
+    queryFn: async () => {
+      const res = await fetch("/api/market-intel/pipeline-summary");
+      if (!res.ok) throw new Error("Failed to fetch pipeline summary");
+      return res.json();
+    },
+  });
+}
+
+// ── Portfolio Metrics ──
+
+export function usePortfolioMetrics() {
+  return useQuery({
+    queryKey: ["portfolio-metrics"],
+    queryFn: async () => {
+      const res = await fetch("/api/market-intel/portfolio-metrics");
+      if (!res.ok) throw new Error("Failed to fetch portfolio metrics");
+      return res.json();
+    },
+  });
+}

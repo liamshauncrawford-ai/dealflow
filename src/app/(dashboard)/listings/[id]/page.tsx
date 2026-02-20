@@ -37,10 +37,12 @@ import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
 import { TierBadge } from "@/components/listings/tier-badge";
 import { TradeBadges } from "@/components/listings/trade-badges";
 import { PromoteDialog } from "@/components/promote-dialog";
-import { formatCurrency, formatDate, formatRelativeDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, formatRelativeDate } from "@/lib/utils";
 import { PIPELINE_STAGES, PRIMARY_TRADES, TIERS, type PrimaryTradeKey, type TierKey } from "@/lib/constants";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MiniMap } from "@/components/maps/mini-map";
+import { DeepDivePanel } from "@/components/ai/deep-dive-panel";
+import { OutreachDraftPanel } from "@/components/ai/outreach-draft-panel";
 
 export default function ListingDetailPage({
   params,
@@ -69,6 +71,53 @@ export default function ListingDetailPage({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["listing", id] });
+    },
+  });
+
+  // Deep Dive: fetch cached result
+  const deepDiveQuery = useQuery({
+    queryKey: ["deep-dive", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/ai/deep-dive?listingId=${id}`);
+      if (!res.ok) throw new Error("Failed to fetch deep dive");
+      return res.json();
+    },
+    enabled: !!id,
+  });
+
+  // Deep Dive: run new analysis
+  const runDeepDive = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/ai/deep-dive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId: id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to run deep dive");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deep-dive", id] });
+      queryClient.invalidateQueries({ queryKey: ["listing", id] });
+    },
+  });
+
+  // Outreach Draft: run generation
+  const generateOutreach = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/ai/outreach-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingId: id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to generate outreach draft");
+      }
+      return res.json();
     },
   });
 
@@ -387,20 +436,62 @@ export default function ListingDetailPage({
         </div>
       </div>
 
-      {/* ─── Thesis: Tier & Fit Score Bar ─────────────────────────── */}
+      {/* ─── Thesis: Scoring & AI Tools ─────────────────────────── */}
       <div className="rounded-lg border bg-card p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div>
-              <span className="text-xs font-medium uppercase text-muted-foreground">Fit Score</span>
+              <span className="text-xs font-medium uppercase text-muted-foreground">Composite Score</span>
               <div className="mt-1">
-                <FitScoreGauge score={listing.fitScore} size="lg" />
+                <FitScoreGauge score={listing.compositeScore ?? listing.fitScore} size="lg" />
               </div>
             </div>
+            {listing.deterministicScore != null && listing.aiScore != null && (
+              <div className="text-xs text-muted-foreground">
+                <div>Deterministic: {listing.deterministicScore}</div>
+                <div>AI Score: {listing.aiScore}</div>
+              </div>
+            )}
             {listing.dcRelevanceScore && (
               <div>
                 <span className="text-xs font-medium uppercase text-muted-foreground">DC Relevance</span>
                 <div className="mt-1 text-lg font-semibold">{listing.dcRelevanceScore}/10</div>
+              </div>
+            )}
+            {listing.thesisAlignment && (
+              <div>
+                <span className="text-xs font-medium uppercase text-muted-foreground">Thesis Fit</span>
+                <div className="mt-1">
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                    listing.thesisAlignment === "strong" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                    listing.thesisAlignment === "moderate" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                    listing.thesisAlignment === "weak" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+                    listing.thesisAlignment === "disqualified" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                  )}>
+                    {listing.thesisAlignment === "strong" ? "Strong Fit" :
+                     listing.thesisAlignment === "moderate" ? "Moderate Fit" :
+                     listing.thesisAlignment === "weak" ? "Weak Fit" : "Disqualified"}
+                  </span>
+                </div>
+              </div>
+            )}
+            {listing.recommendedAction && (
+              <div>
+                <span className="text-xs font-medium uppercase text-muted-foreground">Recommendation</span>
+                <div className="mt-1">
+                  <span className={cn(
+                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+                    listing.recommendedAction === "pursue_immediately" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                    listing.recommendedAction === "research_further" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                    listing.recommendedAction === "monitor" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                    listing.recommendedAction === "pass" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                  )}>
+                    {listing.recommendedAction === "pursue_immediately" ? "Pursue Immediately" :
+                     listing.recommendedAction === "research_further" ? "Research Further" :
+                     listing.recommendedAction === "monitor" ? "Monitor" : "Pass"}
+                  </span>
+                </div>
               </div>
             )}
             {isEditing && (
@@ -432,23 +523,79 @@ export default function ListingDetailPage({
               </div>
             )}
           </div>
-          {!isEditing && (
+          <div className="flex items-center gap-2">
+            {/* AI Tool Buttons */}
             <button
-              onClick={() => recomputeScore.mutate()}
-              disabled={recomputeScore.isPending}
+              onClick={() => runDeepDive.mutate()}
+              disabled={runDeepDive.isPending}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {runDeepDive.isPending ? "Analyzing..." : "🤖 AI Deep Dive"}
+            </button>
+            <button
+              onClick={() => generateOutreach.mutate()}
+              disabled={generateOutreach.isPending}
               className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
             >
-              <RefreshCw className={`h-4 w-4 ${recomputeScore.isPending ? "animate-spin" : ""}`} />
-              {recomputeScore.isPending ? "Computing..." : "Recompute Score"}
+              {generateOutreach.isPending ? "Drafting..." : "✉️ Draft Outreach"}
             </button>
-          )}
+            <button
+              disabled
+              title="Coming in Phase 3"
+              className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm opacity-50 cursor-not-allowed"
+            >
+              📊 Model Deal
+            </button>
+            {!isEditing && (
+              <button
+                onClick={() => recomputeScore.mutate()}
+                disabled={recomputeScore.isPending}
+                className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 ${recomputeScore.isPending ? "animate-spin" : ""}`} />
+                {recomputeScore.isPending ? "Computing..." : "Recompute Score"}
+              </button>
+            )}
+          </div>
         </div>
+        {listing.enrichmentStatus && listing.enrichmentStatus !== "pending" && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Enrichment: {listing.enrichmentStatus}</span>
+            {listing.enrichmentDate && <span>({formatRelativeDate(listing.enrichmentDate)})</span>}
+          </div>
+        )}
         {listing.disqualificationReason && (
           <div className="mt-3 rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200">
             <strong>Disqualified:</strong> {listing.disqualificationReason}
           </div>
         )}
       </div>
+
+      {/* ─── AI Deep Dive Panel ───────────────────────────────── */}
+      {(deepDiveQuery.data?.analysis || runDeepDive.isPending) && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold flex items-center gap-2">
+            🤖 AI Investment Memo
+          </h2>
+          <DeepDivePanel
+            analysis={runDeepDive.data?.analysis ?? deepDiveQuery.data?.analysis ?? null}
+            createdAt={deepDiveQuery.data?.createdAt}
+            isLoading={runDeepDive.isPending}
+            onRunAnalysis={() => runDeepDive.mutate()}
+            onReAnalyze={() => runDeepDive.mutate()}
+            cached={deepDiveQuery.data?.cached ?? false}
+          />
+        </div>
+      )}
+
+      {/* ─── Outreach Draft Panel ─────────────────────────────── */}
+      {(generateOutreach.data?.draft || generateOutreach.isPending) && (
+        <OutreachDraftPanel
+          draft={generateOutreach.data?.draft ?? null}
+          isLoading={generateOutreach.isPending}
+          onGenerate={() => generateOutreach.mutate()}
+        />
+      )}
 
       {/* ─── Thesis: Trade & Certifications ─────────────────────── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

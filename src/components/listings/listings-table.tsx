@@ -41,6 +41,21 @@ function toNum(val: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+function ScoreBadge({ score }: { score: number | null | undefined }) {
+  if (score == null) return <span className="text-muted-foreground text-xs">-</span>;
+
+  let colorClasses: string;
+  if (score >= 80) colorClasses = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+  else if (score >= 60) colorClasses = "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
+  else colorClasses = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
+
+  return (
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold", colorClasses)}>
+      {score}
+    </span>
+  );
+}
+
 function EffectiveEbitda({ listing }: { listing: ListingWithSources }) {
   const ebitda = toNum(listing.ebitda);
   const inferred = toNum(listing.inferredEbitda);
@@ -188,6 +203,11 @@ export function ListingsTable({
           </span>
         );
       },
+    }) as ColumnDef<ListingWithSources, unknown>,
+    columnHelper.accessor("compositeScore", {
+      header: "Score",
+      size: 70,
+      cell: ({ row }) => <ScoreBadge score={row.original.compositeScore ?? row.original.fitScore} />,
     }) as ColumnDef<ListingWithSources, unknown>,
     columnHelper.accessor("askingPrice", {
       header: "Asking Price",

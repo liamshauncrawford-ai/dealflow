@@ -7,6 +7,7 @@ interface MapFilters {
   showListings: boolean;
   operatorTier: string;
   facilityStatus: string;
+  proximityRadius: number;
 }
 
 interface MapFilterPanelProps {
@@ -14,6 +15,8 @@ interface MapFilterPanelProps {
   onChange: (filters: MapFilters) => void;
   facilityCount: number;
   listingCount: number;
+  showProximity?: boolean;
+  onClearProximity?: () => void;
 }
 
 export function MapFilterPanel({
@@ -21,6 +24,8 @@ export function MapFilterPanel({
   onChange,
   facilityCount,
   listingCount,
+  showProximity,
+  onClearProximity,
 }: MapFilterPanelProps) {
   const update = (partial: Partial<MapFilters>) => {
     onChange({ ...filters, ...partial });
@@ -86,6 +91,28 @@ export function MapFilterPanel({
           </option>
         ))}
       </select>
+
+      {/* Proximity controls (visible when a facility is selected) */}
+      {showProximity && (
+        <>
+          <div className="h-5 w-px bg-border" />
+          <select
+            value={filters.proximityRadius}
+            onChange={(e) => update({ proximityRadius: Number(e.target.value) })}
+            className="h-8 rounded-md border bg-background px-2 text-sm"
+          >
+            <option value={10}>10 mi radius</option>
+            <option value={25}>25 mi radius</option>
+            <option value={50}>50 mi radius</option>
+          </select>
+          <button
+            onClick={onClearProximity}
+            className="h-8 rounded-md border px-2 text-xs hover:bg-muted"
+          >
+            Clear
+          </button>
+        </>
+      )}
     </div>
   );
 }

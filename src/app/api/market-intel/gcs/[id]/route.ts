@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseBody } from "@/lib/validations/common";
 import { updateGCSchema } from "@/lib/validations/market-intel";
+import {
+  recalculatePipelineForGC,
+  boostTargetsWithGCRelationship,
+} from "@/lib/market-intel/gc-relationship-engine";
 
 export async function GET(
   request: NextRequest,
@@ -49,6 +53,16 @@ export async function PATCH(
     const parsed = await parseBody(updateGCSchema, request);
     if (parsed.error) return parsed.error;
 
+    // Check if relationship status is changing (for trigger)
+    let previousStatus: string | null = null;
+    if (parsed.data.relationshipStatus) {
+      const prev = await prisma.generalContractor.findUnique({
+        where: { id },
+        select: { relationshipStatus: true },
+      });
+      previousStatus = prev?.relationshipStatus ?? null;
+    }
+
     const gc = await prisma.generalContractor.update({
       where: { id },
       data: parsed.data,
@@ -56,6 +70,18 @@ export async function PATCH(
         _count: { select: { facilities: true, cablingOpportunities: true } },
       },
     });
+
+    // Trigger pipeline recalculation if relationship status changed
+    if (
+      parsed.data.relationshipStatus &&
+      previousStatus !== parsed.data.relationshipStatus
+    ) {
+      // Fire-and-forget — don't block the response
+      Promise.all([
+        recalculatePipelineForGC(id),
+        boostTargetsWithGCRelationship(id),
+      ]).catch((err) => console.error("GC relationship trigger error:", err));
+    }
 
     return NextResponse.json(gc);
   } catch (error) {

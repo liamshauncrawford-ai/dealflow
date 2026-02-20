@@ -51,6 +51,7 @@ import { SourceDistributionChart } from "@/components/charts/source-distribution
 import { TierDistributionChart } from "@/components/charts/tier-distribution-chart";
 import { DealVelocityWrapper } from "@/components/charts/deal-velocity-wrapper";
 import { PipelineValueChart } from "@/components/charts/pipeline-value-chart";
+import { IntelligenceFeed } from "@/components/ai/intelligence-feed";
 import { WinLossIndicator } from "@/components/charts/win-loss-indicator";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -78,6 +79,10 @@ export default function DashboardPage() {
     DashboardCardId,
     { render: () => React.ReactNode; isVisible: () => boolean }
   > = {
+    "intelligence-feed": {
+      render: () => <IntelligenceFeed />,
+      isVisible: () => true,
+    },
     "recent-listings": {
       render: () => <RecentListingsCard stats={stats} isLoading={isLoading} />,
       isVisible: () => true,

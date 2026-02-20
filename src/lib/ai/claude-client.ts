@@ -28,7 +28,7 @@ function getClient(): Anthropic {
 // Types
 // ─────────────────────────────────────────────
 
-export type ModelChoice = "haiku" | "sonnet";
+export type ModelChoice = "haiku" | "sonnet" | "sonnet4";
 
 export interface ClaudeCallParams {
   model: ModelChoice;
@@ -51,6 +51,7 @@ export interface ClaudeResponse {
 const MODEL_MAP: Record<ModelChoice, string> = {
   haiku: "claude-haiku-4-5",
   sonnet: "claude-sonnet-4-5",
+  sonnet4: "claude-sonnet-4-20250514",  // Per architecture doc — use for background agents
 };
 
 // ─────────────────────────────────────────────
@@ -145,6 +146,7 @@ export function safeJsonParse<T>(text: string): T {
 const COST_PER_MILLION: Record<ModelChoice, { input: number; output: number }> = {
   haiku: { input: 1.0, output: 5.0 },
   sonnet: { input: 3.0, output: 15.0 },
+  sonnet4: { input: 3.0, output: 15.0 },
 };
 
 function estimateCost(model: ModelChoice, inputTokens: number, outputTokens: number): string {

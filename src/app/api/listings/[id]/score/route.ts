@@ -55,13 +55,46 @@ export async function POST(
 
     const result = computeFitScore(scoreInput);
 
+    // Calculate score change delta
+    const previousScore = listing.compositeScore ?? listing.fitScore;
+    const scoreChange = previousScore != null ? result.fitScore - previousScore : 0;
+
+    // Determine thesis alignment from score
+    let thesisAlignment: string;
+    let recommendedAction: string;
+    if (result.fitScore >= 75) {
+      thesisAlignment = "strong";
+      recommendedAction = "pursue_immediately";
+    } else if (result.fitScore >= 60) {
+      thesisAlignment = "moderate";
+      recommendedAction = "research_further";
+    } else if (result.fitScore >= 40) {
+      thesisAlignment = "weak";
+      recommendedAction = "monitor";
+    } else {
+      thesisAlignment = "disqualified";
+      recommendedAction = "pass";
+    }
+
     await prisma.listing.update({
       where: { id },
-      data: { fitScore: result.fitScore },
+      data: {
+        fitScore: result.fitScore,
+        compositeScore: result.fitScore, // AI score applied when available
+        deterministicScore: result.fitScore,
+        thesisAlignment,
+        recommendedAction,
+        lastScoredAt: new Date(),
+        scoreChange,
+      },
     });
 
     return NextResponse.json({
       fitScore: result.fitScore,
+      compositeScore: result.fitScore,
+      thesisAlignment,
+      recommendedAction,
+      scoreChange,
       breakdown: result.breakdown,
     });
   } catch (error) {

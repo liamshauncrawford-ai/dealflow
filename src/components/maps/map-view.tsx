@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   Map,
   AdvancedMarker,
   Pin,
   InfoWindow,
   useAdvancedMarkerRef,
+  useMap,
 } from "@vis.gl/react-google-maps";
 import Link from "next/link";
 import {
@@ -48,6 +49,11 @@ export interface ListingMarker {
   industry: string | null;
 }
 
+export interface ProximityCircle {
+  center: { lat: number; lng: number };
+  radiusMiles: number;
+}
+
 interface MapViewProps {
   facilities?: FacilityMarker[];
   listings?: ListingMarker[];
@@ -55,6 +61,8 @@ interface MapViewProps {
   zoom?: number;
   height?: string;
   className?: string;
+  proximityCircle?: ProximityCircle | null;
+  onFacilityClick?: (facility: FacilityMarker) => void;
 }
 
 export function MapView({
@@ -64,6 +72,8 @@ export function MapView({
   zoom = DEFAULT_ZOOM,
   height = "600px",
   className,
+  proximityCircle,
+  onFacilityClick,
 }: MapViewProps) {
   const [selectedFacility, setSelectedFacility] = useState<FacilityMarker | null>(null);
   const [selectedListing, setSelectedListing] = useState<ListingMarker | null>(null);
@@ -97,6 +107,14 @@ export function MapView({
         disableDefaultUI={false}
         style={{ width: "100%", height: "100%" }}
       >
+        {/* Proximity circle overlay */}
+        {proximityCircle && (
+          <CircleOverlay
+            center={proximityCircle.center}
+            radiusMiles={proximityCircle.radiusMiles}
+          />
+        )}
+
         {/* Facility markers */}
         {facilities.map((f) => (
           <FacilityPin
@@ -130,7 +148,13 @@ export function MapView({
             }}
             onCloseClick={() => setSelectedFacility(null)}
           >
-            <FacilityInfoContent facility={selectedFacility} />
+            <FacilityInfoContent
+            facility={selectedFacility}
+            onViewNearby={onFacilityClick ? () => {
+              onFacilityClick(selectedFacility);
+              setSelectedFacility(null);
+            } : undefined}
+          />
           </InfoWindow>
         )}
 
@@ -204,7 +228,7 @@ function ListingPin({
 
 // ── InfoWindow Content ──
 
-function FacilityInfoContent({ facility }: { facility: FacilityMarker }) {
+function FacilityInfoContent({ facility, onViewNearby }: { facility: FacilityMarker; onViewNearby?: () => void }) {
   const tierKey = facility.operatorTier as keyof typeof OPERATOR_TIERS | null;
   const tierConfig = tierKey ? OPERATOR_TIERS[tierKey] : null;
   const statusKey = facility.status as keyof typeof FACILITY_STATUS | null;
@@ -234,12 +258,22 @@ function FacilityInfoContent({ facility }: { facility: FacilityMarker }) {
           {facility.address ?? facility.city}, {facility.state}
         </p>
       )}
-      <Link
-        href={`/market-intel/operators`}
-        className="mt-2 inline-block text-xs font-medium text-blue-600 hover:underline"
-      >
-        View operator →
-      </Link>
+      <div className="mt-2 flex items-center gap-2">
+        <Link
+          href={`/market-intel/operators`}
+          className="text-xs font-medium text-blue-600 hover:underline"
+        >
+          View operator →
+        </Link>
+        {onViewNearby && (
+          <button
+            onClick={onViewNearby}
+            className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
+          >
+            Nearby Targets
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -269,4 +303,41 @@ function ListingInfoContent({ listing }: { listing: ListingMarker }) {
       </Link>
     </div>
   );
+}
+
+// ── Proximity Circle ──
+
+const MILES_TO_METERS = 1609.344;
+
+function CircleOverlay({
+  center,
+  radiusMiles,
+}: {
+  center: { lat: number; lng: number };
+  radiusMiles: number;
+}) {
+  const map = useMap();
+  const circleRef = useRef<google.maps.Circle | null>(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    circleRef.current = new google.maps.Circle({
+      map,
+      center,
+      radius: radiusMiles * MILES_TO_METERS,
+      fillColor: "#3b82f6",
+      fillOpacity: 0.08,
+      strokeColor: "#3b82f6",
+      strokeOpacity: 0.4,
+      strokeWeight: 2,
+    });
+
+    return () => {
+      circleRef.current?.setMap(null);
+      circleRef.current = null;
+    };
+  }, [map, center.lat, center.lng, radiusMiles]);
+
+  return null;
 }

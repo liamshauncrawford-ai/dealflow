@@ -22,6 +22,12 @@ import {
   HardHat,
   Cable,
   Map,
+  Network,
+  BarChart3,
+  Calculator,
+  Layers,
+  GitCompare,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -50,6 +56,18 @@ const marketIntelItems: NavItem[] = [
   { label: "DC Operators", href: "/market-intel/operators", icon: Building2 },
   { label: "GC Tracker", href: "/market-intel/gcs", icon: HardHat },
   { label: "Cabling Pipeline", href: "/market-intel/opportunities", icon: Cable },
+  { label: "Network", href: "/market-intel/network", icon: Network },
+  { label: "Intelligence", href: "/market-intel/intelligence", icon: BarChart3 },
+];
+
+const financialItems: NavItem[] = [
+  { label: "Valuation Calc", href: "/financial/valuation", icon: Calculator },
+  { label: "Roll-Up Model", href: "/financial/rollup", icon: Layers },
+  { label: "Deal Comparison", href: "/financial/compare", icon: GitCompare },
+];
+
+const aiAgentItems: NavItem[] = [
+  { label: "Agent Dashboard", href: "/agents", icon: Bot },
 ];
 
 const bottomNavItems: NavItem[] = [
@@ -154,6 +172,38 @@ export function Sidebar() {
             </p>
           )}
           {marketIntelItems.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isActive(item.href)}
+              collapsed={collapsed}
+            />
+          ))}
+
+          {/* Financial Analysis Section */}
+          <div className="my-3 border-t border-slate-700/50" />
+          {!collapsed && (
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Financial Analysis
+            </p>
+          )}
+          {financialItems.map((item) => (
+            <NavLink
+              key={item.href}
+              item={item}
+              active={isActive(item.href)}
+              collapsed={collapsed}
+            />
+          ))}
+
+          {/* AI Agents Section */}
+          <div className="my-3 border-t border-slate-700/50" />
+          {!collapsed && (
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              AI Agents
+            </p>
+          )}
+          {aiAgentItems.map((item) => (
             <NavLink
               key={item.href}
               item={item}

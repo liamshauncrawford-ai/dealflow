@@ -9,7 +9,12 @@ export interface Notification {
   message: string;
   listingId: string | null;
   listing: { id: string; title: string } | null;
+  priority: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  actionUrl: string | null;
   isRead: boolean;
+  readAt: string | null;
   createdAt: string;
 }
 

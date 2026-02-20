@@ -252,8 +252,8 @@ function KanbanColumn({
                           <span>{opp.listing.city}, {opp.listing.state}</span>
                         )}
                         {opp.listing.tier && <TierBadge tier={opp.listing.tier} size="sm" />}
-                        {opp.listing.fitScore !== null && opp.listing.fitScore !== undefined && (
-                          <FitScoreGauge score={opp.listing.fitScore} size="sm" showLabel={false} />
+                        {(opp.listing.compositeScore ?? opp.listing.fitScore) != null && (
+                          <FitScoreGauge score={(opp.listing.compositeScore ?? opp.listing.fitScore)!} size="sm" showLabel={false} />
                         )}
                         {opp.listing.primaryTrade && (
                           <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">

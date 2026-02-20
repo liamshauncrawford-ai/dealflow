@@ -7,6 +7,7 @@ import type { DragEndEvent } from "@dnd-kit/core";
 const STORAGE_KEY = "dealflow-dashboard-card-order";
 
 export const DEFAULT_ORDER = [
+  "intelligence-feed",
   "recent-listings",
   "pipeline-funnel-chart",
   "pipeline-summary",

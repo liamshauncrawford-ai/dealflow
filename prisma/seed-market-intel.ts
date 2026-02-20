@@ -331,7 +331,14 @@ export async function seedMarketIntel() {
 
   for (const f of facilities) {
     if (!f.operatorId) continue;
-    await prisma.dCFacility.create({ data: f as any });
+    const existing = await prisma.dCFacility.findFirst({
+      where: { facilityName: f.facilityName, operatorId: f.operatorId },
+    });
+    if (existing) {
+      await prisma.dCFacility.update({ where: { id: existing.id }, data: f as any });
+    } else {
+      await prisma.dCFacility.create({ data: f as any });
+    }
   }
   console.log(`  Seeded ${facilities.length} facilities.`);
 

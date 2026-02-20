@@ -7,6 +7,9 @@ const notificationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(0).max(100).default(20),
   unreadOnly: z.coerce.boolean().default(false),
+  priority: z.string().optional(),     // "high" | "normal" | "low"
+  entityType: z.string().optional(),   // "listing" | "operator" | "gc" | "opportunity" | "news"
+  type: z.string().optional(),         // NotificationType enum value
 });
 
 const markNotificationsSchema = z.object({
@@ -22,10 +25,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const parsed = parseSearchParams(notificationQuerySchema, searchParams);
     if (parsed.error) return parsed.error;
-    const { page, limit, unreadOnly } = parsed.data;
+    const { page, limit, unreadOnly, priority, entityType, type } = parsed.data;
     const skip = (page - 1) * limit;
 
-    const where = unreadOnly ? { isRead: false as const } : {};
+    const where: Record<string, unknown> = {};
+    if (unreadOnly) where.isRead = false;
+    if (priority) where.priority = priority;
+    if (entityType) where.entityType = entityType;
+    if (type) where.type = type;
 
     const [notifications, total, unreadCount] = await Promise.all([
       limit > 0
@@ -69,16 +76,17 @@ export async function PATCH(request: NextRequest) {
 
     let updated = 0;
 
+    const now = new Date();
     if (markAllRead) {
       const result = await prisma.notification.updateMany({
         where: { isRead: false },
-        data: { isRead: true },
+        data: { isRead: true, readAt: now },
       });
       updated = result.count;
     } else if (ids && ids.length > 0) {
       const result = await prisma.notification.updateMany({
         where: { id: { in: ids } },
-        data: { isRead: true },
+        data: { isRead: true, readAt: now },
       });
       updated = result.count;
     }

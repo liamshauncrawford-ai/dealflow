@@ -10,7 +10,15 @@ import {
   RefreshCw,
   Trash2,
   Mail,
+  Target,
+  Building2,
+  TrendingUp,
+  SearchCheck,
+  Newspaper,
+  Zap,
+  BotMessageSquare,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn, formatRelativeDate } from "@/lib/utils";
 import {
   useNotifications,
@@ -27,6 +35,14 @@ const notificationIcons: Record<string, React.ComponentType<{ className?: string
   LISTING_UPDATED: RefreshCw,
   LISTING_REMOVED: Trash2,
   EMAIL_RECEIVED: Mail,
+  // AI & Intelligence types
+  HIGH_SCORE_DISCOVERY: Target,
+  DC_PROJECT_NEWS: Building2,
+  SCORE_CHANGE: TrendingUp,
+  ENRICHMENT_COMPLETE: SearchCheck,
+  WEEKLY_BRIEF: Newspaper,
+  LEGISLATION_UPDATE: Zap,
+  AGENT_ERROR: BotMessageSquare,
 };
 
 function getNotificationIcon(type: string) {
@@ -39,15 +55,26 @@ function getIconColor(type: string): string {
       return "text-emerald-500 bg-emerald-500/10";
     case "COOKIE_EXPIRED":
     case "SCRAPE_FAILED":
+    case "AGENT_ERROR":
       return "text-destructive bg-destructive/10";
     case "DEDUP_CANDIDATE":
       return "text-amber-500 bg-amber-500/10";
     case "LISTING_UPDATED":
+    case "SCORE_CHANGE":
+    case "ENRICHMENT_COMPLETE":
       return "text-blue-500 bg-blue-500/10";
     case "LISTING_REMOVED":
       return "text-muted-foreground bg-muted";
     case "EMAIL_RECEIVED":
       return "text-violet-500 bg-violet-500/10";
+    case "HIGH_SCORE_DISCOVERY":
+      return "text-red-500 bg-red-500/10";
+    case "DC_PROJECT_NEWS":
+      return "text-yellow-500 bg-yellow-500/10";
+    case "WEEKLY_BRIEF":
+      return "text-green-500 bg-green-500/10";
+    case "LEGISLATION_UPDATE":
+      return "text-orange-500 bg-orange-500/10";
     default:
       return "text-muted-foreground bg-muted";
   }
@@ -56,6 +83,7 @@ function getIconColor(type: string): string {
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const { data: unreadCount = 0 } = useUnreadCount();
   const { data: notificationsData } = useNotifications({ limit: 8 });
@@ -94,6 +122,11 @@ export function NotificationBell() {
   function handleNotificationClick(notification: Notification) {
     if (!notification.isRead) {
       markRead.mutate({ ids: [notification.id] });
+    }
+    // Navigate to the action URL if present
+    if (notification.actionUrl) {
+      setIsOpen(false);
+      router.push(notification.actionUrl);
     }
   }
 
@@ -183,7 +216,10 @@ export function NotificationBell() {
                               {notification.title}
                             </p>
                             {!notification.isRead && (
-                              <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                              <span className={cn(
+                                "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                                notification.priority === "high" ? "bg-red-500" : "bg-blue-500"
+                              )} />
                             )}
                           </div>
                           <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">

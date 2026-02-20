@@ -32,6 +32,7 @@ interface ListingRecord {
   industry: string | null;
   brokerName: string | null;
   description: string | null;
+  platform: string | null;
 }
 
 // ─────────────────────────────────────────────
@@ -55,6 +56,25 @@ const PRICE_SCORE_TOLERANCE = 0.05;
 
 /** Scoring: revenue / cashFlow fields considered matching if within this tolerance. */
 const REVENUE_SCORE_TOLERANCE = 0.10;
+
+/** Bonus applied when two listings come from different data sources. */
+const CROSS_SOURCE_BONUS = 0.10;
+
+/** Business name suffixes to strip for normalized comparison. */
+const BUSINESS_SUFFIXES = /\b(llc|inc|corp|co|ltd|company|incorporated|corporation|limited|enterprises?|services?|solutions?|group|holdings?)\b/gi;
+
+/**
+ * Normalize a business name for comparison by stripping legal suffixes,
+ * punctuation, and extra whitespace.
+ */
+function normalizeBusinessName(name: string): string {
+  return name
+    .replace(BUSINESS_SUFFIXES, "")
+    .replace(/[^a-zA-Z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
 
 /** Common words to skip when computing title word overlap for blocking. */
 const STOP_WORDS = new Set([
@@ -265,10 +285,15 @@ function scorePair(
   totalScore += titleScore * FIELD_WEIGHTS.title;
   if (titleScore >= 0.8) matchedFields.push("title");
 
-  // Business name similarity (Jaro-Winkler)
+  // Business name similarity (Jaro-Winkler on normalized names)
   let nameScore = 0;
   if (a.businessName && b.businessName) {
-    nameScore = jaroWinkler(a.businessName, b.businessName);
+    const normA = normalizeBusinessName(a.businessName);
+    const normB = normalizeBusinessName(b.businessName);
+    // Use normalized names for comparison to ignore LLC/Inc/Corp differences
+    nameScore = normA.length > 0 && normB.length > 0
+      ? jaroWinkler(normA, normB)
+      : jaroWinkler(a.businessName, b.businessName);
   }
   fieldScores.businessName = nameScore;
   totalScore += nameScore * FIELD_WEIGHTS.businessName;
@@ -329,6 +354,12 @@ function scorePair(
   fieldScores.description = descScore;
   totalScore += descScore * FIELD_WEIGHTS.description;
   if (descScore >= 0.5) matchedFields.push("description");
+
+  // Cross-source bonus: matches from different platforms are more likely real duplicates
+  if (a.platform && b.platform && a.platform !== b.platform) {
+    totalScore = Math.min(1.0, totalScore + CROSS_SOURCE_BONUS);
+    matchedFields.push("crossSource");
+  }
 
   return { score: totalScore, matchedFields, fieldScores };
 }
@@ -405,7 +436,26 @@ function buildCandidatePairs(listings: ListingRecord[]): Set<string> {
     }
   }
 
-  // ── Block 4: Title word overlap (3+ common words) ──
+  // ── Block 4: Normalized business name match ──
+  const nameBlocks = new Map<string, string[]>();
+  for (const listing of listings) {
+    if (listing.businessName) {
+      const normalized = normalizeBusinessName(listing.businessName);
+      if (normalized.length >= 3) {
+        const block = nameBlocks.get(normalized);
+        if (block) {
+          block.push(listing.id);
+        } else {
+          nameBlocks.set(normalized, [listing.id]);
+        }
+      }
+    }
+  }
+  for (const block of nameBlocks.values()) {
+    addBlockPairs(block, pairs, pairKey);
+  }
+
+  // ── Block 5: Title word overlap (3+ common words) ──
   const listingWords = new Map<string, Set<string>>();
   const wordIndex = new Map<string, string[]>();
 
@@ -474,9 +524,13 @@ function addBlockPairs(
 /**
  * Fetch all active listings as lightweight records for in-memory processing.
  */
-async function fetchActiveListings(): Promise<ListingRecord[]> {
+async function fetchActiveListings(since?: Date): Promise<ListingRecord[]> {
   const listings = await prisma.listing.findMany({
-    where: { isActive: true, isHidden: false },
+    where: {
+      isActive: true,
+      isHidden: false,
+      ...(since ? { createdAt: { gte: since } } : {}),
+    },
     select: {
       id: true,
       title: true,
@@ -490,6 +544,11 @@ async function fetchActiveListings(): Promise<ListingRecord[]> {
       industry: true,
       brokerName: true,
       description: true,
+      sources: {
+        select: { platform: true },
+        take: 1,
+        orderBy: { firstScrapedAt: "asc" },
+      },
     },
   });
 
@@ -506,6 +565,7 @@ async function fetchActiveListings(): Promise<ListingRecord[]> {
     industry: l.industry,
     brokerName: l.brokerName,
     description: l.description,
+    platform: l.sources[0]?.platform ?? null,
   }));
 }
 
@@ -689,6 +749,167 @@ export async function runDeduplication(): Promise<DedupResult> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     errors.push(`Fatal deduplication error: ${message}`);
+    return { candidatesFound, groupsCreated, errors };
+  }
+}
+
+/**
+ * Run deduplication focused on recent listings (e.g., last 7 days).
+ * Still compares recent listings against ALL active listings for cross-source matching.
+ */
+export async function runRecentDeduplication(days: number = 7): Promise<DedupResult> {
+  const errors: string[] = [];
+  let candidatesFound = 0;
+  let groupsCreated = 0;
+
+  try {
+    // Load all active listings (needed for cross-reference)
+    const allListings = await fetchActiveListings();
+    if (allListings.length < 2) {
+      return { candidatesFound: 0, groupsCreated: 0, errors: [] };
+    }
+
+    // Identify which are "recent"
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const recentIds = new Set<string>();
+    const recentListings = await fetchActiveListings(cutoff);
+    for (const l of recentListings) recentIds.add(l.id);
+
+    if (recentIds.size === 0) {
+      return { candidatesFound: 0, groupsCreated: 0, errors: [] };
+    }
+
+    const listingMap = new Map<string, ListingRecord>();
+    for (const listing of allListings) {
+      listingMap.set(listing.id, listing);
+    }
+
+    // Build all candidate pairs, but only score those involving at least one recent listing
+    const candidatePairKeys = buildCandidatePairs(allListings);
+    const scoredCandidates: DedupCandidate[] = [];
+
+    for (const key of candidatePairKeys) {
+      const [id1, id2] = key.split("|");
+
+      // At least one must be recent
+      if (!recentIds.has(id1) && !recentIds.has(id2)) continue;
+
+      const listingA = listingMap.get(id1);
+      const listingB = listingMap.get(id2);
+      if (!listingA || !listingB) continue;
+
+      const { score, matchedFields } = scorePair(listingA, listingB);
+
+      if (score >= CANDIDATE_THRESHOLD) {
+        scoredCandidates.push({
+          listingId1: id1,
+          listingId2: id2,
+          score,
+          matchedFields,
+        });
+      }
+    }
+
+    candidatesFound = scoredCandidates.length;
+
+    if (scoredCandidates.length === 0) {
+      return { candidatesFound: 0, groupsCreated: 0, errors: [] };
+    }
+
+    // Reuse the same persistence logic as runDeduplication
+    const parent = new Map<string, string>();
+    const find = (x: string): string => {
+      if (!parent.has(x)) parent.set(x, x);
+      if (parent.get(x) !== x) parent.set(x, find(parent.get(x)!));
+      return parent.get(x)!;
+    };
+    const union = (a: string, b: string): void => {
+      const rootA = find(a);
+      const rootB = find(b);
+      if (rootA !== rootB) parent.set(rootA, rootB);
+    };
+
+    for (const candidate of scoredCandidates) {
+      union(candidate.listingId1, candidate.listingId2);
+    }
+
+    const groups = new Map<string, Set<string>>();
+    for (const candidate of scoredCandidates) {
+      const root = find(candidate.listingId1);
+      if (!groups.has(root)) groups.set(root, new Set());
+      groups.get(root)!.add(candidate.listingId1);
+      groups.get(root)!.add(candidate.listingId2);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const [_root, memberIds] of groups) {
+        const existingGrouped = await tx.listing.findMany({
+          where: {
+            id: { in: [...memberIds] },
+            dedupGroupId: { not: null },
+          },
+          select: { id: true, dedupGroupId: true },
+        });
+
+        let groupId: string;
+        if (existingGrouped.length > 0) {
+          groupId = existingGrouped[0].dedupGroupId!;
+        } else {
+          const group = await tx.dedupGroup.create({ data: {} });
+          groupId = group.id;
+          groupsCreated++;
+        }
+
+        await tx.listing.updateMany({
+          where: { id: { in: [...memberIds] }, dedupGroupId: null },
+          data: { dedupGroupId: groupId },
+        });
+
+        const groupCandidates = scoredCandidates.filter(
+          (c) => memberIds.has(c.listingId1) && memberIds.has(c.listingId2)
+        );
+
+        for (const candidate of groupCandidates) {
+          const [aId, bId] =
+            candidate.listingId1 < candidate.listingId2
+              ? [candidate.listingId1, candidate.listingId2]
+              : [candidate.listingId2, candidate.listingId1];
+
+          const pairScores = scorePair(listingMap.get(aId)!, listingMap.get(bId)!);
+
+          try {
+            await tx.dedupCandidate.upsert({
+              where: { listingAId_listingBId: { listingAId: aId, listingBId: bId } },
+              create: {
+                listingAId: aId,
+                listingBId: bId,
+                overallScore: candidate.score,
+                nameScore: pairScores.fieldScores.businessName ?? null,
+                locationScore: pairScores.fieldScores.location ?? null,
+                priceScore: pairScores.fieldScores.askingPrice ?? null,
+                revenueScore: pairScores.fieldScores.revenue ?? null,
+                descriptionScore: pairScores.fieldScores.description ?? null,
+                status: "PENDING",
+              },
+              update: {
+                overallScore: candidate.score,
+                nameScore: pairScores.fieldScores.businessName ?? null,
+                locationScore: pairScores.fieldScores.location ?? null,
+                priceScore: pairScores.fieldScores.askingPrice ?? null,
+                revenueScore: pairScores.fieldScores.revenue ?? null,
+                descriptionScore: pairScores.fieldScores.description ?? null,
+              },
+            });
+          } catch (err) {
+            errors.push(`Failed to upsert candidate ${aId} / ${bId}: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+      }
+    });
+
+    return { candidatesFound, groupsCreated, errors };
+  } catch (err) {
+    errors.push(`Fatal deduplication error: ${err instanceof Error ? err.message : String(err)}`);
     return { candidatesFound, groupsCreated, errors };
   }
 }

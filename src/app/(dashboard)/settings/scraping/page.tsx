@@ -12,6 +12,9 @@ import {
   Loader2,
   ExternalLink,
   Info,
+  Zap,
+  Building2,
+  Shield,
 } from "lucide-react";
 import { useScrapingStatus } from "@/hooks/use-scraping";
 import { PLATFORMS, type PlatformKey } from "@/lib/constants";
@@ -67,6 +70,12 @@ export default function ScrapingSettingsPage() {
     newListingsFound?: number;
     error?: string;
   } | null>(null);
+  const [scrapingAll, setScrapingAll] = useState(false);
+  const [scrapeAllResult, setScrapeAllResult] = useState<{
+    results?: Record<string, unknown>;
+    errors?: number;
+    error?: string;
+  } | null>(null);
 
   const getLatestRun = (platform: string) =>
     status?.recentRuns?.find((r) => r.platform === platform);
@@ -100,6 +109,28 @@ export default function ScrapingSettingsPage() {
     }
   };
 
+  const handleScrapeAll = async () => {
+    setScrapingAll(true);
+    setScrapeAllResult(null);
+    try {
+      const res = await fetch("/api/scraping/trigger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "scrape_all" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setScrapeAllResult({ error: data.error || "Scrape all failed" });
+        return;
+      }
+      setScrapeAllResult({ results: data.results, errors: data.errors });
+    } catch (err) {
+      setScrapeAllResult({ error: err instanceof Error ? err.message : "Failed" });
+    } finally {
+      setScrapingAll(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       {/* Breadcrumb */}
@@ -118,18 +149,32 @@ export default function ScrapingSettingsPage() {
             Manage how listings are discovered from each platform
           </p>
         </div>
-        <button
-          onClick={handleSyncAndParse}
-          disabled={syncing}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {syncing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Mail className="h-4 w-4" />
-          )}
-          Sync Gmail &amp; Parse Alerts
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncAndParse}
+            disabled={syncing || scrapingAll}
+            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {syncing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Mail className="h-4 w-4" />
+            )}
+            Sync Gmail
+          </button>
+          <button
+            onClick={handleScrapeAll}
+            disabled={scrapingAll || syncing}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {scrapingAll ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            Scrape All Sources
+          </button>
+        </div>
       </div>
 
       {/* Sync result toast */}
@@ -149,6 +194,29 @@ export default function ScrapingSettingsPage() {
                 ? ` — found ${syncResult.newListingsFound} new listings`
                 : " — no new listings found"}
             </p>
+          )}
+        </div>
+      )}
+
+      {/* Scrape All result toast */}
+      {scrapeAllResult && (
+        <div className={cn(
+          "rounded-lg border p-3 text-sm",
+          scrapeAllResult.error
+            ? "border-destructive/30 bg-destructive/5 text-destructive"
+            : "border-success/30 bg-success/5 text-success"
+        )}>
+          {scrapeAllResult.error ? (
+            <p>{scrapeAllResult.error}</p>
+          ) : (
+            <div>
+              <p className="font-medium">All sources scraped successfully</p>
+              {scrapeAllResult.errors !== undefined && scrapeAllResult.errors > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {scrapeAllResult.errors} non-critical errors occurred
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -285,16 +353,58 @@ export default function ScrapingSettingsPage() {
         </div>
       )}
 
-      {/* Apify Integration — Coming Soon */}
-      <div className="rounded-lg border border-dashed bg-muted/30 p-5">
-        <div className="flex items-center gap-3">
-          <Play className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h3 className="font-medium text-muted-foreground">Direct Scraping (Coming Soon)</h3>
+      {/* Public Records Sources */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold text-foreground">Public Records Sources</h2>
+        <p className="text-sm text-muted-foreground">
+          Government databases searched for potential acquisition targets and license enrichment data.
+        </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Colorado Secretary of State */}
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="flex items-center justify-between border-b px-5 py-3">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-4 w-4 text-blue-500" />
+              <h3 className="font-medium">Colorado Secretary of State</h3>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              Discovery
+            </span>
+          </div>
+          <div className="px-5 py-4 space-y-2">
             <p className="text-sm text-muted-foreground">
-              Apify integration for direct scraping of BizBuySell, BizQuest, and other platforms.
-              This will enable on-demand scraping without requiring email alerts.
+              Searches registered Colorado businesses for trade keywords (structured cabling,
+              low voltage, etc.) to discover potential acquisition targets.
             </p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>8 search terms</span>
+              <span>Weekly schedule</span>
+            </div>
+          </div>
+        </div>
+
+        {/* DORA License Lookup */}
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <div className="flex items-center justify-between border-b px-5 py-3">
+            <div className="flex items-center gap-3">
+              <Shield className="h-4 w-4 text-emerald-500" />
+              <h3 className="font-medium">DORA License Lookup</h3>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              Enrichment
+            </span>
+          </div>
+          <div className="px-5 py-4 space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Cross-references contractor licenses (electrical, low voltage, fire alarm, security)
+              with existing listings. Flags expiring licenses as exit signals.
+            </p>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>4 license types</span>
+              <span>Weekly schedule</span>
+            </div>
           </div>
         </div>
       </div>
