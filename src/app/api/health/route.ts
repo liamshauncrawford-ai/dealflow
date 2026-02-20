@@ -32,7 +32,7 @@ export async function GET() {
       status: allHealthy ? "healthy" : "degraded",
       checks,
       // Deploy marker — when you hit /api/health, this confirms which version is live
-      version: "2026-02-20-financial-fix-v4",
+      version: "2026-02-20-market-map-seed-v5",
       timestamp: new Date().toISOString(),
     },
     { status: allHealthy ? 200 : 503 },
