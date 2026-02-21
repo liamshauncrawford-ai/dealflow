@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFinancialPeriods } from "@/hooks/use-financials";
+import { useFinancialPeriods, useClearAllFinancials } from "@/hooks/use-financials";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { FinancialsSummaryBar } from "@/components/financials/financials-summary-bar";
 import { DataEntryToolbar } from "@/components/financials/data-entry-toolbar";
@@ -24,6 +24,7 @@ export function FinancialsTabContent({
   opportunity,
 }: FinancialsTabContentProps) {
   const { data: periods = [], isLoading } = useFinancialPeriods(opportunityId);
+  const clearAll = useClearAllFinancials(opportunityId);
 
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [showExtraction, setShowExtraction] = useState(false);
@@ -70,10 +71,13 @@ export function FinancialsTabContent({
         <DataEntryToolbar
           onAddPeriod={() => setShowAddPeriod(true)}
           onExtractFromDocument={() => setShowExtraction(true)}
+          onClearAll={() => clearAll.mutate()}
+          isClearingAll={clearAll.isPending}
           viewMode={viewMode}
           onViewModeChange={handleViewModeChange}
           hasPeriods={periods.length > 0}
           hasDocuments={(opportunity.documents ?? []).length > 0}
+          periodCount={periods.length}
         />
       </ErrorBoundary>
 

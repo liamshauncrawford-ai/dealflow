@@ -83,6 +83,36 @@ export function useUpdateFinancialPeriod(opportunityId: string) {
 }
 
 // ─────────────────────────────────────────────
+// Mutation: Clear ALL financial periods for an opportunity
+// ─────────────────────────────────────────────
+
+export function useClearAllFinancials(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/pipeline/${opportunityId}/financials`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to clear financial periods");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { deleted: number }) => {
+      toast.success(`Cleared ${data.deleted} financial period${data.deleted !== 1 ? "s" : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["financials", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["valuation-scenarios", opportunityId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// ─────────────────────────────────────────────
 // Mutation: Delete financial period
 // ─────────────────────────────────────────────
 

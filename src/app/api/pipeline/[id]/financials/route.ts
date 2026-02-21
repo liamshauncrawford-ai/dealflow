@@ -5,6 +5,49 @@ import { createFinancialPeriodSchema } from "@/lib/validations/financials";
 import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
 import { createAuditLog } from "@/lib/audit";
 
+// ─────────────────────────────────────────────
+// DELETE /api/pipeline/[id]/financials — Clear all financial periods
+// ─────────────────────────────────────────────
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    // Count first so we can report what was deleted
+    const count = await prisma.financialPeriod.count({
+      where: { opportunityId: id },
+    });
+
+    if (count === 0) {
+      return NextResponse.json({ deleted: 0 });
+    }
+
+    // Cascade handles line items + add-backs automatically
+    await prisma.financialPeriod.deleteMany({
+      where: { opportunityId: id },
+    });
+
+    await createAuditLog({
+      eventType: "DELETED",
+      entityType: "FINANCIAL",
+      entityId: id,
+      opportunityId: id,
+      summary: `Cleared all financial periods (${count} period${count !== 1 ? "s" : ""} removed)`,
+    });
+
+    return NextResponse.json({ deleted: count });
+  } catch (error) {
+    console.error("Failed to clear financial periods:", error);
+    return NextResponse.json(
+      { error: "Failed to clear financial periods" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
