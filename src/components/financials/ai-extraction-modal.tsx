@@ -30,9 +30,8 @@ export function AIExtractionModal({
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  const textDocs = documents.filter(
-    (d: any) => d.extractedText || d.fileName?.endsWith(".pdf") || d.fileName?.endsWith(".txt")
-  );
+  // Show all uploaded documents — backend handles text extraction for pdf, xlsx, csv, txt, etc.
+  const textDocs = documents;
 
   async function handleExtract() {
     if (!selectedDocId) return;
