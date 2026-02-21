@@ -78,15 +78,25 @@ Respond ONLY with a JSON object matching the schema. No explanation text.`;
 // ─────────────────────────────────────────────
 
 export async function extractFinancials(
-  documentText: string
+  documentText: string,
+  options?: { divisionFilter?: string },
 ): Promise<FinancialExtractionResult> {
+  // Build division filter instruction if provided
+  const divisionInstruction = options?.divisionFilter
+    ? `\n\nCRITICAL FILTER: This document may contain data for multiple divisions, segments, or classes.
+ONLY extract line items for the "${options.divisionFilter}" division/segment/class.
+Ignore all rows, columns, or sections that belong to other divisions.
+If the document has columns per division, only use the "${options.divisionFilter}" column.
+If the document organizes data by class or segment, only extract the "${options.divisionFilter}" section.\n`
+    : "";
+
   const response = await callClaude({
     model: "sonnet",
     system: SYSTEM_PROMPT,
     messages: [
       {
         role: "user",
-        content: `Extract all P&L line items and add-backs from the following document text.
+        content: `Extract all P&L line items and add-backs from the following document text.${divisionInstruction}
 
 ## Document Text
 ${documentText}

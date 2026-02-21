@@ -1,9 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { useOpportunity } from "@/hooks/use-pipeline";
+import { useState } from "react";
 import { useFinancialPeriods } from "@/hooks/use-financials";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { FinancialsSummaryBar } from "@/components/financials/financials-summary-bar";
@@ -17,21 +14,26 @@ import { AIExtractionModal } from "@/components/financials/ai-extraction-modal";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-export default function FinancialsPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
-  const { data: opportunity, isLoading: oppLoading } = useOpportunity(id);
-  const { data: periods = [], isLoading: periodsLoading } = useFinancialPeriods(id);
+interface FinancialsTabContentProps {
+  opportunityId: string;
+  opportunity: any;
+}
+
+export function FinancialsTabContent({
+  opportunityId,
+  opportunity,
+}: FinancialsTabContentProps) {
+  const { data: periods = [], isLoading } = useFinancialPeriods(opportunityId);
 
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [showExtraction, setShowExtraction] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"ebitda" | "sde">(() => {
     if (typeof window !== "undefined") {
-      return (localStorage.getItem("financials-view-mode") as "ebitda" | "sde") || "ebitda";
+      return (
+        (localStorage.getItem("financials-view-mode") as "ebitda" | "sde") ||
+        "ebitda"
+      );
     }
     return "ebitda";
   });
@@ -43,8 +45,8 @@ export default function FinancialsPage({
     }
   };
 
-  const isLoading = oppLoading || periodsLoading;
-  const selectedPeriod = periods.find((p: any) => p.id === selectedPeriodId) ?? periods[0] ?? null;
+  const selectedPeriod =
+    periods.find((p: any) => p.id === selectedPeriodId) ?? periods[0] ?? null;
 
   if (isLoading) {
     return (
@@ -54,34 +56,8 @@ export default function FinancialsPage({
     );
   }
 
-  if (!opportunity) {
-    return (
-      <div className="py-12 text-center">
-        <p className="text-destructive">Opportunity not found</p>
-        <Link href="/pipeline" className="mt-2 text-sm text-primary hover:underline">
-          Back to pipeline
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href={`/pipeline/${id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to deal
-        </Link>
-        <span className="text-muted-foreground/40">|</span>
-        <h1 className="text-xl font-semibold truncate">
-          {opportunity.title} — Financials
-        </h1>
-      </div>
-
+    <div className="space-y-6">
       {/* Summary Bar */}
       {periods.length > 0 && (
         <ErrorBoundary>
@@ -105,7 +81,7 @@ export default function FinancialsPage({
       {showAddPeriod && (
         <ErrorBoundary>
           <FinancialPeriodForm
-            opportunityId={id}
+            opportunityId={opportunityId}
             onClose={() => setShowAddPeriod(false)}
           />
         </ErrorBoundary>
@@ -117,7 +93,7 @@ export default function FinancialsPage({
           <FinancialPeriodsTable
             periods={periods}
             viewMode={viewMode}
-            opportunityId={id}
+            opportunityId={opportunityId}
             selectedPeriodId={selectedPeriod?.id}
             onSelectPeriod={setSelectedPeriodId}
           />
@@ -140,7 +116,7 @@ export default function FinancialsPage({
           <div className="space-y-6">
             <ErrorBoundary>
               <AddBacksPanel
-                opportunityId={id}
+                opportunityId={opportunityId}
                 period={selectedPeriod}
                 viewMode={viewMode}
               />
@@ -154,7 +130,7 @@ export default function FinancialsPage({
           <div className="space-y-6">
             <ErrorBoundary>
               <DSCRPanel
-                opportunityId={id}
+                opportunityId={opportunityId}
                 period={selectedPeriod}
               />
             </ErrorBoundary>
@@ -165,7 +141,7 @@ export default function FinancialsPage({
       {/* AI Extraction Modal */}
       {showExtraction && (
         <AIExtractionModal
-          opportunityId={id}
+          opportunityId={opportunityId}
           documents={opportunity.documents ?? []}
           onClose={() => setShowExtraction(false)}
           onApplied={() => setShowExtraction(false)}

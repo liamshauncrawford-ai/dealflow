@@ -154,6 +154,21 @@ export async function POST(request: NextRequest) {
     });
     await ensureSource(precisionMedia.id, "MANUAL", "manual://seed-precision-media");
 
+    // 2b. Precision Media — Opportunity record
+    await prisma.opportunity.upsert({
+      where: { id: "seed-opp-precision-media" },
+      update: {},
+      create: {
+        id: "seed-opp-precision-media",
+        title: "Precision Media Solutions — Commercial Division",
+        listingId: precisionMedia.id,
+        stage: "DUE_DILIGENCE",
+        priority: "HIGH",
+        keyPersonRisk: "LOW",
+        recurringRevenuePct: 0.30,
+      },
+    });
+
     // 3. TIER 1 — SPC Communications
     const spc = await prisma.listing.upsert({
       where: { id: "seed-spc-communications" },

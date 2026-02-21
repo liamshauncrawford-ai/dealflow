@@ -24,6 +24,7 @@ export function AIExtractionModal({
 }: AIExtractionModalProps) {
   const [step, setStep] = useState<Step>("select");
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [divisionFilter, setDivisionFilter] = useState("");
   const [extractionResult, setExtractionResult] = useState<any>(null);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [selectedPeriods, setSelectedPeriods] = useState<Set<number>>(new Set());
@@ -42,7 +43,10 @@ export function AIExtractionModal({
       const res = await fetch(`/api/pipeline/${opportunityId}/financials/extract`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentId: selectedDocId }),
+        body: JSON.stringify({
+          documentId: selectedDocId,
+          ...(divisionFilter.trim() ? { divisionFilter: divisionFilter.trim() } : {}),
+        }),
       });
 
       if (!res.ok) {
@@ -158,6 +162,24 @@ export function AIExtractionModal({
                   ))}
                 </div>
               )}
+              {/* Division / Segment Filter (optional) */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Division / Segment Filter{" "}
+                  <span className="font-normal">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={divisionFilter}
+                  onChange={(e) => setDivisionFilter(e.target.value)}
+                  placeholder="e.g., North Office, Commercial Division"
+                  className="mt-1 w-full rounded-md border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground/50"
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  If the document contains multiple divisions, only data for this segment will be extracted.
+                </p>
+              </div>
+
               <div className="flex justify-end">
                 <button
                   onClick={handleExtract}

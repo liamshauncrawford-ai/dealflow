@@ -674,6 +674,7 @@ model Opportunity {
   aiAnalyses      AIAnalysisResult[]
   auditLogs       AuditLog[]
   financialPeriods FinancialPeriod[]
+  valuationModels  ValuationModel[]
 
   @@index([stage])
   @@index([priority])
@@ -1628,6 +1629,9 @@ model ValuationModel {
   listingId       String?
   listing         Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
 
+  opportunityId   String?
+  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
   modelName       String?   // User can name scenarios (e.g., "Base Case", "Aggressive")
   inputs          Json      // All input parameters
   outputs         Json      // All calculated outputs
@@ -1637,6 +1641,7 @@ model ValuationModel {
   updatedAt       DateTime  @updatedAt
 
   @@index([listingId])
+  @@index([opportunityId])
 }
 
 model RollupModel {

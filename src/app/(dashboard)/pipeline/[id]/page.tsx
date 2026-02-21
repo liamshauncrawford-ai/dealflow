@@ -1,27 +1,14 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useOpportunity } from "@/hooks/use-pipeline";
 import { ErrorBoundary } from "@/components/error-boundary";
-import {
-  DealHeader,
-  StagePriorityBar,
-  LinkedListingCard,
-  NoListingPlaceholder,
-  DocumentsSection,
-  NotesSection,
-  StageHistoryPanel,
-  KeyDatesPanel,
-  TagsPanel,
-  ContactsPanel,
-  EmailsPanel,
-  TasksPanel,
-  DealAnalysisPanel,
-  AIRiskPanel,
-  AuditLogPanel,
-} from "@/components/pipeline";
-import { FinancialsLinkCard } from "@/components/financials/financials-link-card";
+import { DealHeader, StagePriorityBar } from "@/components/pipeline";
+import { DealTabBar, type DealTab } from "@/components/pipeline/deal-tab-bar";
+import { OverviewTabContent } from "@/components/pipeline/overview-tab-content";
+import { FinancialsTabContent } from "@/components/pipeline/financials-tab-content";
+import { ValuationTabContent } from "@/components/pipeline/valuation-tab-content";
 
 export default function OpportunityDetailPage({
   params,
@@ -29,6 +16,7 @@ export default function OpportunityDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const [activeTab, setActiveTab] = useState<DealTab>("overview");
   const { data: opportunity, isLoading, error } = useOpportunity(id);
 
   if (isLoading) {
@@ -50,10 +38,9 @@ export default function OpportunityDetailPage({
     );
   }
 
-  const listing = opportunity.listing;
-
   return (
     <div className="mx-auto max-w-6xl space-y-6">
+      {/* Persistent header — always visible above tabs */}
       <ErrorBoundary>
         <DealHeader opportunity={opportunity} />
       </ErrorBoundary>
@@ -62,92 +49,25 @@ export default function OpportunityDetailPage({
         <StagePriorityBar opportunity={opportunity} />
       </ErrorBoundary>
 
-      {/* Deal Analysis — full width below stage bar */}
-      <ErrorBoundary>
-        <DealAnalysisPanel opportunity={opportunity} />
-      </ErrorBoundary>
+      {/* Tab Navigation */}
+      <DealTabBar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Financials Link Card */}
-      <ErrorBoundary>
-        <FinancialsLinkCard
-          opportunityId={opportunity.id}
-          latestFinancials={opportunity.latestFinancials ?? null}
-          financialPeriodCount={opportunity.financialPeriodCount ?? 0}
+      {/* Tab Content */}
+      {activeTab === "overview" && (
+        <OverviewTabContent opportunity={opportunity} />
+      )}
+      {activeTab === "financials" && (
+        <FinancialsTabContent
+          opportunityId={id}
+          opportunity={opportunity}
         />
-      </ErrorBoundary>
-
-      {/* Two-column layout — left column wider for detailed content */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        {/* Left column — detailed content */}
-        <div className="space-y-6">
-          <ErrorBoundary>
-            {listing ? (
-              <LinkedListingCard
-                listing={listing}
-                offerPrice={opportunity.offerPrice}
-                offerTerms={opportunity.offerTerms}
-                industryMultiples={opportunity.industryMultiples}
-              />
-            ) : (
-              <NoListingPlaceholder />
-            )}
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <AIRiskPanel opportunityId={opportunity.id} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <NotesSection
-              opportunityId={opportunity.id}
-              notes={opportunity.notes}
-            />
-          </ErrorBoundary>
-        </div>
-
-        {/* Right column — compact panels */}
-        <div className="space-y-6">
-          <ErrorBoundary>
-            <TasksPanel opportunityId={opportunity.id} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <ContactsPanel opportunityId={opportunity.id} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <DocumentsSection opportunityId={opportunity.id} documents={opportunity.documents ?? []} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <EmailsPanel
-              opportunityId={opportunity.id}
-              emails={opportunity.emails}
-              dealTitle={opportunity.title}
-              contacts={opportunity.contacts?.map((c: { name: string; email: string | null }) => ({ name: c.name, email: c.email })) ?? []}
-            />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <StageHistoryPanel
-              opportunityId={opportunity.id}
-              stageHistory={opportunity.stageHistory}
-            />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <AuditLogPanel opportunityId={opportunity.id} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <KeyDatesPanel opportunity={opportunity} />
-          </ErrorBoundary>
-
-          <ErrorBoundary>
-            <TagsPanel tags={opportunity.tags} />
-          </ErrorBoundary>
-        </div>
-      </div>
+      )}
+      {activeTab === "valuation" && (
+        <ValuationTabContent
+          opportunityId={id}
+          opportunity={opportunity}
+        />
+      )}
     </div>
   );
 }

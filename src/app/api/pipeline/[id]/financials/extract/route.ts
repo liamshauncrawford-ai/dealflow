@@ -71,8 +71,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Run AI extraction
-    const extraction = await extractFinancials(documentText);
+    // Run AI extraction (with optional division/segment filter)
+    const divisionFilter = typeof json.divisionFilter === "string" ? json.divisionFilter : undefined;
+    const extraction = await extractFinancials(documentText, { divisionFilter });
 
     // Cache result in AIAnalysisResult
     const cached = await prisma.aIAnalysisResult.create({
