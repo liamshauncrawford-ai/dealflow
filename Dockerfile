@@ -58,6 +58,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modul
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
 
+# Copy xlsx (serverExternalPackage — not traced by Next.js standalone)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/xlsx ./node_modules/xlsx
+
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 
 USER nextjs

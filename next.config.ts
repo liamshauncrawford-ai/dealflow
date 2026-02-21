@@ -3,7 +3,7 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["playwright"],
+  serverExternalPackages: ["playwright", "xlsx"],
   outputFileTracingIncludes: {
     "/api/email/auth/callback": [
       "./node_modules/.prisma/client/**/*",
