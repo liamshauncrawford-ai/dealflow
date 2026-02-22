@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { X, Sparkles, Check, FileText, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { ADD_BACK_CATEGORY_LABELS, CATEGORY_LABELS } from "@/lib/financial/canonical-labels";
@@ -22,6 +23,7 @@ export function AIExtractionModal({
   onClose,
   onApplied,
 }: AIExtractionModalProps) {
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>("select");
   const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
   const [divisionFilter, setDivisionFilter] = useState("");
@@ -83,6 +85,11 @@ export function AIExtractionModal({
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || "Failed to apply extraction");
       }
+
+      // Invalidate all tabs so they pick up the new financial data
+      queryClient.invalidateQueries({ queryKey: ["financials", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["valuation-scenarios", opportunityId] });
 
       setStep("done");
       setTimeout(() => {

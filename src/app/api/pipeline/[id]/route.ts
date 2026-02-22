@@ -94,6 +94,7 @@ export async function GET(
         totalAddBacks: true,
         dataSource: true,
         confidence: true,
+        updatedAt: true,
         _count: { select: { addBacks: true, lineItems: true } },
       },
     });

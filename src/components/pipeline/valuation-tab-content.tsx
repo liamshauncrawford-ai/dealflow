@@ -103,7 +103,8 @@ export function ValuationTabContent({
   const [isEditingName, setIsEditingName] = useState(false);
   const [scenarioName, setScenarioName] = useState("Base Case");
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasInitialized = useRef(false);
+  const lastFingerprintRef = useRef<string | null>(null);
+  const [financialsUpdatedBanner, setFinancialsUpdatedBanner] = useState(false);
 
   // Data hooks
   const { data: periods = [] } = useFinancialPeriods(opportunityId);
@@ -122,18 +123,37 @@ export function ValuationTabContent({
     [sortedPeriods],
   );
 
+  // Fingerprint of financial data — changes when periods are created/updated
+  const periodsFingerprint = useMemo(() => {
+    if (!annualPeriods.length) return "empty";
+    return annualPeriods
+      .map((p) => `${p.year}:${p.totalRevenue}:${p.adjustedEbitda}`)
+      .join("|");
+  }, [annualPeriods]);
+
   // ── Initialize from saved scenario or financial data ──
+  // Uses fingerprint instead of one-time flag so it reacts to new extraction data
   useEffect(() => {
-    if (hasInitialized.current || scenariosLoading) return;
+    if (scenariosLoading) return;
+    if (periodsFingerprint === lastFingerprintRef.current) return;
+
+    const isFirstLoad = lastFingerprintRef.current === null;
+    lastFingerprintRef.current = periodsFingerprint;
 
     if (scenarios.length > 0) {
-      // Load most recent scenario
-      const latest = scenarios[0];
-      setInputs(latest.inputs as unknown as ValuationInputs);
-      setActiveScenarioId(latest.id);
-      setScenarioName(latest.modelName || "Untitled Scenario");
+      if (isFirstLoad && !activeScenarioId) {
+        // First mount: load most recent saved scenario
+        const latest = scenarios[0];
+        setInputs(latest.inputs as unknown as ValuationInputs);
+        setActiveScenarioId(latest.id);
+        setScenarioName(latest.modelName || "Untitled Scenario");
+      } else if (!isFirstLoad) {
+        // Financial data changed while a scenario is active — show notification
+        // Don't overwrite their active work
+        setFinancialsUpdatedBanner(true);
+      }
     } else if (annualPeriods.length > 0) {
-      // Auto-populate from most recent financial year
+      // No saved scenarios — auto-populate from most recent financial year
       const recent = getMostRecentAnnual(annualPeriods as PeriodSummary[]);
       if (recent) {
         setInputs(
@@ -141,9 +161,19 @@ export function ValuationTabContent({
         );
       }
     }
+  }, [periodsFingerprint, scenariosLoading, scenarios, annualPeriods, activeScenarioId]);
 
-    hasInitialized.current = true;
-  }, [scenarios, scenariosLoading, annualPeriods]);
+  // Handler to refresh valuation inputs from latest financials (dismisses banner)
+  const handleRefreshFromFinancials = useCallback(() => {
+    const periodsData = annualPeriods as PeriodSummary[];
+    const recent = getMostRecentAnnual(periodsData);
+    if (recent) {
+      setInputs((prev) =>
+        mapFinancialPeriodToValuationInputs(recent, prev, periodsData),
+      );
+    }
+    setFinancialsUpdatedBanner(false);
+  }, [annualPeriods]);
 
   // ── Input update with auto-margin calculation ──
   const update = useCallback(
@@ -451,6 +481,34 @@ export function ValuationTabContent({
           </button>
         </div>
       </div>
+
+      {/* ── Financial data updated banner ── */}
+      {financialsUpdatedBanner && (
+        <div className="flex items-center justify-between rounded-md border border-blue-200 bg-blue-50 px-4 py-2.5 dark:border-blue-800 dark:bg-blue-900/20">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            <span className="text-sm text-blue-700 dark:text-blue-300">
+              Financial data has been updated.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleRefreshFromFinancials}
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Refresh from latest financials
+            </button>
+            <button
+              onClick={() => setFinancialsUpdatedBanner(false)}
+              className="text-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
+            >
+              <span className="sr-only">Dismiss</span>
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Auto-save indicator ── */}
       {activeScenarioId && updateScenario.isPending && (
