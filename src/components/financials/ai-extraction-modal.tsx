@@ -127,8 +127,18 @@ export function AIExtractionModal({
 
         <div className="p-6">
           {error && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-              {error}
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+                {selectedDocId && step === "select" && (
+                  <button
+                    onClick={() => { setError(null); handleExtract(); }}
+                    className="shrink-0 rounded-md bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200 dark:bg-red-800/40 dark:text-red-300 dark:hover:bg-red-800/60 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

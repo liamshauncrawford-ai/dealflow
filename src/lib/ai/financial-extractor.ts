@@ -74,6 +74,12 @@ IMPORTANT extraction rules:
 Respond ONLY with a JSON object matching the schema. No explanation text.`;
 
 // ─────────────────────────────────────────────
+// Context limit — prevents overflowing Claude's context window
+// ─────────────────────────────────────────────
+
+const MAX_TEXT_CHARS = 80_000; // ~20K tokens — leaves room for system prompt + 8K response
+
+// ─────────────────────────────────────────────
 // Extraction function
 // ─────────────────────────────────────────────
 
@@ -81,6 +87,12 @@ export async function extractFinancials(
   documentText: string,
   options?: { divisionFilter?: string },
 ): Promise<FinancialExtractionResult> {
+  // Cap text length to stay within context limits (same pattern as cim-parser.ts)
+  const truncatedText =
+    documentText.length > MAX_TEXT_CHARS
+      ? documentText.slice(0, MAX_TEXT_CHARS) + "\n\n[... document truncated at 80K characters ...]"
+      : documentText;
+
   // Build division filter instruction if provided
   const divisionInstruction = options?.divisionFilter
     ? `\n\nCRITICAL FILTER: This document may contain data for multiple divisions, segments, or classes.
@@ -99,7 +111,7 @@ If the document organizes data by class or segment, only extract the "${options.
         content: `Extract all P&L line items and add-backs from the following document text.${divisionInstruction}
 
 ## Document Text
-${documentText}
+${truncatedText}
 
 ## Required Response Schema
 {
@@ -136,5 +148,18 @@ ${documentText}
     maxTokens: 8192,
   });
 
-  return safeJsonParse<FinancialExtractionResult>(response.text);
+  // Parse and validate response
+  const result = safeJsonParse<FinancialExtractionResult>(response.text);
+
+  if (!result || !Array.isArray(result.periods)) {
+    throw new Error("AI response missing required 'periods' array — try again or use a different document");
+  }
+  if (typeof result.confidence !== "number") {
+    result.confidence = 0.5;
+  }
+  if (!result.notes) {
+    result.notes = "";
+  }
+
+  return result;
 }

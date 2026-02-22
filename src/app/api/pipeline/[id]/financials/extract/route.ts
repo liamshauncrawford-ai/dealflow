@@ -67,6 +67,9 @@ function extractTextFromBuffer(buffer: Buffer, fileName: string): string {
   return buffer.toString("utf-8");
 }
 
+// Allow up to 2 minutes for large file extraction + Claude API retries
+export const maxDuration = 120;
+
 /**
  * POST /api/pipeline/[id]/financials/extract
  *
@@ -80,64 +83,116 @@ function extractTextFromBuffer(buffer: Buffer, fileName: string): string {
  * caches result in AIAnalysisResult.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
+  // ── Pre-flight checks ──
+  if (!isAIEnabled()) {
+    return NextResponse.json(
+      { error: "AI features are not configured (ANTHROPIC_API_KEY missing)" },
+      { status: 503 }
+    );
+  }
+
+  const { id } = await params;
+
+  let json: Record<string, unknown>;
   try {
-    if (!isAIEnabled()) {
-      return NextResponse.json(
-        { error: "AI features are not configured (ANTHROPIC_API_KEY missing)" },
-        { status: 503 }
-      );
+    json = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  // ── Step 1: Get document text ──
+  let documentText: string;
+
+  if (json.text && typeof json.text === "string") {
+    documentText = json.text;
+  } else if (json.documentId && typeof json.documentId === "string") {
+    const document = await prisma.dealDocument.findUnique({
+      where: { id: json.documentId },
+      select: { id: true, fileName: true, fileData: true, fileType: true, opportunityId: true },
+    });
+
+    if (!document) {
+      return NextResponse.json({ error: "Document not found" }, { status: 404 });
     }
-
-    const { id } = await params;
-    const json = await request.json();
-
-    let documentText: string;
-
-    if (json.text && typeof json.text === "string") {
-      // Direct text input
-      documentText = json.text;
-    } else if (json.documentId && typeof json.documentId === "string") {
-      // Fetch document from DB
-      const document = await prisma.dealDocument.findUnique({
-        where: { id: json.documentId },
-        select: { id: true, fileName: true, fileData: true, fileType: true, opportunityId: true },
-      });
-
-      if (!document) {
-        return NextResponse.json({ error: "Document not found" }, { status: 404 });
-      }
-      if (document.opportunityId !== id) {
-        return NextResponse.json({ error: "Document does not belong to this opportunity" }, { status: 403 });
-      }
-      if (!document.fileData) {
-        return NextResponse.json(
-          { error: "Document has no file content stored." },
-          { status: 400 }
-        );
-      }
-
-      // Extract text based on file type
-      const buffer = Buffer.from(document.fileData);
-      documentText = extractTextFromBuffer(buffer, document.fileName);
-
-      if (!documentText || documentText.length < 50) {
-        return NextResponse.json(
-          { error: "Could not extract readable text from this document. The file may be empty, scanned (image-only), or in an unsupported format." },
-          { status: 400 }
-        );
-      }
-    } else {
+    if (document.opportunityId !== id) {
+      return NextResponse.json({ error: "Document does not belong to this opportunity" }, { status: 403 });
+    }
+    if (!document.fileData) {
       return NextResponse.json(
-        { error: "Either documentId or text is required" },
+        { error: "Document has no file content stored." },
         { status: 400 }
       );
     }
 
-    // Run AI extraction (with optional division/segment filter)
-    const divisionFilter = typeof json.divisionFilter === "string" ? json.divisionFilter : undefined;
-    const extraction = await extractFinancials(documentText, { divisionFilter });
+    // Parse file content into text
+    try {
+      const buffer = Buffer.from(document.fileData);
+      documentText = extractTextFromBuffer(buffer, document.fileName);
+    } catch (parseErr) {
+      console.error("File parsing failed:", parseErr);
+      return NextResponse.json(
+        { error: "Could not read file content. The file may be corrupted or in an unsupported format." },
+        { status: 400 }
+      );
+    }
 
-    // Cache result in AIAnalysisResult
+    if (!documentText || documentText.length < 50) {
+      return NextResponse.json(
+        { error: "Could not extract readable text from this document. The file may be empty, scanned (image-only), or in an unsupported format." },
+        { status: 400 }
+      );
+    }
+  } else {
+    return NextResponse.json(
+      { error: "Either documentId or text is required" },
+      { status: 400 }
+    );
+  }
+
+  // ── Step 2: Run AI extraction ──
+  let extraction;
+  const divisionFilter = typeof json.divisionFilter === "string" ? json.divisionFilter : undefined;
+
+  try {
+    extraction = await extractFinancials(documentText, { divisionFilter });
+  } catch (aiErr: unknown) {
+    const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
+    console.error("AI extraction failed:", aiErr);
+
+    // Surface specific, actionable error messages
+    if (msg.includes("context_length") || msg.includes("too many tokens") || msg.includes("max_tokens")) {
+      return NextResponse.json(
+        { error: "Document text is too large for AI processing. Try a smaller or simpler file." },
+        { status: 400 }
+      );
+    }
+    if (aiErr instanceof SyntaxError || msg.includes("JSON")) {
+      return NextResponse.json(
+        { error: "AI returned an unexpected response format. Please try again." },
+        { status: 502 }
+      );
+    }
+    if (msg.includes("rate_limit") || msg.includes("429")) {
+      return NextResponse.json(
+        { error: "AI service is busy. Please wait a moment and try again." },
+        { status: 429 }
+      );
+    }
+    if (msg.includes("ANTHROPIC_API_KEY") || msg.includes("authentication") || msg.includes("401")) {
+      return NextResponse.json(
+        { error: "AI service authentication error. Please contact support." },
+        { status: 503 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: `Extraction failed: ${msg}` },
+      { status: 500 }
+    );
+  }
+
+  // ── Step 3: Cache result ──
+  try {
     const cached = await prisma.aIAnalysisResult.create({
       data: {
         opportunityId: id,
@@ -153,10 +208,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       analysisId: cached.id,
       ...extraction,
     });
-  } catch (error) {
-    console.error("Failed to extract financials:", error);
+  } catch (dbErr) {
+    console.error("Failed to cache extraction result:", dbErr);
     return NextResponse.json(
-      { error: "Failed to extract financials from document" },
+      { error: "Extraction succeeded but failed to save results. Please try again." },
       { status: 500 }
     );
   }
