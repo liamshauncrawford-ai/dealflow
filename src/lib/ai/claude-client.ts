@@ -124,19 +124,74 @@ export async function callClaude(params: ClaudeCallParams): Promise<ClaudeRespon
 
 /**
  * Safely parse JSON from Claude's response text.
- * Handles cases where Claude wraps JSON in markdown code fences.
+ *
+ * Uses a progressive extraction strategy because Claude sometimes wraps
+ * JSON in markdown code fences, prefixes it with explanation text, or
+ * appends notes after the closing brace — even when told "respond ONLY
+ * with JSON."
+ *
+ * Strategy order:
+ *   1. Direct JSON.parse (cleanest case — response is pure JSON)
+ *   2. Extract from ```json ... ``` code fence anywhere in the text
+ *   3. Find the outermost { ... } or [ ... ] in the text
  */
 export function safeJsonParse<T>(text: string): T {
-  // Strip markdown code fences if present
-  let cleaned = text.trim();
+  const trimmed = text.trim();
 
-  // Match ```json ... ``` or ``` ... ```
-  const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
-  if (fenceMatch) {
-    cleaned = fenceMatch[1].trim();
+  // ── Strategy 1: Direct parse (pure JSON response) ──
+  try {
+    return JSON.parse(trimmed) as T;
+  } catch {
+    // Not pure JSON — try extraction strategies
   }
 
-  return JSON.parse(cleaned) as T;
+  // ── Strategy 2: Extract from markdown code fence anywhere in text ──
+  const fenceMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+  if (fenceMatch) {
+    try {
+      return JSON.parse(fenceMatch[1].trim()) as T;
+    } catch {
+      // Code fence content isn't valid JSON either — continue
+    }
+  }
+
+  // ── Strategy 3: Find outermost { ... } or [ ... ] ──
+  const firstBrace = trimmed.indexOf("{");
+  const firstBracket = trimmed.indexOf("[");
+
+  // Pick whichever delimiter comes first (ignoring -1 = not found)
+  let startChar: "{" | "[" | null = null;
+  let endChar: "}" | "]" | null = null;
+  let startIdx = -1;
+
+  if (firstBrace >= 0 && (firstBracket < 0 || firstBrace < firstBracket)) {
+    startChar = "{";
+    endChar = "}";
+    startIdx = firstBrace;
+  } else if (firstBracket >= 0) {
+    startChar = "[";
+    endChar = "]";
+    startIdx = firstBracket;
+  }
+
+  if (startChar && endChar && startIdx >= 0) {
+    // Walk from the end to find the matching closing bracket
+    const lastEnd = trimmed.lastIndexOf(endChar);
+    if (lastEnd > startIdx) {
+      try {
+        return JSON.parse(trimmed.slice(startIdx, lastEnd + 1)) as T;
+      } catch {
+        // Extracted slice isn't valid JSON — fall through to error
+      }
+    }
+  }
+
+  // ── All strategies failed — throw with context ──
+  // Include the first 200 chars of the response so error logs reveal the format
+  const preview = trimmed.length > 200 ? trimmed.slice(0, 200) + "…" : trimmed;
+  throw new SyntaxError(
+    `Could not extract valid JSON from AI response. Preview: ${preview}`
+  );
 }
 
 // ─────────────────────────────────────────────

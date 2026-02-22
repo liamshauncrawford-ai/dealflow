@@ -148,8 +148,14 @@ ${truncatedText}
     maxTokens: 8192,
   });
 
-  // Parse and validate response
-  const result = safeJsonParse<FinancialExtractionResult>(response.text);
+  // Parse and validate response — log raw text on failure for server-side debugging
+  let result: FinancialExtractionResult;
+  try {
+    result = safeJsonParse<FinancialExtractionResult>(response.text);
+  } catch (parseErr) {
+    console.error("[AI] Financial extraction JSON parse failed. Raw response (first 500 chars):", response.text.slice(0, 500));
+    throw parseErr;
+  }
 
   if (!result || !Array.isArray(result.periods)) {
     throw new Error("AI response missing required 'periods' array — try again or use a different document");
