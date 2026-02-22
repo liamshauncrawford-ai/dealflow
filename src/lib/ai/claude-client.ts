@@ -6,6 +6,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import type { AutoParseableOutputFormat } from "@anthropic-ai/sdk/lib/parser";
 
 // ─────────────────────────────────────────────
 // Client singleton
@@ -40,6 +41,21 @@ export interface ClaudeCallParams {
 
 export interface ClaudeResponse {
   text: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+export interface ClaudeStructuredParams<T> {
+  model: ModelChoice;
+  system?: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+  maxTokens?: number;
+  temperature?: number;
+  outputFormat: AutoParseableOutputFormat<T>;
+}
+
+export interface ClaudeStructuredResponse<T> {
+  parsed: T;
   inputTokens: number;
   outputTokens: number;
 }
@@ -111,6 +127,82 @@ export async function callClaude(params: ClaudeCallParams): Promise<ClaudeRespon
       // Exponential backoff with jitter
       const delay = INITIAL_DELAY_MS * Math.pow(2, attempt) + Math.random() * 500;
       console.warn(`[AI] Retry ${attempt + 1}/${MAX_RETRIES} after ${Math.round(delay)}ms (status: ${status})`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError ?? new Error("Claude API call failed");
+}
+
+// ─────────────────────────────────────────────
+// Structured output call — guarantees valid JSON
+// ─────────────────────────────────────────────
+
+/**
+ * Call Claude with structured JSON output — guarantees valid, schema-conformant JSON.
+ *
+ * Uses the Anthropic SDK's `messages.parse()` with `output_config.format`.
+ * The response is automatically parsed and validated against the provided schema.
+ * No safeJsonParse needed — the API itself guarantees conformance.
+ *
+ * Includes the same retry logic as callClaude() for rate limits and transient errors.
+ */
+export async function callClaudeStructured<T>(
+  params: ClaudeStructuredParams<T>,
+): Promise<ClaudeStructuredResponse<T>> {
+  const client = getClient();
+  const modelId = MODEL_MAP[params.model];
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await client.messages.parse({
+        model: modelId,
+        max_tokens: params.maxTokens ?? 4096,
+        temperature: params.temperature ?? 0,
+        system: params.system,
+        messages: params.messages,
+        output_config: {
+          format: params.outputFormat,
+        },
+      });
+
+      // parsed_output is null when stop_reason != "end_turn" (e.g. max_tokens truncation)
+      if (response.parsed_output === null || response.parsed_output === undefined) {
+        throw new Error(
+          `Structured output parsing returned null (stop_reason: ${response.stop_reason}). ` +
+            `The model may have hit the max_tokens limit — try increasing maxTokens or simplifying the input.`,
+        );
+      }
+
+      const result: ClaudeStructuredResponse<T> = {
+        parsed: response.parsed_output,
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+      };
+
+      console.log(
+        `[AI:structured] ${params.model} (${modelId}) | ` +
+          `${result.inputTokens} in / ${result.outputTokens} out | ` +
+          `cost ~$${estimateCost(params.model, result.inputTokens, result.outputTokens)}`,
+      );
+
+      return result;
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+
+      const status = (err as { status?: number })?.status;
+      const isRetryable = status === 429 || (status !== undefined && status >= 500);
+
+      if (!isRetryable || attempt === MAX_RETRIES) {
+        break;
+      }
+
+      const delay = INITIAL_DELAY_MS * Math.pow(2, attempt) + Math.random() * 500;
+      console.warn(
+        `[AI:structured] Retry ${attempt + 1}/${MAX_RETRIES} after ${Math.round(delay)}ms (status: ${status})`,
+      );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }

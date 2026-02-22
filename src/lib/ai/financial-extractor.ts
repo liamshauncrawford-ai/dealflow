@@ -2,13 +2,17 @@
  * AI Financial Extraction Module
  *
  * Extracts structured P&L line items and add-backs from CIM/financial
- * document text using Claude Sonnet. Follows the same pattern as cim-parser.ts.
+ * document text using Claude Sonnet with **Structured Outputs**.
+ *
+ * Uses `callClaudeStructured()` + `jsonSchemaOutputFormat()` to guarantee
+ * valid, schema-conformant JSON on every response — no manual JSON parsing.
  *
  * Trades-specific: recognizes materials vs labor COGS split, vehicle expenses,
  * tool costs, subcontractor fees, and common add-back patterns.
  */
 
-import { callClaude, safeJsonParse } from "./claude-client";
+import { callClaudeStructured } from "./claude-client";
+import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 
 // ─────────────────────────────────────────────
 // Types
@@ -16,7 +20,7 @@ import { callClaude, safeJsonParse } from "./claude-client";
 
 export interface ExtractedLineItem {
   category: string;
-  subcategory?: string;
+  subcategory?: string | null;
   rawLabel: string;
   amount: number;
   isNegative?: boolean;
@@ -27,13 +31,13 @@ export interface ExtractedAddBack {
   description: string;
   amount: number;
   confidence: number;
-  sourceLabel?: string;
+  sourceLabel?: string | null;
 }
 
 export interface ExtractedPeriod {
   periodType: string;
   year: number;
-  quarter?: number;
+  quarter?: number | null;
   lineItems: ExtractedLineItem[];
   addBacks: ExtractedAddBack[];
 }
@@ -43,6 +47,89 @@ export interface FinancialExtractionResult {
   notes: string;
   confidence: number;
 }
+
+// ─────────────────────────────────────────────
+// JSON Schema for Structured Outputs
+// (must mirror the TypeScript types above)
+// ─────────────────────────────────────────────
+
+const FINANCIAL_EXTRACTION_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    periods: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          periodType: {
+            type: "string",
+            enum: ["ANNUAL", "QUARTERLY", "LTM", "YTD"],
+          },
+          year: { type: "integer" },
+          quarter: { type: ["integer", "null"] },
+          lineItems: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                category: {
+                  type: "string",
+                  enum: [
+                    "REVENUE",
+                    "COGS",
+                    "OPEX",
+                    "D_AND_A",
+                    "INTEREST",
+                    "TAX",
+                    "OTHER_INCOME",
+                    "OTHER_EXPENSE",
+                  ],
+                },
+                subcategory: { type: ["string", "null"] },
+                rawLabel: { type: "string" },
+                amount: { type: "number" },
+                isNegative: { type: "boolean" },
+              },
+              required: ["category", "rawLabel", "amount"],
+            },
+          },
+          addBacks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                category: {
+                  type: "string",
+                  enum: [
+                    "OWNER_COMPENSATION",
+                    "PERSONAL_EXPENSES",
+                    "ONE_TIME_COSTS",
+                    "DISCRETIONARY",
+                    "RELATED_PARTY",
+                    "NON_CASH",
+                    "OTHER",
+                  ],
+                },
+                description: { type: "string" },
+                amount: { type: "number" },
+                confidence: { type: "number" },
+                sourceLabel: { type: ["string", "null"] },
+              },
+              required: ["category", "description", "amount", "confidence"],
+            },
+          },
+        },
+        required: ["periodType", "year", "lineItems", "addBacks"],
+      },
+    },
+    notes: { type: "string" },
+    confidence: { type: "number" },
+  },
+  required: ["periods", "notes", "confidence"],
+} as const;
+
+// Pre-compute the output format (module-level, computed once)
+const FINANCIAL_OUTPUT_FORMAT = jsonSchemaOutputFormat(FINANCIAL_EXTRACTION_SCHEMA);
 
 // ─────────────────────────────────────────────
 // System prompt
@@ -69,9 +156,7 @@ IMPORTANT extraction rules:
    - OTHER: anything else that's clearly discretionary or non-recurring
 5. Assign confidence (0-1) to each add-back based on how clearly it's identified
 6. If the document has multiple years, extract each as a separate period
-7. All amounts should be positive numbers. Use isNegative=true for COGS/OPEX items
-
-Respond ONLY with a JSON object matching the schema. No explanation text.`;
+7. All amounts should be positive numbers. Use isNegative=true for COGS/OPEX items`;
 
 // ─────────────────────────────────────────────
 // Context limit — prevents overflowing Claude's context window
@@ -102,7 +187,8 @@ If the document has columns per division, only use the "${options.divisionFilter
 If the document organizes data by class or segment, only extract the "${options.divisionFilter}" section.\n`
     : "";
 
-  const response = await callClaude({
+  // Call Claude with structured outputs — JSON conformance is guaranteed by the API
+  const response = await callClaudeStructured<FinancialExtractionResult>({
     model: "sonnet",
     system: SYSTEM_PROMPT,
     messages: [
@@ -111,55 +197,17 @@ If the document organizes data by class or segment, only extract the "${options.
         content: `Extract all P&L line items and add-backs from the following document text.${divisionInstruction}
 
 ## Document Text
-${truncatedText}
-
-## Required Response Schema
-{
-  "periods": [
-    {
-      "periodType": "ANNUAL" | "QUARTERLY" | "LTM" | "YTD",
-      "year": 2023,
-      "quarter": null,
-      "lineItems": [
-        {
-          "category": "REVENUE" | "COGS" | "OPEX" | "D_AND_A" | "INTEREST" | "TAX" | "OTHER_INCOME" | "OTHER_EXPENSE",
-          "subcategory": "optional subcategory",
-          "rawLabel": "original label from document",
-          "amount": 1234567,
-          "isNegative": false
-        }
-      ],
-      "addBacks": [
-        {
-          "category": "OWNER_COMPENSATION" | "PERSONAL_EXPENSES" | "ONE_TIME_COSTS" | "DISCRETIONARY" | "RELATED_PARTY" | "NON_CASH" | "OTHER",
-          "description": "what this add-back is",
-          "amount": 50000,
-          "confidence": 0.9,
-          "sourceLabel": "original text that indicates this is an add-back"
-        }
-      ]
-    }
-  ],
-  "notes": "any important observations about data quality or missing information",
-  "confidence": 0.85
-}`,
+${truncatedText}`,
       },
     ],
     maxTokens: 8192,
+    outputFormat: FINANCIAL_OUTPUT_FORMAT,
   });
 
-  // Parse and validate response — log raw text on failure for server-side debugging
-  let result: FinancialExtractionResult;
-  try {
-    result = safeJsonParse<FinancialExtractionResult>(response.text);
-  } catch (parseErr) {
-    console.error("[AI] Financial extraction JSON parse failed. Raw response (first 500 chars):", response.text.slice(0, 500));
-    throw parseErr;
-  }
+  const result = response.parsed;
 
-  if (!result || !Array.isArray(result.periods)) {
-    throw new Error("AI response missing required 'periods' array — try again or use a different document");
-  }
+  // Defensive defaults — schema guarantees these fields exist,
+  // but protect against edge cases in case the values are unexpected
   if (typeof result.confidence !== "number") {
     result.confidence = 0.5;
   }

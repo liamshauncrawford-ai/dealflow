@@ -166,6 +166,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         { status: 400 }
       );
     }
+    if (msg.includes("Structured output parsing returned null") || msg.includes("max_tokens limit")) {
+      return NextResponse.json(
+        { error: "AI response was truncated (document may be too complex). Try a simpler file or reduce the number of periods." },
+        { status: 502 }
+      );
+    }
     if (aiErr instanceof SyntaxError || msg.includes("JSON")) {
       return NextResponse.json(
         { error: "AI returned an unexpected response format. Please try again." },
