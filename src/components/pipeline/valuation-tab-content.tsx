@@ -186,6 +186,13 @@ export function ValuationTabContent({
         ) {
           next.target_ebitda_margin = next.target_ebitda / next.target_revenue;
         }
+        // Reset multiples to sensible defaults when valuation method changes
+        if (field === "valuation_method") {
+          next.entry_multiple = value === "revenue" ? 1.0 : 4.0;
+        }
+        if (field === "exit_valuation_method") {
+          next.exit_multiple = value === "revenue" ? 1.5 : 7.0;
+        }
         return next;
       });
     },
@@ -346,6 +353,12 @@ export function ValuationTabContent({
             revenue: inputs.target_revenue,
             revenue_growth_rate: inputs.revenue_growth_rate,
             ebitda_margin: inputs.target_ebitda_margin,
+            valuation_method: inputs.valuation_method ?? "ebitda",
+            exit_valuation_method: inputs.exit_valuation_method ?? "ebitda",
+            implied_ebitda_multiple: (inputs.valuation_method ?? "ebitda") === "revenue" && inputs.target_ebitda > 0
+              ? outputs.deal.enterprise_value / inputs.target_ebitda : undefined,
+            implied_revenue_multiple: (inputs.valuation_method ?? "ebitda") === "ebitda" && inputs.target_revenue > 0
+              ? outputs.deal.enterprise_value / inputs.target_revenue : undefined,
           },
         }),
       });
@@ -462,7 +475,7 @@ export function ValuationTabContent({
 
           <button
             onClick={() => aiCommentary.mutate()}
-            disabled={aiCommentary.isPending || inputs.target_ebitda === 0}
+            disabled={aiCommentary.isPending || ((inputs.valuation_method ?? "ebitda") === "revenue" ? inputs.target_revenue === 0 : inputs.target_ebitda === 0)}
             className="inline-flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-xs text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {aiCommentary.isPending ? (
@@ -561,18 +574,62 @@ export function ValuationTabContent({
               <CardTitle className="text-sm">Valuation</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* Method toggle */}
+              <div className="flex rounded-md border bg-muted/30 p-0.5">
+                <button
+                  onClick={() => update("valuation_method", "ebitda")}
+                  className={`flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                    (inputs.valuation_method ?? "ebitda") === "ebitda"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  EBITDA Multiple
+                </button>
+                <button
+                  onClick={() => update("valuation_method", "revenue")}
+                  className={`flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                    (inputs.valuation_method ?? "ebitda") === "revenue"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Revenue Multiple
+                </button>
+              </div>
+
+              {/* Revenue method warning when no revenue data */}
+              {(inputs.valuation_method ?? "ebitda") === "revenue" && inputs.target_revenue === 0 && (
+                <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  Enter revenue above to use revenue multiples
+                </div>
+              )}
+
               <SliderField
-                label="Entry Multiple"
+                label={(inputs.valuation_method ?? "ebitda") === "revenue" ? "Revenue Multiple" : "Entry Multiple"}
                 value={inputs.entry_multiple}
                 onChange={(v) => update("entry_multiple", v)}
-                min={2.0}
-                max={8.0}
-                step={0.25}
+                min={(inputs.valuation_method ?? "ebitda") === "revenue" ? 0.3 : 2.0}
+                max={(inputs.valuation_method ?? "ebitda") === "revenue" ? 3.0 : 8.0}
+                step={(inputs.valuation_method ?? "ebitda") === "revenue" ? 0.1 : 0.25}
                 format={fmtX}
               />
               <div className="rounded-md bg-muted/50 px-3 py-2 text-sm font-medium">
                 Enterprise Value: {fmt(outputs.deal.enterprise_value)}
               </div>
+
+              {/* Implied counter-multiple for sanity checking */}
+              {(inputs.valuation_method ?? "ebitda") === "revenue" && inputs.target_ebitda > 0 && outputs.deal.enterprise_value > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Implied EBITDA Multiple: {fmtX(outputs.deal.enterprise_value / inputs.target_ebitda)}
+                </div>
+              )}
+              {(inputs.valuation_method ?? "ebitda") === "ebitda" && inputs.target_revenue > 0 && outputs.deal.enterprise_value > 0 && (
+                <div className="text-xs text-muted-foreground">
+                  Implied Revenue Multiple: {fmtX(outputs.deal.enterprise_value / inputs.target_revenue)}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -672,7 +729,40 @@ export function ValuationTabContent({
             </CardHeader>
             <CardContent className="space-y-3">
               <SliderField label="Exit Year" value={inputs.exit_year} onChange={(v) => update("exit_year", v)} min={3} max={10} step={1} format={(v) => `Year ${v}`} />
-              <SliderField label="Exit Multiple" value={inputs.exit_multiple} onChange={(v) => update("exit_multiple", v)} min={4.0} max={14.0} step={0.5} format={fmtX} />
+
+              {/* Exit method toggle */}
+              <div className="flex rounded-md border bg-muted/30 p-0.5">
+                <button
+                  onClick={() => update("exit_valuation_method", "ebitda")}
+                  className={`flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                    (inputs.exit_valuation_method ?? "ebitda") === "ebitda"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  EBITDA
+                </button>
+                <button
+                  onClick={() => update("exit_valuation_method", "revenue")}
+                  className={`flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-colors ${
+                    (inputs.exit_valuation_method ?? "ebitda") === "revenue"
+                      ? "bg-background shadow-sm text-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Revenue
+                </button>
+              </div>
+
+              <SliderField
+                label={(inputs.exit_valuation_method ?? "ebitda") === "revenue" ? "Exit Revenue Multiple" : "Exit EBITDA Multiple"}
+                value={inputs.exit_multiple}
+                onChange={(v) => update("exit_multiple", v)}
+                min={(inputs.exit_valuation_method ?? "ebitda") === "revenue" ? 0.5 : 4.0}
+                max={(inputs.exit_valuation_method ?? "ebitda") === "revenue" ? 4.0 : 14.0}
+                step={(inputs.exit_valuation_method ?? "ebitda") === "revenue" ? 0.1 : 0.5}
+                format={fmtX}
+              />
             </CardContent>
           </Card>
         </div>
@@ -783,7 +873,7 @@ export function ValuationTabContent({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                 <StatBox label="Exit Revenue" value={fmtK(outputs.exit.exit_revenue)} />
                 <StatBox label="Exit EBITDA" value={fmtK(outputs.exit.exit_ebitda)} />
-                <StatBox label={`Exit EV @ ${fmtX(inputs.exit_multiple)}`} value={fmtK(outputs.exit.exit_ev)} />
+                <StatBox label={`Exit EV @ ${fmtX(inputs.exit_multiple)} ${(inputs.exit_valuation_method ?? "ebitda") === "revenue" ? "Revenue" : "EBITDA"}`} value={fmtK(outputs.exit.exit_ev)} />
                 <StatBox label="Less Remaining Debt" value={`(${fmtK(outputs.exit.remaining_debt_at_exit)})`} />
                 <StatBox label="Equity to Buyer" value={fmtK(outputs.exit.equity_to_buyer)} />
                 <StatBox label="+ Cumulative FCF" value={fmtK(outputs.exit.cumulative_fcf)} />
@@ -953,10 +1043,20 @@ function AICommentaryPanel({ commentary, isLoading }: { commentary: ValuationCom
 }
 
 function SensitivitySection({ inputs, outputs, show, onToggle }: { inputs: ValuationInputs; outputs: ValuationOutputs; show: boolean; onToggle: () => void }) {
+  const entryMethod = inputs.valuation_method ?? "ebitda";
+  const exitMethod = inputs.exit_valuation_method ?? "ebitda";
+
   const entryVsExit = useMemo(() => {
     if (!show) return null;
-    return generateSensitivityTable(inputs, "entry_multiple", [3.0, 3.5, 4.0, 4.5, 5.0], "exit_multiple", [6.0, 7.0, 8.0, 9.0, 10.0], (o) => o.exit.moic);
-  }, [inputs, show]);
+    // Select method-appropriate ranges for entry and exit multiples
+    const entryRange = entryMethod === "revenue"
+      ? [0.5, 0.75, 1.0, 1.25, 1.5]
+      : [3.0, 3.5, 4.0, 4.5, 5.0];
+    const exitRange = exitMethod === "revenue"
+      ? [0.75, 1.0, 1.25, 1.5, 2.0]
+      : [6.0, 7.0, 8.0, 9.0, 10.0];
+    return generateSensitivityTable(inputs, "entry_multiple", entryRange, "exit_multiple", exitRange, (o) => o.exit.moic);
+  }, [inputs, show, entryMethod, exitMethod]);
 
   const marginVsGrowth = useMemo(() => {
     if (!show) return null;
@@ -980,7 +1080,7 @@ function SensitivitySection({ inputs, outputs, show, onToggle }: { inputs: Valua
         <CardContent className="space-y-6">
           {entryVsExit && (
             <div>
-              <h4 className="text-xs font-medium mb-2 text-muted-foreground">Entry Multiple vs Exit Multiple (MOIC)</h4>
+              <h4 className="text-xs font-medium mb-2 text-muted-foreground">{entryMethod === "revenue" ? "Revenue" : "EBITDA"} Entry vs {exitMethod === "revenue" ? "Revenue" : "EBITDA"} Exit Multiple (MOIC)</h4>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>

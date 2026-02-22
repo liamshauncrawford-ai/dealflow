@@ -77,6 +77,7 @@ export interface ValuationInputs {
   revenue_growth_rate: number;
 
   // Valuation
+  valuation_method: "ebitda" | "revenue";     // controls entry EV formula
   entry_multiple: number;
 
   // Capital Structure
@@ -105,6 +106,7 @@ export interface ValuationInputs {
 
   // Exit
   exit_year: number;
+  exit_valuation_method: "ebitda" | "revenue"; // controls exit EV formula
   exit_multiple: number;
 }
 
@@ -113,6 +115,7 @@ export const DEFAULT_INPUTS: ValuationInputs = {
   target_ebitda: 0,
   target_ebitda_margin: 0,
   revenue_growth_rate: 0.05,
+  valuation_method: "ebitda",
   entry_multiple: 4.0,
   equity_pct: 0.25,
   bank_debt_pct: 0.60,
@@ -133,6 +136,7 @@ export const DEFAULT_INPUTS: ValuationInputs = {
   synergy_procurement: 0,
   synergy_cross_sell_pct: 0,
   exit_year: 7,
+  exit_valuation_method: "ebitda",
   exit_multiple: 7.0,
 };
 
@@ -202,8 +206,11 @@ export interface ValuationOutputs {
 // ─────────────────────────────────────────────
 
 export function calculateValuation(inputs: ValuationInputs): ValuationOutputs {
-  // Deal Structure
-  const enterprise_value = inputs.target_ebitda * inputs.entry_multiple;
+  // Deal Structure — entry EV uses either EBITDA or Revenue multiple
+  const entryMethod = inputs.valuation_method ?? "ebitda";
+  const enterprise_value = entryMethod === "revenue"
+    ? inputs.target_revenue * inputs.entry_multiple
+    : inputs.target_ebitda * inputs.entry_multiple;
   const equity_check = enterprise_value * inputs.equity_pct;
   const bank_debt = enterprise_value * inputs.bank_debt_pct;
   const seller_note = enterprise_value * inputs.seller_note_pct;
@@ -262,7 +269,10 @@ export function calculateValuation(inputs: ValuationInputs): ValuationOutputs {
   );
   const margin = inputs.target_ebitda_margin + (inputs.exit_year >= 3 ? 0.02 : 0);
   const exit_ebitda = exitYear?.adjusted_ebitda ?? exit_revenue * margin;
-  const exit_ev = exit_ebitda * inputs.exit_multiple;
+  const exitMethod = inputs.exit_valuation_method ?? "ebitda";
+  const exit_ev = exitMethod === "revenue"
+    ? exit_revenue * inputs.exit_multiple
+    : exit_ebitda * inputs.exit_multiple;
   const remaining_debt_at_exit =
     remainingBalance(inputs.bank_interest_rate, inputs.bank_term_years, bank_debt, inputs.exit_year) +
     remainingBalance(inputs.seller_note_rate, inputs.seller_note_term, seller_note, inputs.exit_year);
@@ -352,7 +362,10 @@ function generateProjection(
       remainingBalance(inputs.bank_interest_rate, inputs.bank_term_years, deal.bank_debt, y) +
       remainingBalance(inputs.seller_note_rate, inputs.seller_note_term, deal.seller_note, y);
 
-    const implied_ev = adjusted_ebitda * inputs.exit_multiple;
+    const projExitMethod = inputs.exit_valuation_method ?? "ebitda";
+    const implied_ev = projExitMethod === "revenue"
+      ? revenue * inputs.exit_multiple
+      : adjusted_ebitda * inputs.exit_multiple;
     const equity_value = implied_ev - remaining_debt;
     const moic = deal.equity_check > 0
       ? (equity_value + cumulative_fcf) / deal.equity_check

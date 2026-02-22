@@ -24,6 +24,10 @@ export interface ValuationCommentaryInput {
     revenue: number;
     revenue_growth_rate: number;
     ebitda_margin: number;
+    valuation_method?: "ebitda" | "revenue";
+    exit_valuation_method?: "ebitda" | "revenue";
+    implied_ebitda_multiple?: number;   // when revenue method: EV / EBITDA
+    implied_revenue_multiple?: number;  // when EBITDA method: EV / Revenue
   };
 }
 
@@ -43,10 +47,23 @@ export async function generateValuationCommentary(
 ): Promise<{ result: ValuationCommentary; inputTokens: number; outputTokens: number }> {
   const m = input.modelOutputs;
 
+  // Build method-aware EV description
+  const entryMethod = m.valuation_method ?? "ebitda";
+  const exitMethod = m.exit_valuation_method ?? "ebitda";
+
+  let evDescription = `$${(m.enterprise_value / 1000).toFixed(0)}K at ${m.entry_multiple}x ${entryMethod === "revenue" ? "Revenue" : "EBITDA"}`;
+  if (entryMethod === "revenue" && m.implied_ebitda_multiple != null) {
+    evDescription += ` (implied ${m.implied_ebitda_multiple.toFixed(1)}x EBITDA)`;
+  } else if (entryMethod === "ebitda" && m.implied_revenue_multiple != null) {
+    evDescription += ` (implied ${m.implied_revenue_multiple.toFixed(1)}x Revenue)`;
+  }
+
+  const exitDescription = `Exit @ Year ${m.exit_year} at ${m.exit_multiple}x ${exitMethod === "revenue" ? "Revenue" : "EBITDA"}`;
+
   const userPrompt = `Analyze this acquisition model for "${input.companyName}":
 
 DEAL STRUCTURE:
-- Enterprise Value: $${(m.enterprise_value / 1000).toFixed(0)}K at ${m.entry_multiple}x EBITDA
+- Enterprise Value: ${evDescription}
 - Equity Check: $${(m.equity_check / 1000).toFixed(0)}K
 - Bank Debt: $${(m.bank_debt / 1000).toFixed(0)}K
 - Seller Note: $${(m.seller_note / 1000).toFixed(0)}K
@@ -60,7 +77,7 @@ OPERATING METRICS:
 - DSCR: ${m.dscr.toFixed(2)}x
 
 RETURN METRICS:
-- Exit @ Year ${m.exit_year} at ${m.exit_multiple}x
+- ${exitDescription}
 - MOIC: ${m.moic.toFixed(1)}x
 - IRR: ${m.irr != null ? (m.irr * 100).toFixed(1) + "%" : "N/A"}
 
