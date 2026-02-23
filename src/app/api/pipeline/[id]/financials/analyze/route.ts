@@ -121,7 +121,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const userPrompt = `Analyze the financial data for "${opportunity?.title ?? "Target Company"}":\n\n${periodsText}\n\nProvide your analysis.`;
 
     const response = await callClaudeStructured<FinancialAnalysisResult>({
-      model: "sonnet4",
+      model: "sonnet",
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
       maxTokens: 2000,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: {
         opportunityId: id,
         analysisType: "FINANCIAL_ANALYSIS",
-        modelUsed: "sonnet4",
+        modelUsed: "claude-sonnet-4-5",
         resultData: response.parsed as object,
         inputTokens: response.inputTokens,
         outputTokens: response.outputTokens,
