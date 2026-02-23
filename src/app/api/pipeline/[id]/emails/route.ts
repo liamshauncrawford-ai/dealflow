@@ -67,13 +67,8 @@ export async function POST(
       },
     });
 
-    // Smart auto-fill: if deal is in CONTACTING and contactedAt not set,
-    // set it to the email's sentAt date
-    if (
-      opportunity.stage === "CONTACTING" &&
-      !opportunity.contactedAt &&
-      email.sentAt
-    ) {
+    // Auto-set contactedAt if not already set — any linked email proves contact was made
+    if (!opportunity.contactedAt && email.sentAt) {
       await prisma.opportunity.update({
         where: { id },
         data: { contactedAt: email.sentAt },

@@ -499,6 +499,13 @@ export async function autoLinkEmails(
             linkedBy: "auto",
           },
         });
+
+        // Auto-set contactedAt if not already set
+        await prisma.opportunity.updateMany({
+          where: { id: oppId, contactedAt: null },
+          data: { contactedAt: email.sentAt ?? email.receivedAt ?? new Date() },
+        });
+
         linked++;
       } catch (error: unknown) {
         // Unique constraint violation means the link already exists -- skip

@@ -62,6 +62,22 @@ export async function GET(
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
     }
 
+    // Backfill contactedAt from linked emails if not set
+    if (!opportunity.contactedAt && opportunity.emails.length > 0) {
+      const earliestEmail = opportunity.emails
+        .map((link) => link.email.sentAt ?? link.email.receivedAt)
+        .filter(Boolean)
+        .sort((a, b) => a!.getTime() - b!.getTime())[0];
+
+      if (earliestEmail) {
+        await prisma.opportunity.update({
+          where: { id },
+          data: { contactedAt: earliestEmail },
+        });
+        opportunity.contactedAt = earliestEmail;
+      }
+    }
+
     // Fetch industry multiples for benchmarking if listing has an industry
     let industryMultiples = null;
     if (opportunity.listing?.industry) {

@@ -115,6 +115,12 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
         linkedBy: "auto-sent",
       },
     });
+
+    // Auto-set contactedAt if not already set — sending an email proves contact was made
+    await prisma.opportunity.updateMany({
+      where: { id: opportunityId, contactedAt: null },
+      data: { contactedAt: email.sentAt ?? new Date() },
+    });
   }
 
   return {
