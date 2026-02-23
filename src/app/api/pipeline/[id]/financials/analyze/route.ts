@@ -52,7 +52,9 @@ const SYSTEM_PROMPT = `You are a seasoned M&A analyst specializing in lower-midd
 
 You are reviewing P&L financial data for a potential acquisition target. Analyze the data with a buyer's lens — identify risks, opportunities, and anything that would affect valuation or deal structure.
 
-Be specific. Reference actual numbers. Point out things a buyer would want to negotiate or investigate further in due diligence.`;
+Be specific. Reference actual numbers. Point out things a buyer would want to negotiate or investigate further in due diligence.
+
+Keep each field concise: summary (2-3 sentences), insights/redFlags/recommendations (3-5 bullet points each, 1-2 sentences per bullet), growthAnalysis and marginAnalysis (1 short paragraph each).`;
 
 // ─────────────────────────────────────────────
 // Route handler
@@ -124,7 +126,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       model: "sonnet",
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
-      maxTokens: 2000,
+      maxTokens: 4096,
       outputFormat: ANALYSIS_OUTPUT_FORMAT,
     });
 
