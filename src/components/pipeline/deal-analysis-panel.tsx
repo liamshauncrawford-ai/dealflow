@@ -11,6 +11,7 @@ import {
   MapPin,
   Users,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { useUpdateOpportunity } from "@/hooks/use-pipeline";
 import { formatCurrency } from "@/lib/utils";
@@ -43,6 +44,10 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
   const updateOpportunity = useUpdateOpportunity();
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, unknown>>({});
+
+  // When FinancialPeriod records exist, the financials tab is the source of truth —
+  // Revenue, EBITDA, and EBITDA Margin are synced automatically and locked here.
+  const hasFinancialPeriods = !!opportunity.latestFinancials;
 
   // Check if there is any thesis data or listing data to display
   const listing = opportunity.listing;
@@ -81,11 +86,18 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
 
   const saveEdit = () => {
     const data: Record<string, unknown> = {};
+    // Fields locked when financial periods exist (synced from Financials tab)
+    const lockedFields = hasFinancialPeriods
+      ? new Set(["actualRevenue", "actualEbitda", "actualEbitdaMargin"])
+      : new Set<string>();
+
     for (const f of ["actualRevenue", "actualEbitda", "synergyEstimate", "backlog"]) {
+      if (lockedFields.has(f)) continue;
       const v = editData[f];
       data[f] = v === "" || v === null || v === undefined ? null : Number(v);
     }
     for (const f of ["actualEbitdaMargin", "recurringRevenuePct", "customerConcentration", "offeredMultiple"]) {
+      if (lockedFields.has(f)) continue;
       const v = editData[f];
       data[f] = v === "" || v === null || v === undefined ? null : parseFloat(String(v));
     }
@@ -129,15 +141,36 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               <div>
                 <label className="text-[10px] text-muted-foreground">Revenue</label>
-                <input type="number" value={editData.actualRevenue === null || editData.actualRevenue === undefined || editData.actualRevenue === "" ? "" : String(editData.actualRevenue)} onChange={(e) => setEditData((p) => ({ ...p, actualRevenue: e.target.value ? Number(e.target.value) : "" }))} className="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" placeholder="$0" />
+                {hasFinancialPeriods ? (
+                  <div className="mt-0.5 w-full rounded border bg-muted/50 px-2 py-1 text-xs text-muted-foreground cursor-not-allowed">
+                    {editData.actualRevenue ? formatCurrency(Number(editData.actualRevenue)) : "—"}
+                    <div className="text-[9px] text-muted-foreground/70 mt-0.5">Synced from Financials</div>
+                  </div>
+                ) : (
+                  <input type="number" value={editData.actualRevenue === null || editData.actualRevenue === undefined || editData.actualRevenue === "" ? "" : String(editData.actualRevenue)} onChange={(e) => setEditData((p) => ({ ...p, actualRevenue: e.target.value ? Number(e.target.value) : "" }))} className="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" placeholder="$0" />
+                )}
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">EBITDA</label>
-                <input type="number" value={editData.actualEbitda === null || editData.actualEbitda === undefined || editData.actualEbitda === "" ? "" : String(editData.actualEbitda)} onChange={(e) => setEditData((p) => ({ ...p, actualEbitda: e.target.value ? Number(e.target.value) : "" }))} className="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" placeholder="$0" />
+                {hasFinancialPeriods ? (
+                  <div className="mt-0.5 w-full rounded border bg-muted/50 px-2 py-1 text-xs text-muted-foreground cursor-not-allowed">
+                    {editData.actualEbitda ? formatCurrency(Number(editData.actualEbitda)) : "—"}
+                    <div className="text-[9px] text-muted-foreground/70 mt-0.5">Synced from Financials</div>
+                  </div>
+                ) : (
+                  <input type="number" value={editData.actualEbitda === null || editData.actualEbitda === undefined || editData.actualEbitda === "" ? "" : String(editData.actualEbitda)} onChange={(e) => setEditData((p) => ({ ...p, actualEbitda: e.target.value ? Number(e.target.value) : "" }))} className="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" placeholder="$0" />
+                )}
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">EBITDA Margin (%)</label>
-                <input type="number" step="0.01" value={editData.actualEbitdaMargin === null || editData.actualEbitdaMargin === undefined || editData.actualEbitdaMargin === "" ? "" : String(editData.actualEbitdaMargin)} onChange={(e) => setEditData((p) => ({ ...p, actualEbitdaMargin: e.target.value }))} className="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" placeholder="0.15" />
+                {hasFinancialPeriods ? (
+                  <div className="mt-0.5 w-full rounded border bg-muted/50 px-2 py-1 text-xs text-muted-foreground cursor-not-allowed">
+                    {editData.actualEbitdaMargin ? `${(Number(editData.actualEbitdaMargin) * 100).toFixed(1)}%` : "—"}
+                    <div className="text-[9px] text-muted-foreground/70 mt-0.5">Synced from Financials</div>
+                  </div>
+                ) : (
+                  <input type="number" step="0.01" value={editData.actualEbitdaMargin === null || editData.actualEbitdaMargin === undefined || editData.actualEbitdaMargin === "" ? "" : String(editData.actualEbitdaMargin)} onChange={(e) => setEditData((p) => ({ ...p, actualEbitdaMargin: e.target.value }))} className="mt-0.5 w-full rounded border bg-background px-2 py-1 text-xs" placeholder="0.15" />
+                )}
               </div>
               <div>
                 <label className="text-[10px] text-muted-foreground">Revenue Trend</label>
@@ -354,6 +387,45 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
                       <span className={cn("rounded px-1 py-0.5 text-[8px] font-medium", badgeStyle)}>{badgeLabel}</span>
                     </div>
                     <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.sde))}</div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* AI Financial Analysis summary — from Financials tab AI Analyze */}
+          {opportunity.latestFinancialAnalysis?.resultData && (() => {
+            const analysis = opportunity.latestFinancialAnalysis.resultData as any;
+            if (!analysis?.summary) return null;
+            return (
+              <div className="rounded-md border bg-primary/5 p-3">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Sparkles className="h-3 w-3 text-primary" />
+                  <span className="text-[10px] font-medium text-primary uppercase tracking-wide">
+                    AI Financial Analysis
+                  </span>
+                  {analysis.qualityScore && (
+                    <span className={cn(
+                      "ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                      analysis.qualityScore >= 8
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : analysis.qualityScore >= 5
+                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                    )}>
+                      {analysis.qualityScore}/10
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs leading-relaxed">{analysis.summary}</p>
+                {analysis.redFlags?.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {analysis.redFlags.slice(0, 3).map((flag: string, i: number) => (
+                      <span key={i} className="inline-flex items-center gap-1 rounded bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">
+                        <AlertTriangle className="h-2.5 w-2.5" />
+                        {flag.length > 60 ? flag.slice(0, 57) + "…" : flag}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>

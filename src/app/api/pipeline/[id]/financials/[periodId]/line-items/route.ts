@@ -7,6 +7,7 @@ import {
   updateLineItemSchema,
 } from "@/lib/validations/financials";
 import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
+import { syncOpportunitySummary } from "@/lib/financial/sync-opportunity";
 import { createAuditLog } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ id: string; periodId: string }> };
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       await recomputeAndUpdate(periodId);
+      try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
       await createAuditLog({
         eventType: "CREATED",
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const { periodId } = await params;
+    const { id, periodId } = await params;
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get("itemId");
     if (!itemId) {
@@ -144,6 +147,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -157,7 +161,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { periodId } = await params;
+    const { id, periodId } = await params;
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get("itemId");
     if (!itemId) {
@@ -174,6 +178,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await prisma.financialLineItem.delete({ where: { id: itemId } });
     await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
     return NextResponse.json({ success: true });
   } catch (error) {

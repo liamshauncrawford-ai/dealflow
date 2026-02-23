@@ -333,6 +333,69 @@ export function useDeleteAddBack(opportunityId: string) {
 }
 
 // ─────────────────────────────────────────────
+// Mutation: Update total add-backs (single number)
+// ─────────────────────────────────────────────
+
+export function useUpdateTotalAddBacks(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ periodId, total }: { periodId: string; total: number }) => {
+      const res = await fetch(
+        `/api/pipeline/${opportunityId}/financials/${periodId}/total-add-backs`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ total }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update total add-backs");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financials", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity", opportunityId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// ─────────────────────────────────────────────
+// Mutation: AI Analyze financials
+// ─────────────────────────────────────────────
+
+export function useAnalyzeFinancials(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/pipeline/${opportunityId}/financials/analyze`,
+        { method: "POST" },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to analyze financials");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Financial analysis complete");
+      queryClient.invalidateQueries({ queryKey: ["financials", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity", opportunityId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+// ─────────────────────────────────────────────
 // Mutation: Compute DSCR (no database)
 // ─────────────────────────────────────────────
 

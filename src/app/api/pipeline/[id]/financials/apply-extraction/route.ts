@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { RevenueTrend } from "@prisma/client";
 import { parseBody } from "@/lib/validations/common";
 import { applyExtractionSchema } from "@/lib/validations/financials";
 import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
+import { syncOpportunitySummary } from "@/lib/financial/sync-opportunity";
 import { createAuditLog } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -115,53 +115,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
-    // ─────────────────────────────────────────────
-    // Sync extracted financials → Opportunity flat fields
-    // These serve as the "last known good" snapshot for the Overview tab
-    // and remain editable if the user needs to override.
-    // ─────────────────────────────────────────────
+    // Sync extracted financials → Opportunity flat fields (Overview tab)
     if (createdPeriods.length > 0) {
       try {
-        // Get all annual periods for this opportunity (not just newly created ones)
-        const annualPeriods = await prisma.financialPeriod.findMany({
-          where: { opportunityId: id, periodType: "ANNUAL" },
-          orderBy: { year: "desc" },
-          select: {
-            year: true,
-            totalRevenue: true,
-            ebitda: true,
-            adjustedEbitda: true,
-            ebitdaMargin: true,
-            adjustedEbitdaMargin: true,
-          },
-        });
-
-        if (annualPeriods.length > 0) {
-          const mostRecent = annualPeriods[0];
-
-          // Compute revenue trend from two most recent years
-          let revenueTrend: RevenueTrend | null = null;
-          if (annualPeriods.length >= 2 && mostRecent.totalRevenue && annualPeriods[1].totalRevenue) {
-            const recent = Number(mostRecent.totalRevenue);
-            const prior = Number(annualPeriods[1].totalRevenue);
-            if (prior > 0) {
-              const yoyGrowth = (recent - prior) / prior;
-              revenueTrend = yoyGrowth > 0.05 ? RevenueTrend.GROWING : yoyGrowth < -0.05 ? RevenueTrend.DECLINING : RevenueTrend.STABLE;
-            }
-          }
-
-          await prisma.opportunity.update({
-            where: { id },
-            data: {
-              actualRevenue: mostRecent.totalRevenue ?? undefined,
-              actualEbitda: mostRecent.adjustedEbitda ?? mostRecent.ebitda ?? undefined,
-              actualEbitdaMargin: mostRecent.adjustedEbitdaMargin ?? mostRecent.ebitdaMargin ?? undefined,
-              ...(revenueTrend ? { revenueTrend } : {}),
-            },
-          });
-        }
+        await syncOpportunitySummary(id);
       } catch (syncError) {
-        // Non-fatal: log but don't fail the extraction
         console.error("Failed to sync financials to Opportunity:", syncError);
       }
     }

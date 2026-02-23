@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { parseBody } from "@/lib/validations/common";
 import { createAddBackSchema, updateAddBackSchema } from "@/lib/validations/financials";
 import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
+import { syncOpportunitySummary } from "@/lib/financial/sync-opportunity";
 import { createAuditLog } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ id: string; periodId: string }> };
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
     await createAuditLog({
       eventType: "CREATED",
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const { periodId } = await params;
+    const { id, periodId } = await params;
     const { searchParams } = new URL(request.url);
     const addBackId = searchParams.get("addBackId");
     if (!addBackId) {
@@ -92,6 +94,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     });
 
     await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
     return NextResponse.json(updated);
   } catch (error) {
@@ -123,6 +126,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const existing = await prisma.addBack.findUnique({ where: { id: addBackId } });
     await prisma.addBack.delete({ where: { id: addBackId } });
     await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
     await createAuditLog({
       eventType: "DELETED",

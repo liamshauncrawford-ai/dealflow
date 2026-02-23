@@ -103,11 +103,25 @@ export async function GET(
       where: { opportunityId: id },
     });
 
+    // Fetch latest AI financial analysis (for Overview tab display)
+    const latestFinancialAnalysis = await prisma.aIAnalysisResult.findFirst({
+      where: { opportunityId: id, analysisType: "FINANCIAL_ANALYSIS" },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        resultData: true,
+        createdAt: true,
+        inputTokens: true,
+        outputTokens: true,
+      },
+    });
+
     return NextResponse.json({
       ...opportunity,
       industryMultiples,
       latestFinancials,
       financialPeriodCount,
+      latestFinancialAnalysis,
     });
   } catch (error) {
     console.error("Error fetching opportunity:", error);

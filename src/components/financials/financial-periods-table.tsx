@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Lock, Unlock, Trash2, ChevronRight } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/utils";
-import { useUpdateFinancialPeriod, useDeleteFinancialPeriod, useUpdateLineItem } from "@/hooks/use-financials";
+import { useUpdateFinancialPeriod, useDeleteFinancialPeriod, useUpdateLineItem, useUpdateTotalAddBacks } from "@/hooks/use-financials";
 import { CATEGORY_LABELS } from "@/lib/financial/canonical-labels";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -63,6 +63,7 @@ export function FinancialPeriodsTable({
   const updatePeriod = useUpdateFinancialPeriod(opportunityId);
   const deletePeriod = useDeleteFinancialPeriod(opportunityId);
   const updateLineItem = useUpdateLineItem(opportunityId);
+  const updateTotalAddBacks = useUpdateTotalAddBacks(opportunityId);
   const [editingCell, setEditingCell] = useState<{ periodId: string; key: string } | null>(null);
   const [editValue, setEditValue] = useState("");
 
@@ -87,6 +88,14 @@ export function FinancialPeriodsTable({
 
   function handleCellDoubleClick(period: any, row: typeof ROW_CONFIG[number]) {
     if ("divider" in row || "computed" in row || period.isLocked) return;
+
+    // Special case: totalAddBacks is editable as a single number
+    if (row.key === "totalAddBacks") {
+      setEditingCell({ periodId: period.id, key: row.key as string });
+      setEditValue(String(Number(period.totalAddBacks ?? 0)));
+      return;
+    }
+
     if (!("category" in row) || !row.category) return;
 
     const lineItem = findLineItemForCategory(period, row.category);
@@ -97,6 +106,16 @@ export function FinancialPeriodsTable({
   }
 
   function handleCellSave(period: any, row: typeof ROW_CONFIG[number]) {
+    // Special case: totalAddBacks sets the total via dedicated endpoint
+    if (row.key === "totalAddBacks") {
+      const newTotal = parseFloat(editValue);
+      if (!isNaN(newTotal) && newTotal !== Number(period.totalAddBacks ?? 0)) {
+        updateTotalAddBacks.mutate({ periodId: period.id, total: newTotal });
+      }
+      setEditingCell(null);
+      return;
+    }
+
     if (!("category" in row) || !row.category) return;
     const lineItem = findLineItemForCategory(period, row.category);
     if (!lineItem) return;

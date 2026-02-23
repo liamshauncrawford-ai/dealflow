@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useFinancialPeriods, useClearAllFinancials } from "@/hooks/use-financials";
+import { Sparkles, Loader2 } from "lucide-react";
+import { useFinancialPeriods, useClearAllFinancials, useAnalyzeFinancials } from "@/hooks/use-financials";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { FinancialsSummaryBar } from "@/components/financials/financials-summary-bar";
 import { DataEntryToolbar } from "@/components/financials/data-entry-toolbar";
@@ -11,6 +12,7 @@ import { AddBacksPanel } from "@/components/financials/add-backs-panel";
 import { QualityChecksPanel } from "@/components/financials/quality-checks-panel";
 import { DSCRPanel } from "@/components/financials/dscr-panel";
 import { AIExtractionModal } from "@/components/financials/ai-extraction-modal";
+import { FinancialAnalysisPanel, type FinancialAnalysis } from "@/components/financials/financial-analysis-panel";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -25,10 +27,12 @@ export function FinancialsTabContent({
 }: FinancialsTabContentProps) {
   const { data: periods = [], isLoading } = useFinancialPeriods(opportunityId);
   const clearAll = useClearAllFinancials(opportunityId);
+  const analyzeFinancials = useAnalyzeFinancials(opportunityId);
 
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [showExtraction, setShowExtraction] = useState(false);
   const [selectedPeriodId, setSelectedPeriodId] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<FinancialAnalysis | null>(null);
   const [viewMode, setViewMode] = useState<"ebitda" | "sde">(() => {
     if (typeof window !== "undefined") {
       return (
@@ -68,17 +72,41 @@ export function FinancialsTabContent({
 
       {/* Toolbar */}
       <ErrorBoundary>
-        <DataEntryToolbar
-          onAddPeriod={() => setShowAddPeriod(true)}
-          onExtractFromDocument={() => setShowExtraction(true)}
-          onClearAll={() => clearAll.mutate()}
-          isClearingAll={clearAll.isPending}
-          viewMode={viewMode}
-          onViewModeChange={handleViewModeChange}
-          hasPeriods={periods.length > 0}
-          hasDocuments={(opportunity.documents ?? []).length > 0}
-          periodCount={periods.length}
-        />
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <DataEntryToolbar
+              onAddPeriod={() => setShowAddPeriod(true)}
+              onExtractFromDocument={() => setShowExtraction(true)}
+              onClearAll={() => clearAll.mutate()}
+              isClearingAll={clearAll.isPending}
+              viewMode={viewMode}
+              onViewModeChange={handleViewModeChange}
+              hasPeriods={periods.length > 0}
+              hasDocuments={(opportunity.documents ?? []).length > 0}
+              periodCount={periods.length}
+            />
+          </div>
+          {periods.length > 0 && (
+            <button
+              onClick={() => {
+                analyzeFinancials.mutate(undefined, {
+                  onSuccess: (data: { analysis: FinancialAnalysis }) => {
+                    setAnalysisResult(data.analysis);
+                  },
+                });
+              }}
+              disabled={analyzeFinancials.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50 shrink-0"
+            >
+              {analyzeFinancials.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              {analyzeFinancials.isPending ? "Analyzing…" : "AI Analyze"}
+            </button>
+          )}
+        </div>
       </ErrorBoundary>
 
       {/* Add Period Form */}
@@ -113,6 +141,16 @@ export function FinancialsTabContent({
           </button>
         </div>
       ) : null}
+
+      {/* AI Analysis Panel */}
+      {(analysisResult || analyzeFinancials.isPending) && (
+        <ErrorBoundary>
+          <FinancialAnalysisPanel
+            analysis={analysisResult!}
+            isLoading={analyzeFinancials.isPending}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* Two-column detail panels */}
       {selectedPeriod && (
