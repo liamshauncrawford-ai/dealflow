@@ -44,7 +44,7 @@ async function main() {
 
     console.log(`Found ${periods.length} financial period(s)\n`);
 
-    const totalPattern = /\(total\)|total\s*$/i;
+    const totalPattern = /\(total\)\s*$/i;
 
     for (const period of periods) {
       const label = `${period.periodType} ${period.year}${period.quarter ? ` Q${period.quarter}` : ""}`;
@@ -54,41 +54,23 @@ async function main() {
       console.log(`  Current totals: Revenue=${period.totalRevenue}, COGS=${period.totalCogs}, OPEX=${period.totalOpex}`);
       console.log(`  Gross Profit=${period.grossProfit}, EBITDA=${period.ebitda}, Net Income=${period.netIncome}`);
 
-      // Group line items by category
-      const byCategory = new Map<string, typeof period.lineItems>();
+      // In QuickBooks P&L exports, "(Total)" rows are ALWAYS parent summaries.
+      // Their child detail items are also extracted, causing double-counting.
+      // Safe to remove ALL "(Total)" rows — the individual items remain.
+      const toDelete: string[] = [];
+      let removedSum = 0;
+
       for (const item of period.lineItems) {
-        const group = byCategory.get(item.category) ?? [];
-        group.push(item);
-        byCategory.set(item.category, group);
+        if (totalPattern.test(item.rawLabel)) {
+          const amt = Math.abs(Number(item.amount));
+          console.log(`  [DELETE] "${item.rawLabel}" ($${item.amount})`);
+          toDelete.push(item.id);
+          removedSum += amt;
+        }
       }
 
-      const toDelete: string[] = [];
-
-      for (const [category, items] of byCategory) {
-        if (items.length <= 1) continue;
-
-        // Find "(Total)" rows
-        const totals = items.filter((i) => totalPattern.test(i.rawLabel));
-        const children = items.filter((i) => !totalPattern.test(i.rawLabel));
-
-        for (const totalItem of totals) {
-          if (children.length === 0) {
-            console.log(`  [KEEP] ${category}: "${totalItem.rawLabel}" ($${totalItem.amount}) — no children found`);
-            continue;
-          }
-
-          const childSum = children.reduce((s, c) => s + Math.abs(Number(c.amount)), 0);
-          const totalAmt = Math.abs(Number(totalItem.amount));
-          const diff = Math.abs(childSum - totalAmt);
-          const pct = totalAmt > 0 ? ((diff / totalAmt) * 100).toFixed(1) : "N/A";
-
-          if (diff <= totalAmt * 0.1 || diff < 1) {
-            console.log(`  [DELETE] ${category}: "${totalItem.rawLabel}" ($${totalItem.amount}) — children sum to $${childSum.toFixed(2)} (diff: $${diff.toFixed(2)}, ${pct}%)`);
-            toDelete.push(totalItem.id);
-          } else {
-            console.log(`  [KEEP] ${category}: "${totalItem.rawLabel}" ($${totalItem.amount}) — children sum $${childSum.toFixed(2)} doesn't match (diff: $${diff.toFixed(2)}, ${pct}%)`);
-          }
-        }
+      if (toDelete.length > 0) {
+        console.log(`  => Total value of removed rows: $${removedSum.toFixed(2)}`);
       }
 
       if (toDelete.length === 0) {
