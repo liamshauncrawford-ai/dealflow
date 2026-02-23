@@ -1361,6 +1361,15 @@ model FinancialPeriod {
   adjustedEbitdaMargin Float?
   netMargin            Float?
 
+  // Manual overrides — when set, these values are used instead of computed values
+  // Allows users to enter exact P&L values that don't match the line-item sum
+  overrideTotalRevenue     Decimal?        @db.Decimal(14, 2)
+  overrideTotalCogs        Decimal?        @db.Decimal(14, 2)
+  overrideGrossProfit      Decimal?        @db.Decimal(14, 2)
+  overrideTotalOpex        Decimal?        @db.Decimal(14, 2)
+  overrideEbitda           Decimal?        @db.Decimal(14, 2)
+  overrideNetIncome        Decimal?        @db.Decimal(14, 2)
+
   // Metadata
   notes               String?         @db.Text
   isLocked            Boolean         @default(false)

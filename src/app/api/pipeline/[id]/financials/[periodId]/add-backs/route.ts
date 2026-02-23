@@ -2,25 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { parseBody } from "@/lib/validations/common";
 import { createAddBackSchema, updateAddBackSchema } from "@/lib/validations/financials";
-import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
+import { recomputeAndUpdate } from "@/lib/financial/recompute-and-update";
 import { syncOpportunitySummary } from "@/lib/financial/sync-opportunity";
 import { createAuditLog } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ id: string; periodId: string }> };
-
-async function recomputeAndUpdate(periodId: string) {
-  const lineItems = await prisma.financialLineItem.findMany({
-    where: { periodId },
-  });
-  const addBacks = await prisma.addBack.findMany({
-    where: { periodId },
-  });
-  const summary = recomputePeriodSummary(lineItems, addBacks);
-  await prisma.financialPeriod.update({
-    where: { id: periodId },
-    data: summary,
-  });
-}
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {

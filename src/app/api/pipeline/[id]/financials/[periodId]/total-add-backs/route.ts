@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
+import { recomputeAndUpdate } from "@/lib/financial/recompute-and-update";
 import { syncOpportunitySummary } from "@/lib/financial/sync-opportunity";
 import { z } from "zod";
 
@@ -83,21 +83,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    // Recompute period summary + sync to Opportunity
-    const lineItems = await prisma.financialLineItem.findMany({ where: { periodId } });
-    const updatedAddBacks = await prisma.addBack.findMany({ where: { periodId } });
-    const summary = recomputePeriodSummary(lineItems, updatedAddBacks);
-    const updated = await prisma.financialPeriod.update({
-      where: { id: periodId },
-      data: summary,
-    });
+    // Recompute period summary (respects overrides) + sync to Opportunity
+    await recomputeAndUpdate(periodId);
+    try { await syncOpportunitySummary(id); } catch (e) { console.error("Sync failed:", e); }
 
-    try {
-      await syncOpportunitySummary(id);
-    } catch (e) {
-      console.error("Sync failed:", e);
-    }
-
+    const updated = await prisma.financialPeriod.findUnique({ where: { id: periodId } });
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Failed to update total add-backs:", error);

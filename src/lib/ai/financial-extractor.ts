@@ -34,12 +34,22 @@ export interface ExtractedAddBack {
   sourceLabel?: string | null;
 }
 
+export interface PnlSubtotals {
+  totalRevenue?: number | null;
+  totalCogs?: number | null;
+  grossProfit?: number | null;
+  totalExpenses?: number | null;
+  netIncome?: number | null;
+  ebitda?: number | null;
+}
+
 export interface ExtractedPeriod {
   periodType: string;
   year: number;
   quarter?: number | null;
   lineItems: ExtractedLineItem[];
   addBacks: ExtractedAddBack[];
+  pnlSubtotals?: PnlSubtotals | null;
 }
 
 export interface FinancialExtractionResult {
@@ -118,6 +128,18 @@ const FINANCIAL_EXTRACTION_SCHEMA = {
               required: ["category", "description", "amount", "confidence"],
             },
           },
+          pnlSubtotals: {
+            type: ["object", "null"],
+            properties: {
+              totalRevenue: { type: ["number", "null"] },
+              totalCogs: { type: ["number", "null"] },
+              grossProfit: { type: ["number", "null"] },
+              totalExpenses: { type: ["number", "null"] },
+              netIncome: { type: ["number", "null"] },
+              ebitda: { type: ["number", "null"] },
+            },
+            required: [],
+          },
         },
         required: ["periodType", "year", "lineItems", "addBacks"],
       },
@@ -143,10 +165,21 @@ This tool is used by a buyer evaluating small-to-mid-market businesses ($1M-$10M
 - B2B service companies with trades labor
 
 IMPORTANT extraction rules:
-1. Extract EVERY line item you find, preserving the original label as "rawLabel"
-2. Categorize each line item into one of: REVENUE, COGS, OPEX, D_AND_A, INTEREST, TAX, OTHER_INCOME, OTHER_EXPENSE
-3. For trades businesses, common COGS subcategories: Materials, Labor, Subcontractors, Equipment Rental
-4. Identify add-backs (owner adjustments that inflate normalized earnings):
+1. Extract line items, preserving the original label as "rawLabel"
+2. CRITICAL — LEAF ITEMS ONLY: When a P&L has both summary/total rows AND individual
+   detail items beneath them, extract ONLY the leaf-level detail items — NOT the
+   summary totals. For example:
+   - If you see "Payroll Expenses (Total): $619,798" followed by individual wage lines
+     (Salary, Regular Pay, Overtime, etc.), extract ONLY the individual wage lines.
+   - If you see "Insurance (Total): $19,205" followed by Health Insurance, Liability
+     Insurance, etc., extract ONLY the individual insurance lines.
+   - The (Total) / summary rows would cause double-counting when our system sums the
+     line items.
+   Exception: If a subtotal has NO visible children (e.g., "Bank Service Charges: $1,123"
+   with no breakdown), extract it as a normal line item since it IS the leaf-level data.
+3. Categorize each line item into one of: REVENUE, COGS, OPEX, D_AND_A, INTEREST, TAX, OTHER_INCOME, OTHER_EXPENSE
+4. For trades businesses, common COGS subcategories: Materials, Labor, Subcontractors, Equipment Rental
+5. Identify add-backs (owner adjustments that inflate normalized earnings):
    - OWNER_COMPENSATION: owner salary above market rate, owner benefits, personal insurance
    - PERSONAL_EXPENSES: personal vehicle, personal travel, personal meals
    - ONE_TIME_COSTS: lawsuit settlements, one-time consulting, relocation costs
@@ -154,9 +187,13 @@ IMPORTANT extraction rules:
    - RELATED_PARTY: above-market rent to owner-related entity, related-party fees
    - NON_CASH: depreciation add-backs, amortization of intangibles
    - OTHER: anything else that's clearly discretionary or non-recurring
-5. Assign confidence (0-1) to each add-back based on how clearly it's identified
-6. If the document has multiple years, extract each as a separate period
-7. All amounts should be positive numbers. Use isNegative=true for COGS/OPEX items`;
+6. Assign confidence (0-1) to each add-back based on how clearly it's identified
+7. If the document has multiple years, extract each as a separate period
+8. All amounts should be positive numbers. Use isNegative=true for COGS/OPEX items
+9. When the P&L directly states computed subtotals (Gross Profit, Total Revenue,
+   Total COGS, Total Expenses, Net Income, EBITDA, Net Ordinary Income, etc.),
+   extract them into the "pnlSubtotals" object for the period. These are used
+   as override values when the line-item sum doesn't match the P&L's own math.`;
 
 // ─────────────────────────────────────────────
 // Context limit — prevents overflowing Claude's context window

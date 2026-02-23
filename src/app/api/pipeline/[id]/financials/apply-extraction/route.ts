@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db";
 import { parseBody } from "@/lib/validations/common";
 import { applyExtractionSchema } from "@/lib/validations/financials";
 import { recomputePeriodSummary } from "@/lib/financial/recompute-period";
+import { recomputeAndUpdate } from "@/lib/financial/recompute-and-update";
 import { syncOpportunitySummary } from "@/lib/financial/sync-opportunity";
+import { deduplicateLineItems } from "@/lib/financial/dedup-line-items";
 import { createAuditLog } from "@/lib/audit";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -47,6 +49,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const extractedPeriod = result.periods[idx];
       if (!extractedPeriod) continue;
 
+      // Deduplicate line items — removes parent/total rows when children exist
+      const rawLineItems = extractedPeriod.lineItems ?? [];
+      const { deduplicated: cleanLineItems, removed } = deduplicateLineItems(rawLineItems);
+      if (removed.length > 0) {
+        console.log(
+          `[apply-extraction] Removed ${removed.length} duplicate parent rows for ${extractedPeriod.year}:`,
+          removed.map((r: any) => `${r.rawLabel} ($${r.amount})`),
+        );
+      }
+
+      // Build override data from P&L-stated subtotals (if the AI captured them)
+      const overrideData: Record<string, number> = {};
+      const subs = extractedPeriod.pnlSubtotals;
+      if (subs) {
+        if (subs.totalRevenue != null) overrideData.overrideTotalRevenue = subs.totalRevenue;
+        if (subs.totalCogs != null) overrideData.overrideTotalCogs = subs.totalCogs;
+        if (subs.grossProfit != null) overrideData.overrideGrossProfit = subs.grossProfit;
+        if (subs.totalExpenses != null) overrideData.overrideTotalOpex = subs.totalExpenses;
+        if (subs.netIncome != null) overrideData.overrideNetIncome = subs.netIncome;
+        if (subs.ebitda != null) overrideData.overrideEbitda = subs.ebitda;
+      }
+
       // Create period with line items and add-backs in a transaction
       const period = await prisma.$transaction(async (tx) => {
         const created = await tx.financialPeriod.create({
@@ -58,13 +82,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             dataSource: "AI_EXTRACTION",
             confidence: result.confidence ?? null,
             notes: result.notes ? `AI extracted: ${result.notes}` : "AI extracted from document",
+            // Store P&L subtotals as overrides so computed fields match the original P&L
+            ...overrideData,
           },
         });
 
-        // Create line items
-        if (extractedPeriod.lineItems?.length > 0) {
+        // Create deduplicated line items
+        if (cleanLineItems.length > 0) {
           await tx.financialLineItem.createMany({
-            data: extractedPeriod.lineItems.map((item: any, i: number) => ({
+            data: cleanLineItems.map((item: any, i: number) => ({
               periodId: created.id,
               category: item.category,
               subcategory: item.subcategory ?? null,
@@ -92,14 +118,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           });
         }
 
-        // Recompute summary
+        // Recompute summary (respects overrides set above)
         const allLineItems = await tx.financialLineItem.findMany({
           where: { periodId: created.id },
         });
         const allAddBacks = await tx.addBack.findMany({
           where: { periodId: created.id },
         });
-        const summary = recomputePeriodSummary(allLineItems, allAddBacks);
+
+        // Build overrides from what we just stored on the period
+        const overrides = Object.keys(overrideData).length > 0
+          ? {
+              overrideTotalRevenue: overrideData.overrideTotalRevenue ?? null,
+              overrideTotalCogs: overrideData.overrideTotalCogs ?? null,
+              overrideGrossProfit: overrideData.overrideGrossProfit ?? null,
+              overrideTotalOpex: overrideData.overrideTotalOpex ?? null,
+              overrideEbitda: overrideData.overrideEbitda ?? null,
+              overrideNetIncome: overrideData.overrideNetIncome ?? null,
+            }
+          : undefined;
+
+        const summary = recomputePeriodSummary(allLineItems, allAddBacks, overrides);
 
         return tx.financialPeriod.update({
           where: { id: created.id },

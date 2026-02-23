@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Unlock, Trash2, ChevronRight } from "lucide-react";
+import { Lock, Unlock, Trash2, ChevronRight, Pencil, X } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/utils";
-import { useUpdateFinancialPeriod, useDeleteFinancialPeriod, useUpdateLineItem, useUpdateTotalAddBacks } from "@/hooks/use-financials";
-import { CATEGORY_LABELS } from "@/lib/financial/canonical-labels";
+import {
+  useUpdateFinancialPeriod,
+  useDeleteFinancialPeriod,
+  useUpdateLineItem,
+  useUpdateTotalAddBacks,
+  useUpdateOverride,
+} from "@/hooks/use-financials";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -39,6 +44,17 @@ const ROW_CONFIG = [
   { key: "sde", label: "SDE", bold: true, highlight: true },
 ] as const;
 
+// Maps row keys to their override field names in the database.
+// Computed rows with an override mapping can be double-click edited.
+const OVERRIDE_MAP: Record<string, string> = {
+  totalRevenue: "overrideTotalRevenue",
+  totalCogs: "overrideTotalCogs",
+  grossProfit: "overrideGrossProfit",
+  totalOpex: "overrideTotalOpex",
+  ebitda: "overrideEbitda",
+  netIncome: "overrideNetIncome",
+};
+
 function formatValue(val: any, format?: string): string {
   if (val == null) return "—";
   const num = Number(val);
@@ -53,6 +69,13 @@ function periodLabel(period: any): string {
   return `${period.periodType}${q} ${period.year}`;
 }
 
+/** Check if a period has an active override for a given row key */
+function hasOverride(period: any, rowKey: string): boolean {
+  const overrideField = OVERRIDE_MAP[rowKey];
+  if (!overrideField) return false;
+  return period[overrideField] != null;
+}
+
 export function FinancialPeriodsTable({
   periods,
   viewMode,
@@ -64,6 +87,7 @@ export function FinancialPeriodsTable({
   const deletePeriod = useDeleteFinancialPeriod(opportunityId);
   const updateLineItem = useUpdateLineItem(opportunityId);
   const updateTotalAddBacks = useUpdateTotalAddBacks(opportunityId);
+  const updateOverride = useUpdateOverride(opportunityId);
   const [editingCell, setEditingCell] = useState<{ periodId: string; key: string } | null>(null);
   const [editValue, setEditValue] = useState("");
 
@@ -87,7 +111,10 @@ export function FinancialPeriodsTable({
   }
 
   function handleCellDoubleClick(period: any, row: typeof ROW_CONFIG[number]) {
-    if ("divider" in row || "computed" in row || period.isLocked) return;
+    if ("divider" in row || period.isLocked) return;
+
+    // Percent rows (margins) are always computed-only, not editable
+    if ("format" in row && row.format === "percent") return;
 
     // Special case: totalAddBacks is editable as a single number
     if (row.key === "totalAddBacks") {
@@ -96,7 +123,18 @@ export function FinancialPeriodsTable({
       return;
     }
 
+    // Overridable computed rows: allow editing via override
+    const overrideField = OVERRIDE_MAP[row.key as string];
+    if (overrideField && ("computed" in row || "category" in row)) {
+      setEditingCell({ periodId: period.id, key: row.key as string });
+      setEditValue(String(Number(period[row.key as string] ?? 0)));
+      return;
+    }
+
+    // Regular line-item rows (category-backed)
     if (!("category" in row) || !row.category) return;
+    // Skip if this row also has an override mapping and was already handled above
+    if (overrideField) return;
 
     const lineItem = findLineItemForCategory(period, row.category);
     if (!lineItem) return;
@@ -116,6 +154,22 @@ export function FinancialPeriodsTable({
       return;
     }
 
+    // Override-backed rows (computed fields + category rows with override mapping)
+    const overrideField = OVERRIDE_MAP[row.key as string];
+    if (overrideField) {
+      const newVal = parseFloat(editValue);
+      if (!isNaN(newVal) && newVal !== Number(period[row.key as string] ?? 0)) {
+        updateOverride.mutate({
+          periodId: period.id,
+          field: overrideField,
+          value: newVal,
+        });
+      }
+      setEditingCell(null);
+      return;
+    }
+
+    // Regular line-item rows
     if (!("category" in row) || !row.category) return;
     const lineItem = findLineItemForCategory(period, row.category);
     if (!lineItem) return;
@@ -129,6 +183,17 @@ export function FinancialPeriodsTable({
       });
     }
     setEditingCell(null);
+  }
+
+  function handleClearOverride(e: React.MouseEvent, period: any, rowKey: string) {
+    e.stopPropagation();
+    const overrideField = OVERRIDE_MAP[rowKey];
+    if (!overrideField) return;
+    updateOverride.mutate({
+      periodId: period.id,
+      field: overrideField,
+      value: null,
+    });
   }
 
   const filteredRows = ROW_CONFIG.filter((row) => {
@@ -229,13 +294,16 @@ export function FinancialPeriodsTable({
                     editingCell?.periodId === period.id && editingCell?.key === row.key;
                   const val = period[row.key as string];
                   const negative = val != null && Number(val) < 0;
+                  const isOverridden = hasOverride(period, row.key as string);
 
                   return (
                     <td
                       key={period.id}
                       className={`px-3 py-1.5 text-right tabular-nums ${
                         isBold ? "font-semibold" : ""
-                      } ${negative ? "text-red-600 dark:text-red-400" : ""}`}
+                      } ${negative ? "text-red-600 dark:text-red-400" : ""} ${
+                        isOverridden ? "bg-amber-50 dark:bg-amber-900/10" : ""
+                      }`}
                       onDoubleClick={() => handleCellDoubleClick(period, row)}
                     >
                       {isEditing ? (
@@ -252,7 +320,21 @@ export function FinancialPeriodsTable({
                           autoFocus
                         />
                       ) : (
-                        formatValue(val, format)
+                        <span className="inline-flex items-center gap-1 justify-end">
+                          {formatValue(val, format)}
+                          {isOverridden && (
+                            <>
+                              <Pencil className="h-2.5 w-2.5 text-amber-500 shrink-0" />
+                              <button
+                                onClick={(e) => handleClearOverride(e, period, row.key as string)}
+                                className="text-muted-foreground/50 hover:text-red-500 shrink-0"
+                                title="Clear override (revert to computed)"
+                              >
+                                <X className="h-2.5 w-2.5" />
+                              </button>
+                            </>
+                          )}
+                        </span>
                       )}
                     </td>
                   );

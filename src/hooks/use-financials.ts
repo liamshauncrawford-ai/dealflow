@@ -426,3 +426,44 @@ export function useComputeDSCR(opportunityId: string) {
     },
   });
 }
+
+// ─────────────────────────────────────────────
+// Mutation: Set/clear a manual override on a computed P&L field
+// ─────────────────────────────────────────────
+
+export function useUpdateOverride(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      periodId,
+      field,
+      value,
+    }: {
+      periodId: string;
+      field: string;
+      value: number | null;
+    }) => {
+      const res = await fetch(
+        `/api/pipeline/${opportunityId}/financials/${periodId}/overrides`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ field, value }),
+        },
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update override");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["financials", opportunityId] });
+      queryClient.invalidateQueries({ queryKey: ["opportunity", opportunityId] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}

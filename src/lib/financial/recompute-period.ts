@@ -2,7 +2,11 @@
  * Pure computation: recomputes all denormalized summary values on a FinancialPeriod
  * from its line items and add-backs.
  *
- * Called after every line item or add-back mutation.
+ * Supports manual overrides — when an override is set (non-null), that value is used
+ * instead of the computed value from line items. This allows users to enter exact P&L
+ * values (e.g., "Net Income = $36,549") that bypass the line-item sum.
+ *
+ * Called after every line item, add-back, or override mutation.
  */
 
 import type { Decimal } from "@prisma/client/runtime/library";
@@ -21,6 +25,15 @@ interface AddBackItem {
   amount: Decimal | number;
   includeInSde: boolean;
   includeInEbitda: boolean;
+}
+
+export interface PeriodOverrides {
+  overrideTotalRevenue?: number | null;
+  overrideTotalCogs?: number | null;
+  overrideGrossProfit?: number | null;
+  overrideTotalOpex?: number | null;
+  overrideEbitda?: number | null;
+  overrideNetIncome?: number | null;
 }
 
 export interface PeriodSummary {
@@ -74,15 +87,16 @@ function safeRatio(numerator: number, denominator: number): number | null {
 
 export function recomputePeriodSummary(
   lineItems: LineItem[],
-  addBacks: AddBackItem[]
+  addBacks: AddBackItem[],
+  overrides?: PeriodOverrides,
 ): PeriodSummary {
-  // P&L waterfall from line items
-  const totalRevenue = sumByCategory(lineItems, "REVENUE");
-  const totalCogs = sumByCategory(lineItems, "COGS");
-  const grossProfit = totalRevenue - totalCogs;
+  // P&L waterfall from line items — overrides take precedence when set
+  const totalRevenue = overrides?.overrideTotalRevenue ?? sumByCategory(lineItems, "REVENUE");
+  const totalCogs = overrides?.overrideTotalCogs ?? sumByCategory(lineItems, "COGS");
+  const grossProfit = overrides?.overrideGrossProfit ?? (totalRevenue - totalCogs);
 
-  const totalOpex = sumByCategory(lineItems, "OPEX");
-  const ebitda = grossProfit - totalOpex;
+  const totalOpex = overrides?.overrideTotalOpex ?? sumByCategory(lineItems, "OPEX");
+  const ebitda = overrides?.overrideEbitda ?? (grossProfit - totalOpex);
 
   const depreciationAmort = sumByCategory(lineItems, "D_AND_A");
   const ebit = ebitda - depreciationAmort;
@@ -93,7 +107,7 @@ export function recomputePeriodSummary(
   const otherIncome = sumByCategory(lineItems, "OTHER_INCOME");
   const otherExpense = sumByCategory(lineItems, "OTHER_EXPENSE");
 
-  const netIncome = ebit - interestExpense - taxExpense + otherIncome - otherExpense;
+  const netIncome = overrides?.overrideNetIncome ?? (ebit - interestExpense - taxExpense + otherIncome - otherExpense);
 
   // Add-backs
   // adjustedEbitda = ebitda + add-backs marked for EBITDA
