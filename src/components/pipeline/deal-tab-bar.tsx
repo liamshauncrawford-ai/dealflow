@@ -1,8 +1,8 @@
 "use client";
 
-import { LayoutDashboard, BarChart3, Calculator } from "lucide-react";
+import { LayoutDashboard, BarChart3, FileSpreadsheet, Calculator } from "lucide-react";
 
-export type DealTab = "overview" | "financials" | "valuation";
+export type DealTab = "overview" | "financials" | "historic-financials" | "valuation";
 
 interface DealTabBarProps {
   activeTab: DealTab;
@@ -11,7 +11,8 @@ interface DealTabBarProps {
 
 const TABS: { id: DealTab; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "financials", label: "Financials", icon: BarChart3 },
+  { id: "financials", label: "Financial Overview", icon: BarChart3 },
+  { id: "historic-financials", label: "Historic Financials", icon: FileSpreadsheet },
   { id: "valuation", label: "Valuation", icon: Calculator },
 ];
 

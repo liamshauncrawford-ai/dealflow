@@ -674,6 +674,7 @@ model Opportunity {
   aiAnalyses      AIAnalysisResult[]
   auditLogs       AuditLog[]
   financialPeriods FinancialPeriod[]
+  historicPnLs     HistoricPnL[]
   valuationModels  ValuationModel[]
 
   @@index([stage])
@@ -1433,6 +1434,56 @@ model AddBack {
 
   @@index([periodId])
   @@index([category])
+}
+
+// ─────────────────────────────────────────────
+// HISTORIC P&L (exact spreadsheet mirror)
+// ─────────────────────────────────────────────
+
+model HistoricPnL {
+  id              String            @id @default(cuid())
+
+  opportunityId   String
+  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  title           String?           // e.g., "Profit and Loss - North Office (Commercial Division)"
+  companyName     String?           // e.g., "Precision Media Solutions, LLC"
+  basis           String?           // e.g., "Cash Basis"
+  sourceFileName  String?           // Original uploaded file name
+
+  // Column definitions as JSON array:
+  // [{ "header": "2025 YTD", "subheader": "Jan 1 - Oct 15" }, { "header": "2024", "subheader": "Jan - Dec" }]
+  columns         Json              @default("[]")
+
+  rows            HistoricPnLRow[]
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([opportunityId])
+}
+
+model HistoricPnLRow {
+  id              String            @id @default(cuid())
+
+  historicPnlId   String
+  historicPnl     HistoricPnL       @relation(fields: [historicPnlId], references: [id], onDelete: Cascade)
+
+  label           String            // Raw label exactly as it appears in the spreadsheet
+  displayOrder    Int               @default(0)
+  depth           Int               @default(0)   // Visual indentation level (0 = top-level)
+  isTotal         Boolean           @default(false) // "Total X" rows — rendered bold
+  isSummary       Boolean           @default(false) // Gross Profit, Net Income, etc. — rendered bold
+  isBlank         Boolean           @default(false) // Empty separator row
+
+  // Values for each column as JSON array: [629800.67, 873730.61] or [null, null]
+  // Array length matches the columns array on the parent HistoricPnL
+  values          Json              @default("[]")
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([historicPnlId])
 }
 
 // ─────────────────────────────────────────────

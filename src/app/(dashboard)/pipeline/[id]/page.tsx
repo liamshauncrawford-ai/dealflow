@@ -8,6 +8,7 @@ import { DealHeader, StagePriorityBar } from "@/components/pipeline";
 import { DealTabBar, type DealTab } from "@/components/pipeline/deal-tab-bar";
 import { OverviewTabContent } from "@/components/pipeline/overview-tab-content";
 import { FinancialsTabContent } from "@/components/pipeline/financials-tab-content";
+import { HistoricFinancialsTabContent } from "@/components/pipeline/historic-financials-tab-content";
 import { ValuationTabContent } from "@/components/pipeline/valuation-tab-content";
 
 export default function OpportunityDetailPage({
@@ -61,6 +62,9 @@ export default function OpportunityDetailPage({
           opportunityId={id}
           opportunity={opportunity}
         />
+      )}
+      {activeTab === "historic-financials" && (
+        <HistoricFinancialsTabContent opportunityId={id} />
       )}
       {activeTab === "valuation" && (
         <ValuationTabContent
