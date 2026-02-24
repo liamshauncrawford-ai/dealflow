@@ -65,11 +65,13 @@ export interface FinancialExtractionResult {
 
 const FINANCIAL_EXTRACTION_SCHEMA = {
   type: "object" as const,
+  additionalProperties: false,
   properties: {
     periods: {
       type: "array",
       items: {
         type: "object",
+        additionalProperties: false,
         properties: {
           periodType: {
             type: "string",
@@ -81,6 +83,7 @@ const FINANCIAL_EXTRACTION_SCHEMA = {
             type: "array",
             items: {
               type: "object",
+              additionalProperties: false,
               properties: {
                 category: {
                   type: "string",
@@ -100,13 +103,20 @@ const FINANCIAL_EXTRACTION_SCHEMA = {
                 amount: { type: "number" },
                 isNegative: { type: "boolean" },
               },
-              required: ["category", "rawLabel", "amount"],
+              required: [
+                "category",
+                "subcategory",
+                "rawLabel",
+                "amount",
+                "isNegative",
+              ],
             },
           },
           addBacks: {
             type: "array",
             items: {
               type: "object",
+              additionalProperties: false,
               properties: {
                 category: {
                   type: "string",
@@ -125,11 +135,18 @@ const FINANCIAL_EXTRACTION_SCHEMA = {
                 confidence: { type: "number" },
                 sourceLabel: { type: ["string", "null"] },
               },
-              required: ["category", "description", "amount", "confidence"],
+              required: [
+                "category",
+                "description",
+                "amount",
+                "confidence",
+                "sourceLabel",
+              ],
             },
           },
           pnlSubtotals: {
             type: ["object", "null"],
+            additionalProperties: false,
             properties: {
               totalRevenue: { type: ["number", "null"] },
               totalCogs: { type: ["number", "null"] },
@@ -138,10 +155,24 @@ const FINANCIAL_EXTRACTION_SCHEMA = {
               netIncome: { type: ["number", "null"] },
               ebitda: { type: ["number", "null"] },
             },
-            required: [],
+            required: [
+              "totalRevenue",
+              "totalCogs",
+              "grossProfit",
+              "totalExpenses",
+              "netIncome",
+              "ebitda",
+            ],
           },
         },
-        required: ["periodType", "year", "lineItems", "addBacks"],
+        required: [
+          "periodType",
+          "year",
+          "quarter",
+          "lineItems",
+          "addBacks",
+          "pnlSubtotals",
+        ],
       },
     },
     notes: { type: "string" },
