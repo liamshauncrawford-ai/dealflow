@@ -33,6 +33,7 @@ export interface PeriodOverrides {
   overrideGrossProfit?: number | null;
   overrideTotalOpex?: number | null;
   overrideEbitda?: number | null;
+  overrideAdjustedEbitda?: number | null;
   overrideNetIncome?: number | null;
 }
 
@@ -122,7 +123,7 @@ export function recomputePeriodSummary(
   }
 
   const totalAddBacks = ebitdaAddBacks;
-  const adjustedEbitda = ebitda + ebitdaAddBacks;
+  const adjustedEbitda = overrides?.overrideAdjustedEbitda ?? (ebitda + ebitdaAddBacks);
   const sde = ebitda + sdeAddBacks;
 
   // Margins

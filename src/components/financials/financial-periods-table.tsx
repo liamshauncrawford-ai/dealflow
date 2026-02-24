@@ -39,7 +39,7 @@ const ROW_CONFIG = [
   { key: "netMargin", label: "Net Margin", format: "percent", computed: true },
   { key: "divider3", divider: true },
   { key: "totalAddBacks", label: "Total Add-Backs", bold: true, highlight: true },
-  { key: "adjustedEbitda", label: "Adj. EBITDA", bold: true, highlight: true },
+  { key: "adjustedEbitda", label: "Adj. EBITDA", bold: true, highlight: true, computed: true },
   { key: "adjustedEbitdaMargin", label: "Adj. EBITDA Margin", format: "percent", highlight: true },
   { key: "sde", label: "SDE", bold: true, highlight: true },
 ] as const;
@@ -52,6 +52,7 @@ const OVERRIDE_MAP: Record<string, string> = {
   grossProfit: "overrideGrossProfit",
   totalOpex: "overrideTotalOpex",
   ebitda: "overrideEbitda",
+  adjustedEbitda: "overrideAdjustedEbitda",
   netIncome: "overrideNetIncome",
 };
 

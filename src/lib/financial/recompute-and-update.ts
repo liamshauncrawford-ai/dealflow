@@ -15,6 +15,7 @@ const OVERRIDE_SELECT = {
   overrideGrossProfit: true,
   overrideTotalOpex: true,
   overrideEbitda: true,
+  overrideAdjustedEbitda: true,
   overrideNetIncome: true,
 } as const;
 
@@ -35,6 +36,7 @@ export async function recomputeAndUpdate(periodId: string): Promise<void> {
         overrideGrossProfit: period.overrideGrossProfit ? Number(period.overrideGrossProfit) : null,
         overrideTotalOpex: period.overrideTotalOpex ? Number(period.overrideTotalOpex) : null,
         overrideEbitda: period.overrideEbitda ? Number(period.overrideEbitda) : null,
+        overrideAdjustedEbitda: period.overrideAdjustedEbitda ? Number(period.overrideAdjustedEbitda) : null,
         overrideNetIncome: period.overrideNetIncome ? Number(period.overrideNetIncome) : null,
       }
     : undefined;
