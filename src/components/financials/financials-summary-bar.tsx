@@ -59,11 +59,31 @@ export function FinancialsSummaryBar({ periods, viewMode }: FinancialsSummaryBar
   const addBackTotal = latest.totalAddBacks ? Number(latest.totalAddBacks) : null;
   const addBackRatio = revenue && addBackTotal ? addBackTotal / revenue : null;
 
-  // YoY Revenue Growth
+  // YoY Revenue Growth — compare the two most recent ANNUAL periods
+  // to avoid misleading projected-vs-actual comparisons
+  const annualPeriods = sorted.filter((p) => p.periodType === "ANNUAL");
   let yoyGrowth: number | null = null;
   let yoyIcon = <Minus className="h-3 w-3" />;
   let yoyColor: "green" | "red" | "default" = "default";
-  if (previous) {
+  let yoyLabel = "YoY Revenue";
+  if (annualPeriods.length >= 2) {
+    const recentAnnual = annualPeriods[0];
+    const priorAnnual = annualPeriods[1];
+    const recentRev = recentAnnual.totalRevenue ? Number(recentAnnual.totalRevenue) : 0;
+    const priorRev = priorAnnual.totalRevenue ? Number(priorAnnual.totalRevenue) : 0;
+    if (priorRev > 0 && recentRev > 0) {
+      yoyGrowth = (recentRev - priorRev) / priorRev;
+      yoyLabel = `YoY Revenue (${recentAnnual.year} vs ${priorAnnual.year})`;
+      if (yoyGrowth > 0.01) {
+        yoyIcon = <TrendingUp className="h-3 w-3" />;
+        yoyColor = "green";
+      } else if (yoyGrowth < -0.01) {
+        yoyIcon = <TrendingDown className="h-3 w-3" />;
+        yoyColor = "red";
+      }
+    }
+  } else if (previous) {
+    // Fallback: compare the two most recent periods of any type
     const prevRev = previous.totalRevenue ? Number(previous.totalRevenue) : 0;
     if (prevRev > 0 && revenue) {
       yoyGrowth = (revenue - prevRev) / prevRev;
@@ -97,7 +117,7 @@ export function FinancialsSummaryBar({ periods, viewMode }: FinancialsSummaryBar
         />
         {yoyGrowth !== null && (
           <div className="flex flex-col">
-            <span className="text-xs text-muted-foreground">YoY Revenue</span>
+            <span className="text-xs text-muted-foreground">{yoyLabel}</span>
             <span className={`flex items-center gap-1 text-lg font-semibold ${
               yoyColor === "green"
                 ? "text-emerald-600 dark:text-emerald-400"

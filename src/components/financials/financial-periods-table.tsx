@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Lock, Unlock, Trash2, ChevronRight, Pencil, X } from "lucide-react";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import {
@@ -210,63 +210,68 @@ export function FinancialPeriodsTable({
             <th className="sticky left-0 z-10 bg-muted/50 px-4 py-2 text-left font-medium text-muted-foreground w-48">
               P&L Line Item
             </th>
-            {sorted.map((period) => (
-              <th key={period.id} className="min-w-[120px] px-3 py-2 text-right">
-                <div className="flex items-center justify-end gap-1.5">
-                  <button
-                    onClick={() => onSelectPeriod(period.id)}
-                    className={`text-xs font-medium hover:underline ${
-                      selectedPeriodId === period.id ? "text-primary" : "text-foreground"
-                    }`}
-                  >
-                    {periodLabel(period)}
-                  </button>
-                  {selectedPeriodId === period.id && (
-                    <ChevronRight className="h-3 w-3 text-primary" />
-                  )}
-                </div>
-                <div className="mt-0.5 flex items-center justify-end gap-1">
-                  <button
-                    onClick={() =>
-                      updatePeriod.mutate({
-                        periodId: period.id,
-                        data: { isLocked: !period.isLocked },
-                      })
-                    }
-                    className="text-muted-foreground hover:text-foreground"
-                    title={period.isLocked ? "Unlock period" : "Lock period"}
-                  >
-                    {period.isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-                  </button>
-                  {!period.isLocked && (
+            {sorted.map((period, idx) => (
+              <Fragment key={period.id}>
+                <th className="min-w-[120px] px-3 py-2 text-right">
+                  <div className="flex items-center justify-end gap-1.5">
                     <button
-                      onClick={() => {
-                        if (confirm(`Delete ${periodLabel(period)}?`)) {
-                          deletePeriod.mutate(period.id);
-                        }
-                      }}
-                      className="text-muted-foreground hover:text-destructive"
-                      title="Delete period"
+                      onClick={() => onSelectPeriod(period.id)}
+                      className={`text-xs font-medium hover:underline ${
+                        selectedPeriodId === period.id ? "text-primary" : "text-foreground"
+                      }`}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      {periodLabel(period)}
                     </button>
-                  )}
-                </div>
-              </th>
+                    {selectedPeriodId === period.id && (
+                      <ChevronRight className="h-3 w-3 text-primary" />
+                    )}
+                  </div>
+                  <div className="mt-0.5 flex items-center justify-end gap-1">
+                    <button
+                      onClick={() =>
+                        updatePeriod.mutate({
+                          periodId: period.id,
+                          data: { isLocked: !period.isLocked },
+                        })
+                      }
+                      className="text-muted-foreground hover:text-foreground"
+                      title={period.isLocked ? "Unlock period" : "Lock period"}
+                    >
+                      {period.isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                    </button>
+                    {!period.isLocked && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete ${periodLabel(period)}?`)) {
+                            deletePeriod.mutate(period.id);
+                          }
+                        }}
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Delete period"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                </th>
+                {idx < sorted.length - 1 && (
+                  <th className="min-w-[60px] px-2 py-2 text-right text-xs text-muted-foreground">
+                    YoY
+                  </th>
+                )}
+              </Fragment>
             ))}
-            {sorted.length > 1 && (
-              <th className="min-w-[80px] px-3 py-2 text-right text-xs text-muted-foreground">
-                YoY
-              </th>
-            )}
           </tr>
         </thead>
         <tbody>
           {filteredRows.map((row) => {
+            // Total columns = 1 (label) + sorted.length (values) + max(sorted.length - 1, 0) (YoY gaps)
+            const totalCols = 1 + sorted.length + Math.max(sorted.length - 1, 0);
+
             if ("divider" in row && row.divider) {
               return (
                 <tr key={row.key}>
-                  <td colSpan={sorted.length + (sorted.length > 1 ? 2 : 1)} className="h-px bg-border" />
+                  <td colSpan={totalCols} className="h-px bg-border" />
                 </tr>
               );
             }
@@ -289,7 +294,7 @@ export function FinancialPeriodsTable({
                 >
                   {"label" in row ? row.label : ""}
                 </td>
-                {sorted.map((period) => {
+                {sorted.map((period, idx) => {
                   const isEditing =
                     editingCell?.periodId === period.id && editingCell?.key === row.key;
                   const val = period[row.key as string];
@@ -297,62 +302,63 @@ export function FinancialPeriodsTable({
                   const isOverridden = hasOverride(period, row.key as string);
 
                   return (
-                    <td
-                      key={period.id}
-                      className={`px-3 py-1.5 text-right tabular-nums ${
-                        isBold ? "font-semibold" : ""
-                      } ${negative ? "text-red-600 dark:text-red-400" : ""} ${
-                        isOverridden ? "bg-amber-50 dark:bg-amber-900/10" : ""
-                      }`}
-                      onDoubleClick={() => handleCellDoubleClick(period, row)}
-                    >
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={() => handleCellSave(period, row)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleCellSave(period, row);
-                            if (e.key === "Escape") setEditingCell(null);
-                          }}
-                          className="w-full rounded border bg-background px-1 py-0.5 text-right text-sm"
-                          autoFocus
-                        />
-                      ) : (
-                        <span className="inline-flex items-center gap-1 justify-end">
-                          {formatValue(val, format)}
-                          {isOverridden && (
-                            <>
-                              <Pencil className="h-2.5 w-2.5 text-amber-500 shrink-0" />
-                              <button
-                                onClick={(e) => handleClearOverride(e, period, row.key as string)}
-                                className="text-muted-foreground/50 hover:text-red-500 shrink-0"
-                                title="Clear override (revert to computed)"
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </>
-                          )}
-                        </span>
+                    <Fragment key={period.id}>
+                      <td
+                        className={`px-3 py-1.5 text-right tabular-nums ${
+                          isBold ? "font-semibold" : ""
+                        } ${negative ? "text-red-600 dark:text-red-400" : ""} ${
+                          isOverridden ? "bg-amber-50 dark:bg-amber-900/10" : ""
+                        }`}
+                        onDoubleClick={() => handleCellDoubleClick(period, row)}
+                      >
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={() => handleCellSave(period, row)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellSave(period, row);
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                            className="w-full rounded border bg-background px-1 py-0.5 text-right text-sm"
+                            autoFocus
+                          />
+                        ) : (
+                          <span className="inline-flex items-center gap-1 justify-end">
+                            {formatValue(val, format)}
+                            {isOverridden && (
+                              <>
+                                <Pencil className="h-2.5 w-2.5 text-amber-500 shrink-0" />
+                                <button
+                                  onClick={(e) => handleClearOverride(e, period, row.key as string)}
+                                  className="text-muted-foreground/50 hover:text-red-500 shrink-0"
+                                  title="Clear override (revert to computed)"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </td>
+                      {idx < sorted.length - 1 && (
+                        <td className="px-2 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
+                          {format !== "percent" ? (() => {
+                            const growth = getYoYGrowth(period, row.key as string);
+                            if (growth === null) return "—";
+                            const positive = growth >= 0;
+                            return (
+                              <span className={positive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
+                                {positive ? "+" : ""}{(growth * 100).toFixed(1)}%
+                              </span>
+                            );
+                          })() : ""}
+                        </td>
                       )}
-                    </td>
+                    </Fragment>
                   );
                 })}
-                {sorted.length > 1 && (
-                  <td className="px-3 py-1.5 text-right text-xs tabular-nums text-muted-foreground">
-                    {format !== "percent" && !("divider" in row) ? (() => {
-                      const growth = getYoYGrowth(sorted[0], row.key as string);
-                      if (growth === null) return "—";
-                      const positive = growth >= 0;
-                      return (
-                        <span className={positive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
-                          {positive ? "+" : ""}{(growth * 100).toFixed(1)}%
-                        </span>
-                      );
-                    })() : ""}
-                  </td>
-                )}
               </tr>
             );
           })}
