@@ -4,7 +4,6 @@ import { PipelineStage } from "@prisma/client";
 import { parseBody } from "@/lib/validations/common";
 import { updateOpportunitySchema } from "@/lib/validations/pipeline";
 import { executeStageChangeTriggers } from "@/lib/workflow-engine";
-import { executeAcquisitionFlowTrigger } from "@/lib/market-intel/acquisition-flow-engine";
 import { createAuditLog, diffAndLog } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 
@@ -197,13 +196,6 @@ export async function PATCH(
 
         // Execute workflow triggers (auto-create tasks, update contacts)
         await executeStageChangeTriggers(id, currentState.stage, body.stage as PipelineStage);
-
-        // Acquisition flow: evaluate portfolio impact on OFFER_SENT / UNDER_CONTRACT
-        if (body.stage === "OFFER_SENT" || body.stage === "UNDER_CONTRACT") {
-          executeAcquisitionFlowTrigger(id, body.stage).catch((err) =>
-            console.error("Acquisition flow trigger error:", err)
-          );
-        }
 
         // Auto-set date fields based on stage
         const stageDateMap: Record<string, string> = {

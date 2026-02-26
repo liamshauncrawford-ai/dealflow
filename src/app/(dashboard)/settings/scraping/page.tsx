@@ -375,11 +375,11 @@ export default function ScrapingSettingsPage() {
           </div>
           <div className="px-5 py-4 space-y-2">
             <p className="text-sm text-muted-foreground">
-              Searches registered Colorado businesses for trade keywords (structured cabling,
-              low voltage, etc.) to discover potential acquisition targets.
+              Searches registered Colorado businesses for trade keywords across all 11 target
+              commercial service categories to discover potential acquisition targets.
             </p>
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>8 search terms</span>
+              <span>20 search terms</span>
               <span>Weekly schedule</span>
             </div>
           </div>

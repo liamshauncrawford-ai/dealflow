@@ -280,7 +280,7 @@ export function DeepDivePanel({
           <p className="text-sm">{analysis.platform_value_creation.how_this_fits_the_platform}</p>
           <div className="grid grid-cols-1 gap-2 text-sm">
             <InfoRow label="GC Relationship Value" value={analysis.platform_value_creation.gc_relationship_value} />
-            <InfoRow label="DC Pipeline Access" value={analysis.platform_value_creation.data_center_pipeline_access} />
+            <InfoRow label="Market Pipeline Access" value={analysis.platform_value_creation.market_pipeline_access} />
             <InfoRow label="Customer Overlap" value={analysis.platform_value_creation.customer_overlap} />
           </div>
           {analysis.platform_value_creation.cross_sell_opportunities.length > 0 && (

@@ -2,7 +2,7 @@
  * Colorado Secretary of State (CSOS) business entity scraper.
  *
  * Searches sos.state.co.us for businesses matching acquisition-relevant
- * trade keywords (structured cabling, low voltage, security, etc.).
+ * trade keywords covering all 11 target commercial service categories.
  *
  * Unlike BizBuySell, these aren't listed for sale — they're registered
  * Colorado businesses that could be potential acquisition targets.
@@ -44,14 +44,31 @@ export interface CsosScanResult {
 // ─────────────────────────────────────────────
 
 const SEARCH_TERMS = [
+  // Electrical
+  "electrical contractor",
+  // Structured cabling / low-voltage
   "structured cabling",
   "low voltage",
   "data cabling",
-  "communications contractor",
-  "security systems",
-  "building automation",
   "fiber optic",
-  "network cabling",
+  // Security / fire alarm
+  "security systems",
+  "fire alarm",
+  "fire protection",
+  // HVAC / mechanical
+  "building automation",
+  "HVAC contractor",
+  "mechanical contractor",
+  // Plumbing
+  "plumbing contractor",
+  // Framing / drywall
+  "drywall contractor",
+  "framing contractor",
+  // Other trades
+  "painting contractor",
+  "roofing contractor",
+  "concrete contractor",
+  "masonry contractor",
 ];
 
 const BASE_URL = "https://www.sos.state.co.us/biz/BusinessEntityResults.do";

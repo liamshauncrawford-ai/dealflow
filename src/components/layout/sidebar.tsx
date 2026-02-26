@@ -13,10 +13,7 @@ import {
   Menu,
   X,
   Building2,
-  HardHat,
-  Cable,
   Map,
-  Network,
   BarChart3,
   Calculator,
   Layers,
@@ -41,12 +38,8 @@ const mainNavItems: NavItem[] = [
 ];
 
 const marketIntelItems: NavItem[] = [
+  { label: "Market Overview", href: "/market-intel/overview", icon: BarChart3 },
   { label: "Market Map", href: "/market-intel/map", icon: Map },
-  { label: "DC Operators", href: "/market-intel/operators", icon: Building2 },
-  { label: "GC Tracker", href: "/market-intel/gcs", icon: HardHat },
-  { label: "Cabling Pipeline", href: "/market-intel/opportunities", icon: Cable },
-  { label: "Network", href: "/market-intel/network", icon: Network },
-  { label: "Intelligence", href: "/market-intel/intelligence", icon: BarChart3 },
 ];
 
 const financialItems: NavItem[] = [

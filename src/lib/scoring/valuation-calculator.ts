@@ -7,7 +7,6 @@
  *   +0.5x for recurring revenue > 20%
  *   +0.5x for revenue growing > 10% CAGR
  *   +0.5x for customer concentration < 20%
- *   +0.5x for data center experience
  *   -0.5x for key-person risk (high)
  *   -0.5x for customer concentration > 40%
  *   -0.5x for declining revenue
@@ -28,7 +27,6 @@ export interface ValuationInput {
   revenueTrend?: "GROWING" | "STABLE" | "DECLINING" | null;
   revenueGrowthCagr?: number | null;     // e.g., 0.15 for 15%
   customerConcentration?: number | null;  // top customer as % of revenue (0–1)
-  dcExperience?: boolean | null;
   keyPersonRisk?: "LOW" | "MEDIUM" | "HIGH" | null;
 
   // Toggle for SDE vs EBITDA
@@ -119,15 +117,6 @@ export function computeValuation(input: ValuationInput): ValuationResult | null 
         reason: `Top customer ${(input.customerConcentration * 100).toFixed(0)}% of revenue (>40%)`,
       });
     }
-  }
-
-  // +0.5x for data center experience
-  if (input.dcExperience) {
-    adjustments.push({
-      label: "DC Experience",
-      value: 0.5,
-      reason: "Proven data center project experience",
-    });
   }
 
   // -0.5x for high key-person risk

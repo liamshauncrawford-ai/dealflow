@@ -30,11 +30,13 @@ export interface EnrichmentResult {
   red_flags: string[];
   positive_signals: string[];
   succession_risk: "high" | "medium" | "low" | "unknown";
-  data_center_relevance: "confirmed" | "likely" | "possible" | "unlikely";
+  trade_relevance: "confirmed" | "likely" | "possible" | "unlikely";
   enrichment_confidence: "high" | "medium" | "low";
 }
 
-const ENRICHMENT_SYSTEM_PROMPT = `You are a due diligence research analyst specializing in Colorado trade contractors. Given available data about a contractor, compile a preliminary intelligence dossier.
+const ENRICHMENT_SYSTEM_PROMPT = `You are a due diligence research analyst specializing in Colorado commercial trade contractors. Given available data about a contractor, compile a preliminary intelligence dossier.
+
+The buyer is building the Crawford Holdings commercial services platform — acquiring contractors across Colorado's Front Range in 11 trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial.
 
 Focus on:
 - Ownership structure and key person identification
@@ -43,12 +45,14 @@ Focus on:
 - Reputation and quality signals
 - Any red flags (complaints, license issues, lawsuits)
 - Estimated revenue range (based on employee count, trade, Colorado market)
-- Data center market relevance
+- Relevance to the 11 target commercial trades
 
 IMPORTANT: Base estimates on Colorado market data:
 - Structured cabling contractors with 10-30 employees typically do $2M-$6M revenue
 - Electrical contractors are larger, typically $5M-$15M
-- Security/BAS companies are mid-range, $2M-$8M
+- HVAC/mechanical contractors typically $3M-$12M
+- Plumbing, painting, roofing, framing contractors typically $2M-$8M
+- Security/fire alarm companies are mid-range, $2M-$8M
 - Companies founded 15+ years ago often have owners approaching retirement age
 
 Return ONLY valid JSON (no markdown, no code fences):
@@ -65,7 +69,7 @@ Return ONLY valid JSON (no markdown, no code fences):
   "red_flags": ["..."],
   "positive_signals": ["..."],
   "succession_risk": "high"|"medium"|"low"|"unknown",
-  "data_center_relevance": "confirmed"|"likely"|"possible"|"unlikely",
+  "trade_relevance": "confirmed"|"likely"|"possible"|"unlikely",
   "enrichment_confidence": "high"|"medium"|"low"
 }`;
 

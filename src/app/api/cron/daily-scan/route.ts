@@ -91,7 +91,6 @@ export async function POST(request: NextRequest) {
         state: l.state,
         established: l.established,
         certifications: l.certifications,
-        dcCertifications: l.dcCertifications,
         description: l.description,
         fitScore: l.fitScore,
       }));
@@ -118,8 +117,6 @@ export async function POST(request: NextRequest) {
           state: listing.state,
           metroArea: listing.metroArea,
           certifications: listing.certifications,
-          dcCertifications: listing.dcCertifications,
-          dcRelevanceScore: listing.dcRelevanceScore,
           askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
           ebitda: listing.ebitda ? Number(listing.ebitda) : null,
           inferredEbitda: listing.inferredEbitda ? Number(listing.inferredEbitda) : null,

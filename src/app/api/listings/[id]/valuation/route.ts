@@ -47,7 +47,6 @@ export async function GET(
       recurringRevenuePct: opp?.recurringRevenuePct ?? null,
       revenueTrend: opp?.revenueTrend ?? null,
       customerConcentration: opp?.customerConcentration ?? null,
-      dcExperience: listing.dcExperience ?? null,
       keyPersonRisk: opp?.keyPersonRisk ?? null,
     };
 

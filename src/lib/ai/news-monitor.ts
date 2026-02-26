@@ -2,10 +2,10 @@
  * News & Market Monitor — fetches RSS feeds and classifies articles via Claude.
  *
  * Uses Google News RSS (free, no API key) to monitor:
- * - Data center construction on Colorado's Front Range
- * - GC project announcements (DPR, Holder, Hensel Phelps, Mortenson)
+ * - Commercial construction activity on Colorado's Front Range
+ * - GC project announcements and awards
  * - Acquisition signals (retirement, succession, contractor for sale)
- * - Legislation and utility updates affecting DC market
+ * - Market trends affecting commercial trade contractors
  */
 
 import { callClaude, safeJsonParse } from "./claude-client";
@@ -25,22 +25,21 @@ export interface NewsClassification {
   headline: string;
   url: string;
   category:
-    | "dc_construction"
+    | "commercial_construction"
     | "gc_award"
     | "legislation"
-    | "power_utility"
     | "acquisition_signal"
     | "competitor_move"
     | "market_trend"
+    | "trade_category_news"
     | "irrelevant";
   urgency: "immediate" | "this_week" | "monitor" | "background";
   impact_on_thesis: "positive" | "negative" | "neutral";
   summary: string;
   action_items: string[];
-  related_operators: string[];
   related_gcs: string[];
   related_companies: string[];
-  estimated_cabling_opportunity: string | null;
+  estimated_commercial_opportunity: string | null;
 }
 
 // ─────────────────────────────────────────────
@@ -48,22 +47,23 @@ export interface NewsClassification {
 // ─────────────────────────────────────────────
 
 const SEARCH_QUERIES = {
-  dc_market: [
-    '"data center" Colorado construction OR expansion OR groundbreaking',
-    'CoreSite Denver OR "QTS Aurora" OR "Flexential Parker"',
-    '"Xcel Energy" data center tariff OR rate',
-    '"data center" Colorado legislature OR incentive',
+  commercial_market: [
+    'commercial construction Colorado "Front Range" OR Denver OR "Colorado Springs"',
+    '"commercial contractor" Colorado project OR award OR groundbreaking',
+    'Colorado construction permits commercial industrial',
+    '"general contractor" Colorado award OR project',
   ],
   gc_projects: [
-    '"DPR Construction" Colorado data center',
-    '"Holder Construction" Colorado OR Aurora',
-    '"Hensel Phelps" data center',
-    '"Mortenson" data center Denver',
+    '"DPR Construction" Colorado commercial',
+    '"Hensel Phelps" Colorado project OR award',
+    '"GE Johnson" Colorado OR "Saunders Construction" Colorado',
+    '"JHL Constructors" OR "Holder Construction" Colorado',
   ],
   acquisition_signals: [
     '"electrical contractor" Colorado retirement OR succession OR "for sale"',
-    '"structured cabling" Colorado acquisition OR merger',
-    '"low voltage" contractor Denver closing OR retirement',
+    '"HVAC contractor" OR "plumbing contractor" Colorado retirement OR "for sale"',
+    '"commercial contractor" Colorado acquisition OR merger OR succession',
+    '"roofing" OR "framing" OR "painting" contractor Colorado retirement OR "for sale"',
   ],
 };
 
@@ -110,7 +110,7 @@ export async function fetchNewsArticles(): Promise<RawNewsArticle[]> {
   const allArticles = new Map<string, RawNewsArticle>();
 
   const allQueries = [
-    ...SEARCH_QUERIES.dc_market.map((q) => ({ query: q, source: "google_news_dc" })),
+    ...SEARCH_QUERIES.commercial_market.map((q) => ({ query: q, source: "google_news_commercial" })),
     ...SEARCH_QUERIES.gc_projects.map((q) => ({ query: q, source: "google_news_gc" })),
     ...SEARCH_QUERIES.acquisition_signals.map((q) => ({ query: q, source: "google_news_acq" })),
   ];
@@ -158,15 +158,14 @@ export async function fetchNewsArticles(): Promise<RawNewsArticle[]> {
 // AI Classification
 // ─────────────────────────────────────────────
 
-const CLASSIFICATION_SYSTEM = `You are a market intelligence analyst monitoring the Colorado data center construction market for a structured cabling company acquirer.
+const CLASSIFICATION_SYSTEM = `You are a market intelligence analyst monitoring Colorado's Front Range commercial construction market for a commercial services acquisition platform.
 
-The acquirer is building a roll-up platform of electrical/low-voltage contractors to serve the Front Range data center boom. Key context:
+The acquirer (Crawford Holdings) is building a platform of commercial service contractors across Colorado's Front Range. Key context:
 - Target geography: Colorado Front Range (Denver metro, Colorado Springs, Northern CO)
-- Key DC operators: CoreSite, QTS, Flexential, Stack, EdgeConneX, CyrusOne, NTT
-- Key GCs: DPR Construction, Holder Construction, Hensel Phelps, Mortenson
-- Target trades: Structured cabling, low-voltage, electrical, fire alarm, security, BAS
-- Legislative focus: Data center incentive bills (HB26-1030, SB26-102)
-- Power: Xcel Energy capacity and tariff decisions
+- 11 target trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial
+- Key GCs: DPR, Holder, Hensel Phelps, Mortenson, GE Johnson, Saunders, JHL Constructors
+- Focus: commercial construction projects (data centers, healthcare, multifamily, industrial, municipal)
+- Acquisition signals: owner retirement, succession planning, contractors for sale
 
 Classify each news article and extract actionable intelligence. Be concise in summaries.`;
 
@@ -186,18 +185,17 @@ Each object must have:
 {
   "headline": "original headline",
   "url": "original url",
-  "category": "dc_construction" | "gc_award" | "legislation" | "power_utility" | "acquisition_signal" | "competitor_move" | "market_trend" | "irrelevant",
+  "category": "commercial_construction" | "gc_award" | "legislation" | "acquisition_signal" | "competitor_move" | "market_trend" | "trade_category_news" | "irrelevant",
   "urgency": "immediate" | "this_week" | "monitor" | "background",
   "impact_on_thesis": "positive" | "negative" | "neutral",
   "summary": "1-2 sentence summary in your own words",
   "action_items": ["specific thing the user should do"],
-  "related_operators": ["DC operator names mentioned"],
   "related_gcs": ["GC names mentioned"],
   "related_companies": ["potential target company names"],
-  "estimated_cabling_opportunity": "$X million" or null
+  "estimated_commercial_opportunity": "$X million" or null
 }
 
-Mark as "irrelevant" if the article has no connection to Colorado data centers, electrical/cabling contractors, or the acquisition strategy.
+Mark as "irrelevant" if the article has no connection to Colorado commercial construction, trade contractors, or the acquisition strategy.
 
 Articles to classify:
 ${JSON.stringify(articles.map((a) => ({ headline: a.headline, url: a.url })), null, 2)}`;

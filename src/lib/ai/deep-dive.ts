@@ -17,7 +17,7 @@ export interface DeepDiveInput {
   companyData: string;
   /** Recent activity log entries */
   recentActivity?: string;
-  /** Known GC relationships, DC project involvement */
+  /** Known GC relationships, market position, project involvement */
   marketPosition?: string;
 }
 
@@ -60,7 +60,7 @@ export interface DeepDiveResult {
     cross_sell_opportunities: string[];
     customer_overlap: string;
     gc_relationship_value: string;
-    data_center_pipeline_access: string;
+    market_pipeline_access: string;
   };
   risk_assessment: {
     key_risks: Array<{
@@ -83,28 +83,26 @@ export interface DeepDiveResult {
 // System prompt
 // ─────────────────────────────────────────────
 
-const DEEP_DIVE_SYSTEM_PROMPT = `You are a seasoned M&A advisor preparing an investment memo for a search fund entrepreneur evaluating a potential platform acquisition. The buyer is acquiring a structured cabling contractor on Colorado's Front Range to build a platform serving the booming data center construction market.
+const DEEP_DIVE_SYSTEM_PROMPT = `You are a seasoned M&A advisor preparing an investment memo for a search fund entrepreneur evaluating a potential platform acquisition. The buyer is building the Crawford Holdings commercial services acquisition platform — acquiring commercial service contractors across Colorado's Front Range in 11 trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial.
 
 BUYER PROFILE:
-- Available equity: $800K
+- Available equity: $800K ($300K personal + $500K family office)
 - Bank debt: 70-75% LTV
 - Seller financing: Can request 15-20%
 - Comfortable EV range: $3.5M-$9M for platform
-- Target EBITDA: $900K-$1.75M
+- Target EBITDA: $900K-$1.75M at 4-5x EBITDA
+- Bolt-ons at 2.5-3.5x EBITDA
 - Post-EMBA, full-time operator starting March 2026
 - Already closing PMS commercial division ($1.4M revenue, small deal)
 - Plans to bolt on 2-3 additional companies in years 2-4
 - Exit horizon: 7-10 years at 7-10x EBITDA
 
 MARKET CONTEXT:
-- Colorado has 60-80+ data centers, multiple hyperscale projects under construction
-- QTS Aurora: 177MW ($1B+, Holder Construction GC) — largest in state
-- CoreSite DE3: 60MW campus (DPR Construction GC) — first purpose-built DC in Denver in 20 years
-- Flexential Parker: 22.5MW (new build, 2026)
-- Global AI Windsor: Up to 1GW long-term (Phase 1: 18-24MW)
-- Xcel Energy has 5.8GW of pending DC applications
-- Two competing bills in legislature (incentive vs environmental)
-- Key GCs: DPR, Holder, Hensel Phelps, Mortenson, Constructiv
+- Colorado's Front Range commercial construction market is booming — data centers, healthcare, multifamily, industrial, and municipal projects
+- Strong demand across all 11 trade categories from population growth and infrastructure investment
+- Key GCs active on the Front Range: DPR, Holder, Hensel Phelps, Mortenson, GE Johnson, Saunders, JHL Constructors
+- Fragmented trade contractor market with many owner-operators approaching retirement
+- Cross-sell and bundled-services opportunity across the 11 trades
 
 You MUST respond with ONLY valid JSON (no markdown, no code fences) matching this exact schema:
 {
@@ -146,7 +144,7 @@ You MUST respond with ONLY valid JSON (no markdown, no code fences) matching thi
     "cross_sell_opportunities": ["..."],
     "customer_overlap": "...",
     "gc_relationship_value": "...",
-    "data_center_pipeline_access": "..."
+    "market_pipeline_access": "..."
   },
   "risk_assessment": {
     "key_risks": [{"risk": "...", "severity": "high"|"medium"|"low", "mitigation": "..."}],

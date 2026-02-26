@@ -1,36 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { parseSearchParams } from "@/lib/validations/common";
-import { mapQuerySchema } from "@/lib/validations/market-intel";
 
+/**
+ * GET /api/market-intel/map
+ * Returns geo-located listings for the Market Map.
+ * Phase 2 will add project pipeline and client markers.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const parsed = parseSearchParams(
-      mapQuerySchema,
-      request.nextUrl.searchParams,
-    );
-    if (parsed.error) return parsed.error;
-
-    const {
-      showFacilities,
-      showListings,
-      operatorTier,
-      facilityStatus,
-    } = parsed.data;
-
-    const facilities: Array<{
-      id: string;
-      facilityName: string;
-      latitude: number;
-      longitude: number;
-      capacityMW: number | null;
-      status: string | null;
-      city: string | null;
-      state: string | null;
-      address: string | null;
-      operatorName: string;
-      operatorTier: string | null;
-    }> = [];
+    const params = request.nextUrl.searchParams;
+    const showListings = params.get("showListings") !== "false";
 
     const listings: Array<{
       id: string;
@@ -41,55 +20,9 @@ export async function GET(request: NextRequest) {
       city: string | null;
       state: string | null;
       industry: string | null;
+      primaryTrade: string | null;
+      tier: string | null;
     }> = [];
-
-    if (showFacilities) {
-      const where: Record<string, unknown> = {
-        latitude: { not: null },
-        longitude: { not: null },
-      };
-
-      if (facilityStatus) {
-        where.status = facilityStatus;
-      }
-
-      if (operatorTier) {
-        where.operator = { tier: operatorTier };
-      }
-
-      const rawFacilities = await prisma.dCFacility.findMany({
-        where,
-        select: {
-          id: true,
-          facilityName: true,
-          latitude: true,
-          longitude: true,
-          capacityMW: true,
-          status: true,
-          city: true,
-          state: true,
-          address: true,
-          operator: { select: { name: true, tier: true } },
-        },
-      });
-
-      for (const f of rawFacilities) {
-        if (f.latitude == null || f.longitude == null) continue;
-        facilities.push({
-          id: f.id,
-          facilityName: f.facilityName,
-          latitude: f.latitude,
-          longitude: f.longitude,
-          capacityMW: f.capacityMW,
-          status: f.status,
-          city: f.city,
-          state: f.state,
-          address: f.address,
-          operatorName: f.operator.name,
-          operatorTier: f.operator.tier,
-        });
-      }
-    }
 
     if (showListings) {
       const rawListings = await prisma.listing.findMany({
@@ -107,8 +40,10 @@ export async function GET(request: NextRequest) {
           city: true,
           state: true,
           industry: true,
+          primaryTrade: true,
+          tier: true,
         },
-        take: 200,
+        take: 500,
       });
 
       for (const l of rawListings) {
@@ -122,11 +57,13 @@ export async function GET(request: NextRequest) {
           city: l.city,
           state: l.state,
           industry: l.industry,
+          primaryTrade: l.primaryTrade,
+          tier: l.tier,
         });
       }
     }
 
-    return NextResponse.json({ facilities, listings });
+    return NextResponse.json({ listings });
   } catch (error) {
     console.error("Error fetching map data:", error);
     return NextResponse.json(

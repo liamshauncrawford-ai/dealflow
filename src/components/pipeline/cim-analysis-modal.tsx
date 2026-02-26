@@ -123,7 +123,7 @@ const FIELD_GROUPS = [
   {
     id: "thesis_fit",
     label: "Thesis Fit Assessment",
-    description: "Colorado data center trades roll-up fit analysis",
+    description: "Acquisition thesis fit analysis",
     icon: Sparkles,
     default: false,
   },

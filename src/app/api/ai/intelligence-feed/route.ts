@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
         id: `news-${n.id}`,
         type: "NEWS",
         priority: n.urgency === "immediate" ? "high" : "normal",
-        icon: n.category === "dc_construction" ? "🏗️" : "📰",
+        icon: n.category === "commercial_construction" ? "🏗️" : "📰",
         title: n.headline ?? "News Update",
         description: n.aiSummary?.slice(0, 200) ?? "",
         timestamp: (n.publishedAt ?? n.fetchedAt).toISOString(),

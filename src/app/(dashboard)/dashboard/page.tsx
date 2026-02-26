@@ -34,7 +34,6 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { useStats } from "@/hooks/use-pipeline";
-import { useMarketIntelStats } from "@/hooks/use-market-intel";
 import { useScrapingStatus } from "@/hooks/use-scraping";
 import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
 import { PIPELINE_STAGES, PLATFORMS, type PlatformKey } from "@/lib/constants";
@@ -45,7 +44,6 @@ import {
   DEFAULT_ORDER,
   type DashboardCardId,
 } from "@/hooks/use-dashboard-card-order";
-import { DashboardMapCard } from "@/components/maps/dashboard-map-card";
 import { PipelineFunnelChart } from "@/components/charts/pipeline-funnel-chart";
 import { SourceDistributionChart } from "@/components/charts/source-distribution-chart";
 import { TierDistributionChart } from "@/components/charts/tier-distribution-chart";
@@ -62,7 +60,6 @@ interface DashboardCardProps {
 
 export default function DashboardPage() {
   const { data: stats, isLoading } = useStats();
-  const { data: miStats, isLoading: miLoading } = useMarketIntelStats();
   const { order, handleDragEnd, resetOrder } = useDashboardCardOrder();
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -152,18 +149,6 @@ export default function DashboardPage() {
     },
     "listings-by-platform": {
       render: () => <ListingsByPlatformCard stats={stats} isLoading={isLoading} />,
-      isVisible: () => true,
-    },
-    "facility-map": {
-      render: () => <DashboardMapCard />,
-      isVisible: () => true,
-    },
-    "market-intel-summary": {
-      render: () => <MarketIntelSummaryCard miStats={miStats} isLoading={miLoading} />,
-      isVisible: () => true,
-    },
-    "cabling-pipeline-summary": {
-      render: () => <CablingPipelineSummaryCard miStats={miStats} isLoading={miLoading} />,
       isVisible: () => true,
     },
     "scraper-health": {
@@ -690,90 +675,6 @@ function ScraperHealthCard() {
           ))
         )}
       </div>
-    </div>
-  );
-}
-
-function MarketIntelSummaryCard({ miStats, isLoading }: { miStats: any; isLoading: boolean }) {
-  return (
-    <div className="rounded-lg border bg-card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold">Market Intelligence</h3>
-        <Link
-          href="/market-intel/operators"
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-        >
-          View all <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded bg-muted" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <MiniStat label="DC Operators" value={String(miStats?.operatorCount ?? 0)} />
-          <MiniStat label="Tier 1 (Active)" value={String(miStats?.tier1Operators ?? 0)} accent />
-          <MiniStat label="Facilities" value={String(miStats?.facilityCount ?? 0)} />
-          <MiniStat label="Under Construction" value={String(miStats?.facilitiesUnderConstruction ?? 0)} />
-          <MiniStat label="General Contractors" value={String(miStats?.gcCount ?? 0)} />
-          <MiniStat label="Active Opportunities" value={String(miStats?.activeCablingOpps ?? 0)} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CablingPipelineSummaryCard({ miStats, isLoading }: { miStats: any; isLoading: boolean }) {
-  return (
-    <div className="rounded-lg border bg-card p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-semibold">Cabling Pipeline</h3>
-        <Link
-          href="/market-intel/opportunities"
-          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-        >
-          View pipeline <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-10 animate-pulse rounded bg-muted" />
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <MiniStat
-              label="Pipeline Value"
-              value={miStats?.totalPipelineValue ? formatCurrency(miStats.totalPipelineValue) : "$0"}
-            />
-            <MiniStat
-              label="Awarded"
-              value={miStats?.awardedValue ? formatCurrency(miStats.awardedValue) : "$0"}
-              accent
-            />
-          </div>
-          {miStats?.statusBreakdown?.length > 0 && (
-            <div className="space-y-1.5">
-              {miStats.statusBreakdown
-                .filter((s: any) => s.count > 0)
-                .slice(0, 6)
-                .map((s: any) => (
-                  <div key={s.status} className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      {s.status.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                    </span>
-                    <span className="font-medium tabular-nums">{s.count}</span>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

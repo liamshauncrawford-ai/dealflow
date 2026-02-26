@@ -8,13 +8,11 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ReferenceLine,
 } from "recharts";
 
 interface MetricPoint {
   recordedAt: string;
   weightedPipelineValue: number;
-  estimatedCablingTam: number;
 }
 
 interface PipelineValueTrendChartProps {
@@ -25,7 +23,6 @@ export function PipelineValueTrendChart({ data }: PipelineValueTrendChartProps) 
   const chartData = data.map((d) => ({
     date: new Date(d.recordedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     pipeline: d.weightedPipelineValue / 1_000_000,
-    tam: d.estimatedCablingTam / 1_000_000,
   }));
 
   if (chartData.length === 0) {
@@ -36,8 +33,6 @@ export function PipelineValueTrendChart({ data }: PipelineValueTrendChartProps) 
     );
   }
 
-  const latestTam = chartData[chartData.length - 1]?.tam ?? 0;
-
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={chartData}>
@@ -45,7 +40,6 @@ export function PipelineValueTrendChart({ data }: PipelineValueTrendChartProps) 
         <XAxis dataKey="date" tick={{ fontSize: 11 }} />
         <YAxis tick={{ fontSize: 11 }} label={{ value: "$M", angle: -90, position: "insideLeft", fontSize: 11 }} />
         <Tooltip />
-        <ReferenceLine y={latestTam} label={{ value: `TAM: $${latestTam.toFixed(1)}M`, position: "right", fontSize: 10 }} stroke="#ef4444" strokeDasharray="5 5" />
         <Line type="monotone" dataKey="pipeline" stroke="#8b5cf6" strokeWidth={2} dot={false} name="Weighted Pipeline ($M)" />
       </LineChart>
     </ResponsiveContainer>

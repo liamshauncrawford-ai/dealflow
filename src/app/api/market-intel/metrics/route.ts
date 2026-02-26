@@ -34,11 +34,11 @@ export async function GET(request: NextRequest) {
     // Calculate change
     const change = latest && prior
       ? {
-          totalMwOperating: (latest.totalMwOperating ?? 0) - (prior.totalMwOperating ?? 0),
-          totalMwUnderConstruction: (latest.totalMwUnderConstruction ?? 0) - (prior.totalMwUnderConstruction ?? 0),
           weightedPipelineValue: Number(latest.weightedPipelineValue ?? 0) - Number(prior.weightedPipelineValue ?? 0),
-          gcCoveragePct: (latest.gcCoveragePct ?? 0) - (prior.gcCoveragePct ?? 0),
           actionableTargets: (latest.actionableTargets ?? 0) - (prior.actionableTargets ?? 0),
+          targetsTracked: (latest.targetsTracked ?? 0) - (prior.targetsTracked ?? 0),
+          newListingsThisPeriod: (latest.newListingsThisPeriod ?? 0) - (prior.newListingsThisPeriod ?? 0),
+          listingsForSaleVolume: (latest.listingsForSaleVolume ?? 0) - (prior.listingsForSaleVolume ?? 0),
         }
       : null;
 
@@ -46,15 +46,12 @@ export async function GET(request: NextRequest) {
     const series = metrics.map((m) => ({
       id: m.id,
       recordedAt: m.recordedAt.toISOString(),
-      totalMwOperating: m.totalMwOperating,
-      totalMwUnderConstruction: m.totalMwUnderConstruction,
-      totalMwPlanned: m.totalMwPlanned,
-      activeConstructionProjects: m.activeConstructionProjects,
-      estimatedCablingTam: m.estimatedCablingTam,
-      gcCoveragePct: m.gcCoveragePct,
       weightedPipelineValue: m.weightedPipelineValue,
       targetsTracked: m.targetsTracked,
       actionableTargets: m.actionableTargets,
+      newListingsThisPeriod: m.newListingsThisPeriod,
+      listingsForSaleVolume: m.listingsForSaleVolume,
+      extraMetrics: m.extraMetrics,
     }));
 
     return NextResponse.json({
@@ -62,15 +59,12 @@ export async function GET(request: NextRequest) {
       series,
       latest: latest
         ? {
-            totalMwOperating: latest.totalMwOperating,
-            totalMwUnderConstruction: latest.totalMwUnderConstruction,
-            totalMwPlanned: latest.totalMwPlanned,
-            activeConstructionProjects: latest.activeConstructionProjects,
-            estimatedCablingTam: latest.estimatedCablingTam,
-            gcCoveragePct: latest.gcCoveragePct,
             weightedPipelineValue: latest.weightedPipelineValue,
             targetsTracked: latest.targetsTracked,
             actionableTargets: latest.actionableTargets,
+            newListingsThisPeriod: latest.newListingsThisPeriod,
+            listingsForSaleVolume: latest.listingsForSaleVolume,
+            extraMetrics: latest.extraMetrics,
           }
         : null,
       change,

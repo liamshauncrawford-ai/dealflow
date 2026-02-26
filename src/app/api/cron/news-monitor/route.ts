@@ -6,7 +6,6 @@ import {
   classifyArticles,
   type NewsClassification,
 } from "@/lib/ai/news-monitor";
-import { processDCConstructionArticle } from "@/lib/market-intel/dc-project-automation";
 import { requireCronOrAuth } from "@/lib/auth-helpers";
 
 const CLASSIFICATION_BATCH_SIZE = 10;
@@ -113,8 +112,8 @@ export async function POST(request: NextRequest) {
             aiSummary: c.summary,
             actionItems: c.action_items,
             classifiedAt: new Date(),
-            estimatedCablingValue: c.estimated_cabling_opportunity
-              ? parseDollarAmount(c.estimated_cabling_opportunity)
+            estimatedCablingValue: c.estimated_commercial_opportunity
+              ? parseDollarAmount(c.estimated_commercial_opportunity)
               : null,
           },
         });
@@ -132,66 +131,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Step 7: Run DC project automation on dc_construction / gc_award articles
-    let automationRuns = 0;
-    const dcArticles = await prisma.newsItem.findMany({
-      where: {
-        category: { in: ["dc_construction", "gc_award"] },
-        automationRanAt: null,
-        classifiedAt: { not: null },
-      },
-      select: {
-        id: true,
-        headline: true,
-        relatedOperatorIds: true,
-        relatedGcIds: true,
-        estimatedCablingValue: true,
-      },
-      take: 10,
-    });
-
-    for (const article of dcArticles) {
-      try {
-        const result = await processDCConstructionArticle({
-          newsItemId: article.id,
-          headline: article.headline ?? "",
-          operatorNames: (article.relatedOperatorIds as string[]) ?? [],
-          gcNames: (article.relatedGcIds as string[]) ?? [],
-          estimatedCablingValue: article.estimatedCablingValue
-            ? Number(article.estimatedCablingValue)
-            : null,
-        });
-
-        await prisma.newsItem.update({
-          where: { id: article.id },
-          data: {
-            automationRanAt: new Date(),
-            surfacedTargetIds: result.surfacedTargetIds,
-          },
-        });
-
-        if (result.opportunityId) {
-          await prisma.notification.create({
-            data: {
-              type: NotificationType.DC_PROJECT_NEWS,
-              title: `Auto-surfaced: ${(article.headline ?? "").slice(0, 80)}`,
-              message: `Created opportunity from news. ${result.surfacedTargetIds.length} targets nearby.`,
-              priority: "normal",
-              entityType: "cabling_opportunity",
-              entityId: result.opportunityId,
-              actionUrl: `/market-intel/opportunities`,
-            },
-          });
-        }
-
-        automationRuns++;
-      } catch (err) {
-        console.error(`DC automation error for ${article.id}:`, err);
-      }
-    }
-
     // Finalize agent run
-    const summary = `Fetched ${rawArticles.length} articles, ${newArticles.length} new, ${classified} classified, ${notifications} notifications, ${automationRuns} automated`;
+    const summary = `Fetched ${rawArticles.length} articles, ${newArticles.length} new, ${classified} classified, ${notifications} notifications`;
     await prisma.aIAgentRun.update({
       where: { id: agentRun.id },
       data: {
@@ -261,13 +202,13 @@ type NotificationCategory = NewsClassification["category"];
 type NotificationUrgency = NewsClassification["urgency"];
 
 const CATEGORY_LABELS: Record<NotificationCategory, string> = {
-  dc_construction: "DC Construction",
+  commercial_construction: "Commercial Construction",
   gc_award: "GC Project Award",
   legislation: "Legislative Update",
-  power_utility: "Power/Utility Update",
   acquisition_signal: "Acquisition Signal",
   competitor_move: "Competitor Activity",
   market_trend: "Market Trend",
+  trade_category_news: "Trade Category News",
   irrelevant: "",
 };
 
@@ -288,7 +229,7 @@ function buildNotification(c: NewsClassification): {
   const type: NotificationType =
     c.category === "legislation"
       ? NotificationType.LEGISLATION_UPDATE
-      : c.category === "dc_construction" || c.category === "gc_award"
+      : c.category === "commercial_construction" || c.category === "gc_award" || c.category === "trade_category_news"
         ? NotificationType.DC_PROJECT_NEWS
         : c.category === "acquisition_signal"
           ? NotificationType.HIGH_SCORE_DISCOVERY

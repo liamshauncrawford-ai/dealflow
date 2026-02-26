@@ -619,11 +619,6 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                   {listing.fitScore !== null && listing.fitScore !== undefined && (
                     <FitScoreGauge score={listing.fitScore} size="sm" />
                   )}
-                  {listing.dcRelevanceScore !== null && listing.dcRelevanceScore !== undefined && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 dark:bg-violet-900/20 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">
-                      DC Relevance: {listing.dcRelevanceScore}/10
-                    </span>
-                  )}
                 </div>
                 {listing.primaryTrade && (
                   <div className="mt-2">
@@ -638,7 +633,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
             )}
 
             {/* ── Certifications & Qualifications ── */}
-            {((listing.certifications?.length > 0) || (listing.dcCertifications?.length > 0) || listing.bonded || listing.insured) && (
+            {((listing.certifications?.length > 0) || listing.bonded || listing.insured) && (
               <div className="mt-3 border-t pt-3">
                 <div className="flex items-center gap-2 mb-2">
                   <Award className="h-3.5 w-3.5 text-muted-foreground" />
@@ -647,11 +642,6 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                 <div className="flex flex-wrap gap-1.5">
                   {listing.certifications?.map((cert: string) => (
                     <span key={cert} className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 text-xs text-blue-700 dark:text-blue-300">
-                      {cert}
-                    </span>
-                  ))}
-                  {listing.dcCertifications?.map((cert: string) => (
-                    <span key={cert} className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-xs text-purple-700 dark:text-purple-300">
                       {cert}
                     </span>
                   ))}

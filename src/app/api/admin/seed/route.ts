@@ -100,15 +100,13 @@ export async function POST(request: NextRequest) {
         employees: 7,
         established: 2018,
         isManualEntry: true,
-        primaryTrade: "SECURITY_SURVEILLANCE",
-        secondaryTrades: ["AV_INTEGRATION"],
+        primaryTrade: "SECURITY_FIRE_ALARM",
+        secondaryTrades: ["ELECTRICAL"],
         tier: "OWNED",
         website: "https://pmscommercial.com",
         certifications: ["Licensed", "Bonded", "Insured"],
         bonded: true,
         insured: true,
-        dcExperience: true,
-        dcRelevanceScore: 8,
         targetMultipleLow: 3.0,
         targetMultipleHigh: 5.0,
         fitScore: 0,
@@ -136,15 +134,13 @@ export async function POST(request: NextRequest) {
         employees: 12,
         established: 2015,
         isManualEntry: true,
-        primaryTrade: "AV_INTEGRATION",
-        secondaryTrades: ["SECURITY_SURVEILLANCE"],
+        primaryTrade: "ELECTRICAL",
+        secondaryTrades: ["SECURITY_FIRE_ALARM"],
         tier: "OWNED",
         website: "https://precisionmediasolutions.com",
         certifications: ["CTS Certified", "Licensed", "Bonded", "Insured"],
         bonded: true,
         insured: true,
-        dcExperience: false,
-        dcRelevanceScore: 5,
         targetMultipleLow: 3.0,
         targetMultipleHigh: 5.0,
         fitScore: 0,
@@ -190,15 +186,12 @@ export async function POST(request: NextRequest) {
         established: 1993,
         isManualEntry: true,
         primaryTrade: "STRUCTURED_CABLING",
-        secondaryTrades: ["SECURITY_SURVEILLANCE"],
+        secondaryTrades: ["SECURITY_FIRE_ALARM"],
         tier: "TIER_1_ACTIVE",
         website: "https://spccommunications.com",
         certifications: ["MBE/WBE", "GSA Schedule", "BiCSI RCDD", "BBB A+"],
-        dcCertifications: ["BiCSI RCDD"],
         bonded: true,
         insured: true,
-        dcExperience: true,
-        dcRelevanceScore: 9,
         targetMultipleLow: 3.0,
         targetMultipleHigh: 5.0,
         latitude: 39.7294,
@@ -273,14 +266,12 @@ export async function POST(request: NextRequest) {
         established: 1996,
         isManualEntry: true,
         primaryTrade: "STRUCTURED_CABLING",
-        secondaryTrades: ["SECURITY_SURVEILLANCE"],
+        secondaryTrades: ["SECURITY_FIRE_ALARM"],
         tier: "TIER_1_ACTIVE",
         website: "https://isitechnology.com",
         certifications: ["BBB A+"],
         bonded: true,
         insured: true,
-        dcExperience: true,
-        dcRelevanceScore: 8,
         targetMultipleLow: 3.5,
         targetMultipleHigh: 5.0,
         latitude: 39.7047,
@@ -359,16 +350,13 @@ export async function POST(request: NextRequest) {
         employees: 20,
         established: 1998,
         isManualEntry: true,
-        primaryTrade: "BUILDING_AUTOMATION_BMS",
-        secondaryTrades: ["HVAC_CONTROLS"],
+        primaryTrade: "HVAC_MECHANICAL",
+        secondaryTrades: ["ELECTRICAL"],
         tier: "TIER_1_ACTIVE",
         website: "https://msicontrols.com",
         certifications: ["Distech Controls Factory Certified", "Licensed", "Bonded"],
-        dcCertifications: ["BMS Integration"],
         bonded: true,
         insured: true,
-        dcExperience: true,
-        dcRelevanceScore: 9,
         targetMultipleLow: 3.0,
         targetMultipleHigh: 5.0,
         latitude: 39.7392,
@@ -449,14 +437,12 @@ export async function POST(request: NextRequest) {
         employees: 8,
         established: 2013,
         isManualEntry: true,
-        primaryTrade: "BUILDING_AUTOMATION_BMS",
-        secondaryTrades: ["HVAC_CONTROLS"],
+        primaryTrade: "HVAC_MECHANICAL",
+        secondaryTrades: ["ELECTRICAL"],
         tier: "TIER_2_WATCH",
         certifications: ["Reliable Controls Factory Authorized", "ABC Member", "AGC Member"],
         bonded: true,
         insured: true,
-        dcExperience: false,
-        dcRelevanceScore: 6,
         targetMultipleLow: 3.0,
         targetMultipleHigh: 4.0,
         latitude: 40.5853,
@@ -518,13 +504,11 @@ export async function POST(request: NextRequest) {
         employees: 15,
         established: 2002,
         isManualEntry: true,
-        primaryTrade: "MANAGED_IT_SERVICES",
+        primaryTrade: "GENERAL_COMMERCIAL",
         secondaryTrades: ["STRUCTURED_CABLING"],
         tier: "TIER_2_WATCH",
         bonded: true,
         insured: true,
-        dcExperience: false,
-        dcRelevanceScore: 5,
         targetMultipleLow: 3.0,
         targetMultipleHigh: 4.5,
         latitude: 39.5372,
@@ -562,11 +546,11 @@ export async function POST(request: NextRequest) {
 
     // TIER 3 (Disqualified) — Listings only
     const tier3Targets: { id: string; title: string; city: string; state: string; primaryTrade: PrimaryTrade; reason: string; employees: number; established?: number; latitude: number; longitude: number }[] = [
-      { id: "seed-control-systems-inc", title: "Control Systems Inc", city: "Denver", state: "CO", primaryTrade: "BUILDING_AUTOMATION_BMS", reason: "Multi-state platform, likely PE-backed. Too large for bolt-on acquisition.", employees: 200, latitude: 39.7392, longitude: -104.9903 },
+      { id: "seed-control-systems-inc", title: "Control Systems Inc", city: "Denver", state: "CO", primaryTrade: "HVAC_MECHANICAL", reason: "Multi-state platform, likely PE-backed. Too large for bolt-on acquisition.", employees: 200, latitude: 39.7392, longitude: -104.9903 },
       { id: "seed-electricians-llc", title: "The Electricians LLC", city: "Colorado Springs", state: "CO", primaryTrade: "ELECTRICAL", reason: "Founded 2020, only 5 years in business. Still growing, not mature enough.", employees: 12, established: 2020, latitude: 38.8339, longitude: -104.8214 },
-      { id: "seed-townsend-mechanical", title: "Townsend Mechanical", city: "Greeley", state: "CO", primaryTrade: "HVAC_CONTROLS", reason: "Residential HVAC, not commercial BMS. Wrong trade fit for data center thesis.", employees: 15, latitude: 40.4233, longitude: -104.7091 },
-      { id: "seed-climate-centennial", title: "Climate Engineering / Centennial Controls", city: "Denver", state: "CO", primaryTrade: "HVAC_CONTROLS", reason: "ABM/Linc Service franchise territory. Too entangled with franchisor agreements.", employees: 40, latitude: 39.7392, longitude: -104.9903 },
-      { id: "seed-ikm-building", title: "IKM Building Solutions", city: "Milwaukee", state: "WI", primaryTrade: "BUILDING_AUTOMATION_BMS", reason: "Wisconsin-based, 114 employees, EMCOR-owned. Too large and geographically wrong.", employees: 114, latitude: 43.0389, longitude: -87.9065 },
+      { id: "seed-townsend-mechanical", title: "Townsend Mechanical", city: "Greeley", state: "CO", primaryTrade: "HVAC_MECHANICAL", reason: "Residential HVAC, not commercial. Wrong segment for commercial services thesis.", employees: 15, latitude: 40.4233, longitude: -104.7091 },
+      { id: "seed-climate-centennial", title: "Climate Engineering / Centennial Controls", city: "Denver", state: "CO", primaryTrade: "HVAC_MECHANICAL", reason: "ABM/Linc Service franchise territory. Too entangled with franchisor agreements.", employees: 40, latitude: 39.7392, longitude: -104.9903 },
+      { id: "seed-ikm-building", title: "IKM Building Solutions", city: "Milwaukee", state: "WI", primaryTrade: "HVAC_MECHANICAL", reason: "Wisconsin-based, 114 employees, EMCOR-owned. Too large and geographically wrong.", employees: 114, latitude: 43.0389, longitude: -87.9065 },
     ];
 
     for (const t3 of tier3Targets) {
@@ -586,7 +570,6 @@ export async function POST(request: NextRequest) {
           disqualificationReason: t3.reason,
           employees: t3.employees,
           established: t3.established,
-          dcRelevanceScore: 3,
           latitude: t3.latitude,
           longitude: t3.longitude,
         },
@@ -622,8 +605,6 @@ export async function POST(request: NextRequest) {
         state: listing.state,
         metroArea: listing.metroArea,
         certifications: (listing.certifications as string[]) ?? [],
-        dcCertifications: (listing.dcCertifications as string[]) ?? [],
-        dcRelevanceScore: listing.dcRelevanceScore,
         askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
         ebitda: listing.ebitda ? Number(listing.ebitda) : null,
         inferredEbitda: listing.inferredEbitda ? Number(listing.inferredEbitda) : null,
@@ -646,15 +627,15 @@ export async function POST(request: NextRequest) {
     const emailTemplates = [
       {
         key: "email_template_direct_outreach",
-        value: "Subject: Confidential Inquiry — [Company Name]\n\nDear [Owner Name],\n\nI hope this letter finds you well. My name is Liam Crawford, and I lead a Colorado-based investment group focused on building a premier data center and commercial technology services platform along the Front Range.\n\nYour company's reputation for quality [trade] work caught our attention, and I'm reaching out to explore whether you might be open to a conversation about your long-term plans for the business.\n\nWe are not a private equity firm looking to strip costs — we're operators who want to preserve the culture, retain the team, and invest in growth. Our model is simple: keep the people who built the business, add resources and back-office support, and create career paths for technicians.\n\nIf you've ever considered what comes next — whether that's retirement, a partner buyout, or simply having a strategic conversation — I'd welcome the chance to meet for coffee and learn more about what you've built.\n\nNo brokers, no pressure, completely confidential.\n\nBest regards,\nLiam Crawford",
+        value: "Subject: Confidential Inquiry — [Company Name]\n\nDear [Owner Name],\n\nI hope this letter finds you well. My name is Liam Crawford, and I lead a Colorado-based investment group focused on building a premier commercial services platform along the Front Range.\n\nYour company's reputation for quality commercial contracting work caught our attention, and I'm reaching out to explore whether you might be open to a conversation about your long-term plans for the business.\n\nWe are not a private equity firm looking to strip costs — we're operators who want to preserve the culture, retain the team, and invest in growth. Our model is simple: keep the people who built the business, add resources and back-office support, and create career paths for technicians.\n\nIf you've ever considered what comes next — whether that's retirement, a partner buyout, or simply having a strategic conversation — I'd welcome the chance to meet for coffee and learn more about what you've built.\n\nNo brokers, no pressure, completely confidential.\n\nBest regards,\nLiam Crawford",
       },
       {
         key: "email_template_broker_inquiry",
-        value: "Subject: Buyer Registration — Colorado Low-Voltage / Data Center Trades\n\nDear [Broker Name],\n\nI am actively acquiring Colorado-based businesses in the low-voltage, structured cabling, building automation, and security integration trades. My group operates an existing platform in the Denver Metro area and we're looking to add complementary capabilities through acquisition.\n\nOur target profile:\n• Revenue: $1M – $15M\n• Location: Colorado (Front Range preferred)\n• Trades: Structured cabling, security/surveillance, BMS/HVAC controls, fire alarm, electrical\n• Structure: We can close quickly (60-90 days) with flexible deal structures\n\nI'd appreciate being added to your distribution list for relevant listings. Please feel free to contact me at your convenience to discuss any current or upcoming opportunities.\n\nBest regards,\nLiam Crawford",
+        value: "Subject: Buyer Registration — Colorado Commercial Trades\n\nDear [Broker Name],\n\nI am actively acquiring Colorado-based businesses in the electrical, HVAC/mechanical, plumbing, security, structured cabling, and specialty contracting trades. My group operates an existing platform in the Denver Metro area and we're looking to add complementary capabilities through acquisition.\n\nOur target profile:\n• Revenue: $1M – $15M\n• Location: Colorado (Front Range preferred)\n• Trades: Electrical, HVAC/mechanical, plumbing, security/fire alarm, structured cabling, specialty contracting\n• Structure: We can close quickly (60-90 days) with flexible deal structures\n\nI'd appreciate being added to your distribution list for relevant listings. Please feel free to contact me at your convenience to discuss any current or upcoming opportunities.\n\nBest regards,\nLiam Crawford",
       },
       {
         key: "email_template_referral_request",
-        value: "Subject: Introduction Request — Colorado Data Center Trades\n\nDear [Contact Name],\n\nI hope you're doing well. I'm reaching out because of your deep connections in the Colorado [industry] community.\n\nMy group is building a platform of complementary data center and commercial technology service providers along the Front Range. We recently acquired our first company and are now looking for our next 2-3 bolt-on acquisitions.\n\nI'm specifically interested in meeting owners of:\n• Structured cabling / fiber optic companies\n• Building automation / BMS firms\n• Security and surveillance integrators\n• HVAC controls specialists\n\nIf you know of any business owners who might be thinking about succession planning or an eventual exit, I would greatly appreciate an introduction. All conversations are completely confidential.\n\nThank you for your time, and please don't hesitate to reach out if I can be of help in return.\n\nBest regards,\nLiam Crawford",
+        value: "Subject: Introduction Request — Colorado Commercial Trades\n\nDear [Contact Name],\n\nI hope you're doing well. I'm reaching out because of your deep connections in the Colorado [industry] community.\n\nMy group is building a platform of complementary commercial service contractors along the Front Range. We recently acquired our first company and are now looking for our next 2-3 bolt-on acquisitions.\n\nI'm specifically interested in meeting owners of:\n• Electrical contractors\n• HVAC / mechanical companies\n• Plumbing contractors\n• Security / fire alarm integrators\n• Structured cabling / low-voltage firms\n• Specialty trade contractors\n\nIf you know of any business owners who might be thinking about succession planning or an eventual exit, I would greatly appreciate an introduction. All conversations are completely confidential.\n\nThank you for your time, and please don't hesitate to reach out if I can be of help in return.\n\nBest regards,\nLiam Crawford",
       },
     ];
 
@@ -669,31 +650,30 @@ export async function POST(request: NextRequest) {
 
     // ── 5. Search Keywords ────────────────────────────────────
     const primaryKeywords = [
-      '"structured cabling" AND (Colorado OR Denver OR "Front Range")',
-      '"low voltage contractor" AND (Colorado OR Denver)',
-      '"low voltage" AND (Colorado OR Denver) AND ("for sale" OR "acquisition" OR "business opportunity")',
-      '"building automation" AND (Colorado OR Denver)',
-      '"BAS controls" AND (Colorado OR Denver)',
-      '"security systems installer" AND (Colorado OR Denver)',
-      '"security integrator" AND (Colorado OR Denver)',
-      '"fire alarm contractor" AND (Colorado OR Denver)',
-      '"HVAC controls" AND (Colorado OR Denver)',
-      '"access control" AND contractor AND (Colorado OR Denver)',
-      '"electrical contractor" AND (Denver OR Colorado) AND ("for sale" OR "retirement" OR "succession")',
+      '"electrical contractor" AND (Colorado OR Denver OR "Front Range") AND ("for sale" OR "retirement" OR "succession")',
+      '"HVAC contractor" AND (Colorado OR Denver)',
+      '"mechanical contractor" AND (Colorado OR Denver)',
+      '"plumbing contractor" AND (Colorado OR Denver)',
+      '"security systems" AND contractor AND (Colorado OR Denver)',
+      '"fire alarm" AND contractor AND (Colorado OR Denver)',
+      '"structured cabling" AND (Colorado OR Denver)',
+      '"roofing contractor" AND (Colorado OR Denver) AND ("for sale" OR "business")',
+      '"painting contractor" AND commercial AND (Colorado OR Denver)',
+      '"concrete contractor" AND (Colorado OR Denver)',
+      '"framing contractor" OR "drywall contractor" AND Colorado',
     ];
 
     const secondaryKeywords = [
+      '"general contractor" AND Colorado AND ("for sale" OR "acquisition")',
+      '"specialty contractor" AND Colorado AND ("for sale" OR "business")',
+      '"low voltage" AND contractor AND (Colorado OR Denver)',
+      '"excavation" OR "site work" AND contractor AND Colorado',
+      '"construction subcontractor" AND Colorado',
+      '"commercial services" AND contractor AND Colorado',
+      '"building automation" AND (Colorado OR Denver)',
+      '"fire protection" AND contractor AND Colorado',
       '"telecommunications contractor" AND Colorado',
       '"IT services" AND Colorado AND ("for sale" OR "acquisition")',
-      '"data cabling" AND Colorado',
-      '"fiber optic" AND contractor AND Colorado',
-      '"surveillance" AND installer AND Colorado',
-      '"network infrastructure" AND (Colorado OR Denver)',
-      '"AV integrator" AND (Colorado OR Denver)',
-      '"building controls" AND (Colorado OR Denver)',
-      '"BMS" AND contractor AND Colorado',
-      '"Distech" OR "Reliable Controls" OR "Tridium" OR "Niagara" AND Colorado',
-      '"energy management" AND HVAC AND Colorado AND ("for sale" OR "business")',
     ];
 
     await prisma.appSetting.upsert({
@@ -725,10 +705,9 @@ export async function POST(request: NextRequest) {
 
     // ── 7. Target Email Domains ───────────────────────────────
     const targetEmailDomains = [
-      "structuredplus.com", "intsysinst.com", "msicolorado.com",
-      "colorado-controls.com", "anchornetworksolutions.com",
       "sunbeltnetwork.com", "tworld.com", "murphybusiness.com",
-      "linkbusiness.com", "bicsi.org", "ashrae.org", "abcrmc.org", "agccolorado.org",
+      "linkbusiness.com", "bicsi.org", "ashrae.org", "abcrmc.org",
+      "agccolorado.org", "phccweb.org", "neca-net.org",
     ];
 
     await prisma.appSetting.upsert({
@@ -737,86 +716,6 @@ export async function POST(request: NextRequest) {
       create: { key: "target_email_domains", value: JSON.stringify(targetEmailDomains) },
     });
     results.targetEmailDomains = targetEmailDomains.length;
-
-    // ── 8. DC Operators ─────────────────────────────────────
-    const dcOperators = [
-      { name: "QTS Data Centers", parentCompany: "Blackstone", hqLocation: "Overland Park, KS", hqState: "KS", website: "https://qtsdatacenters.com", tier: "TIER_1_ACTIVE_CONSTRUCTION", cablingOpportunityScore: 10, estimatedAnnualCablingRevenue: 5_000_000, activeConstruction: true, constructionTimeline: "Ramping over ~10 years; Phase 1 under construction", phaseCount: 4, relationshipStatus: "IDENTIFIED", notes: "177 MW hyperscale campus across four buildings. Will be Xcel Energy's single largest customer. Construction budget $1B+. Holder Construction is GC." },
-      { name: "CoreSite", parentCompany: "American Tower Corporation", hqLocation: "Denver, CO", hqState: "CO", website: "https://coresite.com", tier: "TIER_1_ACTIVE_CONSTRUCTION", cablingOpportunityScore: 9, estimatedAnnualCablingRevenue: 3_000_000, activeConstruction: true, constructionTimeline: "DE3 targeted for 2026; three-building campus", phaseCount: 3, relationshipStatus: "IDENTIFIED", notes: "HQ in Denver. DE3: 180K sqft, 18 MW. Full campus: 600K+ sqft, 60 MW. DPR Construction for new builds; Constructiv for retrofits." },
-      { name: "Flexential", parentCompany: null as string | null, hqLocation: "Centennial, CO", hqState: "CO", website: "https://flexential.com", tier: "TIER_1_ACTIVE_CONSTRUCTION", cablingOpportunityScore: 8, estimatedAnnualCablingRevenue: 2_000_000, activeConstruction: true, constructionTimeline: "Parker facility broke ground Q2 2025; 2026 go-live", phaseCount: 1, relationshipStatus: "IDENTIFIED", notes: "Parker: 249K sqft, 22.5 MW on 17 acres. Standardized 36 MW chunk builds mean repeatable cabling scope. Colorado HQ = local sub preference." },
-      { name: "Global AI / Humain", parentCompany: "Saudi AI Partnership", hqLocation: "Endicott, NY", hqState: "NY", website: null as string | null, tier: "TIER_1_ACTIVE_CONSTRUCTION", cablingOpportunityScore: 7, estimatedAnnualCablingRevenue: 1_000_000, activeConstruction: false, constructionTimeline: "Phase 1 operational by end 2026; up to 1 GW long-term", phaseCount: 1, relationshipStatus: "NO_CONTACT", notes: "438 acres near Windsor, Weld County. Phase 1: 18-24 MW. Long-term: up to 1 GW. $2B-$20B investment. No GC announced — early opportunity." },
-      { name: "Iron Mountain Data Centers", parentCompany: "Iron Mountain", hqLocation: "Boston, MA", hqState: "MA", website: "https://ironmountain.com/data-centers", tier: "TIER_2_EXPANSION", cablingOpportunityScore: 5, estimatedAnnualCablingRevenue: 500_000, activeConstruction: false, constructionTimeline: null as string | null, phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "DEN-1: 180K sqft, 14.4 MW. Uptime Institute Tier III Gold certified. Steady maintenance and upgrade cabling work." },
-      { name: "STACK Infrastructure", parentCompany: "IPI Partners", hqLocation: "Denver, CO", hqState: "CO", website: "https://stackinfra.com", tier: "TIER_2_EXPANSION", cablingOpportunityScore: 4, estimatedAnnualCablingRevenue: 200_000, activeConstruction: false, constructionTimeline: null as string | null, phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "HQ in Denver. Primarily building in NoVA/Chicago. Denver HQ positions for Colorado expansion." },
-      { name: "RadiusDC", parentCompany: "IPI Partners", hqLocation: "Denver, CO", hqState: "CO", website: "https://radiusdc.com", tier: "TIER_2_EXPANSION", cablingOpportunityScore: 6, estimatedAnnualCablingRevenue: 400_000, activeConstruction: false, constructionTimeline: null as string | null, phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "1500 Champa St. 138K sqft, 10 MW potential. Active expansion/upgrades." },
-      { name: "Novva Data Centers", parentCompany: null as string | null, hqLocation: "Salt Lake City, UT", hqState: "UT", website: "https://novva.com", tier: "TIER_2_EXPANSION", cablingOpportunityScore: 7, estimatedAnnualCablingRevenue: 800_000, activeConstruction: false, constructionTimeline: "Expanding from 6 MW to 30 MW", phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "Colorado Springs campus: 37 acres, expanding from 190K sqft/6 MW to 250K+ sqft/30 MW." },
-      { name: "Expedient", parentCompany: null as string | null, hqLocation: "Pittsburgh, PA", hqState: "PA", website: "https://expedient.com", tier: "TIER_3_EXISTING_MAINTENANCE", cablingOpportunityScore: 2, estimatedAnnualCablingRevenue: 50_000, activeConstruction: false, constructionTimeline: null as string | null, phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "Centennial, CO. 2 MW facility. Small scale but has unused expansion space." },
-      { name: "CyrusOne (KKR/GIP)", parentCompany: "KKR / GIP", hqLocation: "Dallas, TX", hqState: "TX", website: "https://cyrusone.com", tier: "TIER_3_EXISTING_MAINTENANCE", cablingOpportunityScore: 5, estimatedAnnualCablingRevenue: 300_000, activeConstruction: false, constructionTimeline: null as string | null, phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "Chandler, AZ campus with National Renewable Energy Lab partnership. Monitor for Colorado expansion." },
-      { name: "Viaero Data Centers", parentCompany: null as string | null, hqLocation: "Fort Morgan, CO", hqState: "CO", website: "https://viaero.com", tier: "TIER_4_RUMORED", cablingOpportunityScore: 3, estimatedAnnualCablingRevenue: 100_000, activeConstruction: false, constructionTimeline: null as string | null, phaseCount: null as number | null, relationshipStatus: "NO_CONTACT", notes: "Regional carrier with data center services. Small scale but local Colorado presence." },
-    ];
-
-    for (const op of dcOperators) {
-      await prisma.dataCenterOperator.upsert({
-        where: { name: op.name },
-        update: op as any,
-        create: op as any,
-      });
-    }
-    results.dcOperators = dcOperators.length;
-
-    // ── 9. DC Facilities ────────────────────────────────────
-    // Build operator name→id map
-    const operatorMap = new Map<string, string>();
-    const allOps = await prisma.dataCenterOperator.findMany({ select: { id: true, name: true } });
-    for (const o of allOps) operatorMap.set(o.name, o.id);
-
-    const dcFacilities = [
-      { operatorName: "QTS Data Centers", facilityName: "QTS Aurora-Denver Campus", address: "1160 N. Gun Club Rd", city: "Aurora", state: "CO", latitude: 39.7086, longitude: -104.7109, capacityMW: 177, sqft: 500_000, status: "UNDER_CONSTRUCTION", tierCertification: "Hyperscale" },
-      { operatorName: "CoreSite", facilityName: "DE1 - 910 15th Street", address: "910 15th Street", city: "Denver", state: "CO", latitude: 39.7478, longitude: -104.9963, status: "OPERATING" },
-      { operatorName: "CoreSite", facilityName: "DE2 - 639 East 18th Avenue", address: "639 East 18th Avenue", city: "Denver", state: "CO", latitude: 39.7442, longitude: -104.9768, status: "OPERATING" },
-      { operatorName: "CoreSite", facilityName: "DE3 - 4900 Race Street", address: "4900 Race Street", city: "Denver", state: "CO", latitude: 39.7839, longitude: -104.9668, capacityMW: 18, sqft: 180_000, status: "UNDER_CONSTRUCTION", yearExpectedCompletion: 2026 },
-      { operatorName: "Flexential", facilityName: "Parker Facility", city: "Parker", state: "CO", latitude: 39.5186, longitude: -104.7613, capacityMW: 22.5, sqft: 249_000, status: "UNDER_CONSTRUCTION", yearExpectedCompletion: 2026 },
-      { operatorName: "Flexential", facilityName: "Centennial Campus", address: "12500 East Arapahoe Rd", city: "Centennial", state: "CO", latitude: 39.5973, longitude: -104.8317, status: "OPERATING" },
-      { operatorName: "Flexential", facilityName: "Compark", address: "15255 Compark Blvd", city: "Parker", state: "CO", latitude: 39.5280, longitude: -104.7947, status: "OPERATING" },
-      { operatorName: "Global AI / Humain", facilityName: "Windsor Campus (Phase 1)", city: "Windsor", state: "CO", latitude: 40.4774, longitude: -104.9014, capacityMW: 24, status: "PLANNED", yearExpectedCompletion: 2026 },
-      { operatorName: "Iron Mountain Data Centers", facilityName: "DEN-1", address: "4300 Brighton Blvd", city: "Denver", state: "CO", latitude: 39.7702, longitude: -104.9598, capacityMW: 14.4, sqft: 180_000, status: "OPERATING", yearOpened: 2001, tierCertification: "Tier III Gold (Uptime Institute)" },
-      { operatorName: "RadiusDC", facilityName: "1500 Champa Street", address: "1500 Champa Street", city: "Denver", state: "CO", latitude: 39.7458, longitude: -104.9937, capacityMW: 10, sqft: 138_000, status: "OPERATING" },
-      { operatorName: "Novva Data Centers", facilityName: "Colorado Springs Campus", city: "Colorado Springs", state: "CO", latitude: 38.8339, longitude: -104.8214, capacityMW: 6, sqft: 190_000, status: "OPERATING" },
-    ];
-
-    for (const f of dcFacilities) {
-      const opId = operatorMap.get(f.operatorName);
-      if (!opId) continue;
-      const { operatorName, ...facilityData } = f;
-      const data = { ...facilityData, operatorId: opId };
-      const existing = await prisma.dCFacility.findFirst({
-        where: { facilityName: f.facilityName, operatorId: opId },
-      });
-      if (existing) {
-        await prisma.dCFacility.update({ where: { id: existing.id }, data: data as any });
-      } else {
-        await prisma.dCFacility.create({ data: data as any });
-      }
-    }
-    results.dcFacilities = dcFacilities.length;
-
-    // ── 10. General Contractors ──────────────────────────────
-    const generalContractors = [
-      { name: "Holder Construction", hqLocation: "Atlanta, GA", website: "https://holderconstruction.com", coloradoOffice: true, dcExperienceLevel: "SPECIALIST", notableDCProjects: ["QTS Aurora-Denver Campus (177 MW)", "Multiple hyperscale projects nationally"], priority: "HIGHEST", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "IDENTIFIED", notes: "GC for QTS Aurora campus. One of the leading data center GCs nationally." },
-      { name: "DPR Construction", hqLocation: "Redwood City, CA", website: "https://dpr.com", coloradoOffice: true, dcExperienceLevel: "SPECIALIST", notableDCProjects: ["CoreSite DE3 (18 MW)", "Extensive national DC portfolio"], priority: "HIGHEST", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "IDENTIFIED", notes: "GC for CoreSite DE3 new construction. Top-tier DC-focused GC." },
-      { name: "Constructiv", hqLocation: "Denver, CO", website: null as string | null, coloradoOffice: true, dcExperienceLevel: "EXPERIENCED", notableDCProjects: ["CoreSite DE1/DE2 retrofits and upgrades"], priority: "HIGH", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "NO_CONTACT", notes: "GC of Record for CoreSite ongoing retrofits/upgrades. Local Denver firm." },
-      { name: "JE Dunn Construction", hqLocation: "Kansas City, MO", website: "https://jedunn.com", coloradoOffice: true, dcExperienceLevel: "EXPERIENCED", notableDCProjects: ["Multiple mission-critical facilities"], priority: "HIGH", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "NO_CONTACT", estimatedAnnualOpportunity: 2_000_000, notes: "Major national GC with Denver office. Active in mission-critical/data center construction." },
-      { name: "Hensel Phelps", hqLocation: "Greeley, CO", website: "https://henselphelps.com", coloradoOffice: true, dcExperienceLevel: "EXPERIENCED", notableDCProjects: ["Various mission-critical facilities"], priority: "HIGH", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "NO_CONTACT", estimatedAnnualOpportunity: 1_500_000, notes: "HQ in Greeley, CO. One of the largest employee-owned GCs." },
-      { name: "Mortenson", hqLocation: "Minneapolis, MN", website: "https://mortenson.com", coloradoOffice: true, dcExperienceLevel: "SPECIALIST", notableDCProjects: ["Meta, Google, Microsoft data centers"], priority: "HIGHEST", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "NO_CONTACT", estimatedAnnualOpportunity: 3_000_000, notes: "One of the top 3 DC GCs nationally. Denver office. Builds hyperscale for FAANG companies." },
-      { name: "Swinerton", hqLocation: "San Francisco, CA", website: "https://swinerton.com", coloradoOffice: true, dcExperienceLevel: "EXPERIENCED", notableDCProjects: ["Various data center and mission-critical projects"], priority: "MODERATE", subQualificationStatus: "NOT_APPLIED", relationshipStatus: "NO_CONTACT", estimatedAnnualOpportunity: 1_000_000, notes: "Strong mission-critical/data center practice. Denver office." },
-    ];
-
-    for (const gc of generalContractors) {
-      await prisma.generalContractor.upsert({
-        where: { name: gc.name },
-        update: gc as any,
-        create: gc as any,
-      });
-    }
-    results.generalContractors = generalContractors.length;
 
     return NextResponse.json({
       success: true,
@@ -847,9 +746,6 @@ export async function GET() {
       contacts,
       emailTemplates,
       keywords,
-      dcOperators,
-      dcFacilities,
-      generalContractors,
     ] = await Promise.all([
       prisma.industryMultiple.count(),
       prisma.scrapeSchedule.count(),
@@ -858,9 +754,6 @@ export async function GET() {
       prisma.contact.count(),
       prisma.appSetting.count({ where: { key: { startsWith: "email_template_" } } }),
       prisma.appSetting.count({ where: { key: { startsWith: "search_keywords_" } } }),
-      prisma.dataCenterOperator.count(),
-      prisma.dCFacility.count(),
-      prisma.generalContractor.count(),
     ]);
 
     return NextResponse.json({
@@ -872,9 +765,6 @@ export async function GET() {
         contacts,
         emailTemplates,
         keywords,
-        dcOperators,
-        dcFacilities,
-        generalContractors,
       },
     });
   } catch (error) {

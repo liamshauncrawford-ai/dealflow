@@ -83,7 +83,7 @@ export async function PATCH(
     // Auto-recompute fitScore when thesis-relevant fields change
     const thesisFields = [
       "primaryTrade", "secondaryTrades", "revenue", "established", "state",
-      "metroArea", "certifications", "dcCertifications", "dcRelevanceScore",
+      "metroArea", "certifications",
       "askingPrice", "ebitda", "inferredEbitda", "targetMultipleHigh", "tier",
     ];
     const hasThesisChange = thesisFields.some(f => f in updateData);
@@ -99,8 +99,6 @@ export async function PATCH(
         state: listing.state,
         metroArea: listing.metroArea,
         certifications: listing.certifications as string[],
-        dcCertifications: listing.dcCertifications as string[],
-        dcRelevanceScore: listing.dcRelevanceScore,
         askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
         ebitda: listing.ebitda ? Number(listing.ebitda) : null,
         inferredEbitda: listing.inferredEbitda ? Number(listing.inferredEbitda) : null,

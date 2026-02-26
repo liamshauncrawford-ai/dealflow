@@ -40,7 +40,6 @@ import { PromoteDialog } from "@/components/promote-dialog";
 import { cn, formatCurrency, formatDate, formatRelativeDate } from "@/lib/utils";
 import { PIPELINE_STAGES, PRIMARY_TRADES, TIERS, type PrimaryTradeKey, type TierKey } from "@/lib/constants";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MiniMap } from "@/components/maps/mini-map";
 import { DeepDivePanel } from "@/components/ai/deep-dive-panel";
 import { OutreachDraftPanel } from "@/components/ai/outreach-draft-panel";
 
@@ -182,11 +181,8 @@ export default function ListingDetailPage({
       targetMultipleLow: listing.targetMultipleLow ?? 3.0,
       targetMultipleHigh: listing.targetMultipleHigh ?? 5.0,
       certifications: listing.certifications || [],
-      dcCertifications: listing.dcCertifications || [],
       bonded: listing.bonded,
       insured: listing.insured,
-      dcRelevanceScore: listing.dcRelevanceScore || "",
-      dcExperience: listing.dcExperience,
       disqualificationReason: listing.disqualificationReason || "",
       synergyNotes: listing.synergyNotes || "",
     });
@@ -208,7 +204,7 @@ export default function ListingDetailPage({
       "inventory", "ffe", "realEstate",
     ];
     const floatFields = ["targetMultipleLow", "targetMultipleHigh"];
-    const intFields = ["employees", "established", "dcRelevanceScore"];
+    const intFields = ["employees", "established"];
     const stringFields = [
       "title", "businessName", "description", "city", "state",
       "metroArea", "zipCode", "industry", "category",
@@ -216,9 +212,9 @@ export default function ListingDetailPage({
       "brokerName", "brokerCompany", "brokerPhone", "brokerEmail",
       "website", "phone", "disqualificationReason", "synergyNotes",
     ];
-    const booleanFields = ["sellerFinancing", "bonded", "insured", "dcExperience"];
+    const booleanFields = ["sellerFinancing", "bonded", "insured"];
     const enumFields = ["primaryTrade", "tier"];
-    const arrayFields = ["secondaryTrades", "certifications", "dcCertifications"];
+    const arrayFields = ["secondaryTrades", "certifications"];
 
     for (const field of numericFields) {
       const val = editData[field];
@@ -452,12 +448,6 @@ export default function ListingDetailPage({
                 <div>AI Score: {listing.aiScore}</div>
               </div>
             )}
-            {listing.dcRelevanceScore && (
-              <div>
-                <span className="text-xs font-medium uppercase text-muted-foreground">DC Relevance</span>
-                <div className="mt-1 text-lg font-semibold">{listing.dcRelevanceScore}/10</div>
-              </div>
-            )}
             {listing.thesisAlignment && (
               <div>
                 <span className="text-xs font-medium uppercase text-muted-foreground">Thesis Fit</span>
@@ -508,17 +498,6 @@ export default function ListingDetailPage({
                       <option key={key} value={key}>{config.label}</option>
                     ))}
                   </select>
-                </div>
-                <div>
-                  <label className="text-xs text-muted-foreground">DC Relevance (1-10)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={editData.dcRelevanceScore === null || editData.dcRelevanceScore === undefined ? "" : String(editData.dcRelevanceScore)}
-                    onChange={(e) => updateField("dcRelevanceScore", e.target.value ? parseInt(e.target.value) : "")}
-                    className="mt-1 block w-24 rounded-md border bg-background px-3 py-1.5 text-sm"
-                  />
                 </div>
               </div>
             )}
@@ -645,13 +624,6 @@ export default function ListingDetailPage({
                   })}
                 </div>
               </div>
-              <div className="flex gap-4">
-                <BooleanToggle
-                  label="DC Experience"
-                  value={editData.dcExperience as boolean | null | undefined}
-                  onChange={(v) => updateField("dcExperience", v)}
-                />
-              </div>
             </div>
           ) : (
             <div className="space-y-3">
@@ -662,12 +634,6 @@ export default function ListingDetailPage({
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">No trade classification set</p>
-              )}
-              {listing.dcExperience && (
-                <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-                  <Award className="h-4 w-4" />
-                  Data center experience
-                </div>
               )}
             </div>
           )}
@@ -684,11 +650,6 @@ export default function ListingDetailPage({
                 label="Certifications (comma-separated)"
                 value={(editData.certifications as string[] || []).join(", ")}
                 onChange={(v) => updateField("certifications", v.split(",").map((s: string) => s.trim()).filter(Boolean))}
-              />
-              <EditField
-                label="DC Certifications (comma-separated)"
-                value={(editData.dcCertifications as string[] || []).join(", ")}
-                onChange={(v) => updateField("dcCertifications", v.split(",").map((s: string) => s.trim()).filter(Boolean))}
               />
               <div className="flex gap-4">
                 <BooleanToggle
@@ -718,21 +679,6 @@ export default function ListingDetailPage({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No certifications listed</p>
-              )}
-              {listing.dcCertifications?.length > 0 && (
-                <div>
-                  <span className="text-xs text-muted-foreground">DC Certifications:</span>
-                  <div className="mt-1 flex flex-wrap gap-1.5">
-                    {(listing.dcCertifications as string[]).map((cert: string) => (
-                      <span
-                        key={cert}
-                        className="inline-flex items-center rounded-md bg-purple-50 dark:bg-purple-900/20 px-2 py-0.5 text-xs font-medium text-purple-700 dark:text-purple-300"
-                      >
-                        {cert}
-                      </span>
-                    ))}
-                  </div>
-                </div>
               )}
               <div className="flex items-center gap-4 text-sm">
                 {listing.bonded !== null && (
@@ -926,17 +872,12 @@ export default function ListingDetailPage({
               )}
               {listing.metroArea && <DetailRow icon={MapPin} label="Metro Area" value={listing.metroArea} />}
               {listing.latitude && listing.longitude && (
-                <MiniMap
-                  markers={[{
-                    id: listing.id,
-                    lat: listing.latitude,
-                    lng: listing.longitude,
-                    label: listing.title,
-                    type: "listing",
-                  }]}
-                  height="180px"
-                  className="mt-2"
-                />
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <MapPin className="h-3 w-3" />
+                  <span>
+                    {listing.latitude.toFixed(4)}, {listing.longitude.toFixed(4)}
+                  </span>
+                </div>
               )}
               {listing.phone && <DetailRow icon={Phone} label="Phone" value={listing.phone} />}
               {listing.employees && <DetailRow icon={Users} label="Employees" value={String(listing.employees)} />}

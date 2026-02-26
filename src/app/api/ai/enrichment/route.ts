@@ -75,9 +75,6 @@ export async function POST(request: NextRequest) {
       (listing.certifications as string[])?.length
         ? `Certifications: ${(listing.certifications as string[]).join(", ")}`
         : null,
-      listing.dcExperience != null
-        ? `DC Experience: ${listing.dcExperience ? "Yes" : "Unknown"}`
-        : null,
       listing.website ? `Website: ${listing.website}` : null,
       listing.reasonForSale ? `Reason for Sale: ${listing.reasonForSale}` : null,
       primaryContact?.name ? `Known Contact: ${primaryContact.name}` : null,

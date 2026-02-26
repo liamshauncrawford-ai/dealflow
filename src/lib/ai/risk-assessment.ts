@@ -35,7 +35,7 @@ export interface DealRiskAssessment {
 // System Prompt
 // ─────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a senior M&A risk analyst supporting a buy-side search for a Colorado-based data center trades roll-up. The thesis targets IT infrastructure and trades companies: structured cabling, electrical, mechanical, security/surveillance, and fire protection.
+const SYSTEM_PROMPT = `You are a senior M&A risk analyst supporting a buy-side search for the Crawford Holdings commercial services acquisition platform. The thesis targets commercial service contractors across Colorado's Front Range in 11 trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial.
 
 Given the data below, produce a comprehensive risk assessment. Be specific and actionable — reference actual numbers and facts from the data.
 

@@ -68,7 +68,7 @@ export interface AICIMExtractionResult {
 
   // Generated Narratives
   dealStructureSummary: string; // Human-readable, matching PMS/AES format
-  thesisFitAssessment: string; // How well it fits Colorado data center trades thesis
+  thesisFitAssessment: string; // How well it fits Crawford Holdings commercial services thesis
 
   // Extraction metadata
   confidence: number; // 0-1
@@ -79,7 +79,7 @@ export interface AICIMExtractionResult {
 // System Prompt
 // ─────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are a senior M&A analyst specializing in lower middle-market acquisitions of IT infrastructure and trades companies. You are supporting a buy-side search focused on a Colorado-based data center trades roll-up thesis targeting structured cabling, electrical, mechanical, security/surveillance, and fire protection companies.
+const SYSTEM_PROMPT = `You are a senior M&A analyst specializing in lower middle-market acquisitions of commercial trade contractors. You are supporting a buy-side search focused on the Crawford Holdings commercial services acquisition platform — targeting commercial service contractors across Colorado's Front Range in 11 trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial.
 
 Your task is to extract structured data from a Confidential Information Memorandum (CIM) or business summary document. Extract every available data point with precision. When a value is not present in the document, use null — never guess or fabricate values.
 
@@ -88,7 +88,7 @@ Financial values should be in raw numbers (e.g., 2700000 not "2.7M" or "$2.7 mil
 For the "dealStructureSummary" field, write a concise 2-4 sentence summary of the deal in plain English, similar to this style:
 "Commercial electrical and structured cabling contractor. $2.7M revenue, $322K EBITDA (11.9% margin), 15 employees. Asking $900K (2.8x EBITDA). Owner retiring after 22 years."
 
-For the "thesisFitAssessment" field, evaluate how well this business fits the Colorado data center trades roll-up thesis. Consider: service line overlap, geography, recurring revenue potential, customer base (data centers, enterprise), scalability, and integration potential.
+For the "thesisFitAssessment" field, evaluate how well this business fits the Crawford Holdings commercial services acquisition thesis. Consider: trade category alignment (11 target trades), Colorado Front Range geography, recurring revenue potential, commercial customer base, scalability, cross-sell potential across trades, and integration potential into a multi-trade platform.
 
 For "riskFlags", identify concrete risks: customer concentration, key person dependency, declining trends, certification requirements, regulatory exposure, etc.
 

@@ -21,17 +21,18 @@ interface PostProcessResult {
 // ─────────────────────────────────────────────
 
 const TRADE_KEYWORDS: Array<{ trade: PrimaryTrade; patterns: RegExp }> = [
+  { trade: "ELECTRICAL", patterns: /electrical contractor|electrician|electrical service|power distribution|commercial electric/i },
   { trade: "STRUCTURED_CABLING", patterns: /structured cabling|data cabling|fiber optic|cat[56e]|network cabling|telecommunications contractor|low.?voltage.*cable/i },
-  { trade: "SECURITY_SURVEILLANCE", patterns: /security system|surveillance|access control|cctv|intrusion detection|alarm system|security integrat/i },
-  { trade: "BUILDING_AUTOMATION_BMS", patterns: /building automation|bms|building management|bac(net)?|energy management system|distech|reliable controls|tridium|niagara/i },
-  { trade: "HVAC_CONTROLS", patterns: /hvac control|hvac system|mechanical control|ddc|direct digital control|pneumatic.*control/i },
-  { trade: "FIRE_ALARM", patterns: /fire alarm|fire protection|fire suppression|life safety|fire detection/i },
-  { trade: "ELECTRICAL", patterns: /electrical contractor|electrician|electrical service|power distribution/i },
-  { trade: "AV_INTEGRATION", patterns: /av integrat|audio.?visual|conference room.*system|digital signage|display system/i },
-  { trade: "MANAGED_IT_SERVICES", patterns: /managed (it|service)|msp|it (support|service)|network (management|infrastructure)/i },
+  { trade: "SECURITY_FIRE_ALARM", patterns: /security system|surveillance|access control|cctv|intrusion detection|alarm system|security integrat|fire alarm|fire protection|fire suppression|life safety|fire detection/i },
+  { trade: "FRAMING_DRYWALL", patterns: /framing contractor|drywall|metal stud|interior finish|wall system/i },
+  { trade: "HVAC_MECHANICAL", patterns: /hvac|heating.*ventilation|air condition|mechanical contractor|building automation|bms|building management|hvac control|refrigerat/i },
+  { trade: "PLUMBING", patterns: /plumbing contractor|plumber|plumbing service|pipe.*fit|backflow/i },
+  { trade: "PAINTING_FINISHING", patterns: /painting contractor|commercial paint|industrial coat|finish.*contractor/i },
+  { trade: "CONCRETE_MASONRY", patterns: /concrete contractor|masonry|foundation|flatwork|paving|brick.*lay/i },
+  { trade: "ROOFING", patterns: /roofing contractor|commercial roof|roof.*repair|roof.*install/i },
+  { trade: "SITE_WORK", patterns: /excavat|site work|grading|demolition|earthwork|utility.*install/i },
+  { trade: "GENERAL_COMMERCIAL", patterns: /general contractor|construction.*sub|specialty contractor|commercial.*construct/i },
 ];
-
-const DC_KEYWORDS = /data.?cent(er|re)|colocation|colo facility|server room|mission.?critical|uptime|tier.?(iii|iv|3|4)|hot.?aisle|cold.?aisle|raised floor|ups system/i;
 
 /**
  * Auto-detect primary trade from listing text content.
@@ -42,19 +43,6 @@ function detectPrimaryTrade(title: string, description: string | null, industry:
     if (patterns.test(text)) return trade;
   }
   return null;
-}
-
-/**
- * Detect DC relevance (1-10) based on keyword density.
- */
-function detectDcRelevance(title: string, description: string | null): number {
-  const text = [title, description].filter(Boolean).join(" ");
-  const matches = text.match(new RegExp(DC_KEYWORDS.source, "gi"));
-  if (!matches) return 1;
-  if (matches.length >= 5) return 10;
-  if (matches.length >= 3) return 8;
-  if (matches.length >= 2) return 6;
-  return 4;
 }
 
 // ─────────────────────────────────────────────
@@ -309,7 +297,6 @@ async function processOneListing(
       freshListing.industry,
       freshListing.category,
     );
-    const dcScore = detectDcRelevance(freshListing.title, freshListing.description);
     const isColorado = freshListing.state?.toUpperCase() === "CO";
 
     // Only set thesis fields if we detected a relevant trade
@@ -322,8 +309,6 @@ async function processOneListing(
         state: freshListing.state,
         metroArea: freshListing.metroArea,
         certifications: [],
-        dcCertifications: [],
-        dcRelevanceScore: dcScore,
         askingPrice: decimalToNumber(freshListing.askingPrice),
         ebitda: decimalToNumber(freshListing.ebitda),
         inferredEbitda: decimalToNumber(freshListing.inferredEbitda as Prisma.Decimal | null),
@@ -338,8 +323,6 @@ async function processOneListing(
         where: { id: listingId },
         data: {
           primaryTrade: detectedTrade,
-          dcRelevanceScore: dcScore,
-          dcExperience: dcScore >= 6,
           fitScore: fitResult.fitScore,
           tier: isColorado && fitResult.fitScore >= 60
             ? "TIER_1_ACTIVE"

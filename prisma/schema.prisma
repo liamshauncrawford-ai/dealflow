@@ -96,12 +96,6 @@ model Listing {
   bonded          Boolean?
   insured         Boolean?
 
-  // Data center relevance
-  dcRelevanceScore  Int?            // 1-10 scale
-  dcExperience      Boolean?
-  dcClients         String[]
-  dcCertifications  String[]
-
   // Tiering & scoring
   tier                    Tier?
   fitScore                Int?      // 0-100 deterministic score
@@ -212,15 +206,17 @@ enum Platform {
 // ─────────────────────────────────────────────
 
 enum PrimaryTrade {
-  STRUCTURED_CABLING
-  SECURITY_SURVEILLANCE
-  BUILDING_AUTOMATION_BMS
-  HVAC_CONTROLS
-  FIRE_ALARM
   ELECTRICAL
-  AV_INTEGRATION
-  MANAGED_IT_SERVICES
-  OTHER
+  STRUCTURED_CABLING
+  SECURITY_FIRE_ALARM
+  FRAMING_DRYWALL
+  HVAC_MECHANICAL
+  PLUMBING
+  PAINTING_FINISHING
+  CONCRETE_MASONRY
+  ROOFING
+  SITE_WORK
+  GENERAL_COMMERCIAL
 }
 
 enum Tier {
@@ -280,281 +276,6 @@ enum InteractionType {
   IN_PERSON
   LINKEDIN
   BROKER
-}
-
-// ─────────────────────────────────────────────
-// MARKET INTELLIGENCE ENUMS
-// ─────────────────────────────────────────────
-
-enum OperatorTier {
-  TIER_1_ACTIVE_CONSTRUCTION
-  TIER_2_EXPANSION
-  TIER_3_EXISTING_MAINTENANCE
-  TIER_4_RUMORED
-}
-
-enum FacilityStatus {
-  OPERATING
-  UNDER_CONSTRUCTION
-  PLANNED
-  RUMORED
-}
-
-enum GCPriority {
-  HIGHEST
-  HIGH
-  MODERATE
-  MONITOR
-}
-
-enum GCDCExperience {
-  SPECIALIST
-  EXPERIENCED
-  SOME
-  NONE
-}
-
-enum SubQualificationStatus {
-  NOT_APPLIED
-  APPLICATION_SUBMITTED
-  QUALIFIED
-  PREFERRED
-  REJECTED
-}
-
-enum GCRelationshipStatus {
-  NO_CONTACT
-  IDENTIFIED
-  INTRODUCTION_MADE
-  MEETING_HELD
-  BID_INVITED
-  WORK_IN_PROGRESS
-}
-
-enum OperatorRelationshipStatus {
-  NO_CONTACT
-  IDENTIFIED
-  INTRODUCTION_MADE
-  MEETING_HELD
-  RFQ_RECEIVED
-  BID_SUBMITTED
-  CONTRACT_AWARDED
-  ACTIVE_WORK
-}
-
-enum CablingScope {
-  BACKBONE_FIBER
-  HORIZONTAL_COPPER
-  CABLE_TRAY_PATHWAY
-  CABINET_RACK_INSTALL
-  MEET_ME_ROOM
-  SECURITY_ACCESS_CONTROL
-  CCTV_SURVEILLANCE
-  ENVIRONMENTAL_MONITORING
-  TESTING_CERTIFICATION
-  OTHER
-}
-
-enum CablingOpportunityStatus {
-  IDENTIFIED
-  PRE_RFQ
-  RFQ_RECEIVED
-  ESTIMATING
-  BID_SUBMITTED
-  BID_UNDER_REVIEW
-  AWARDED
-  CONTRACT_NEGOTIATION
-  MOBILIZING
-  IN_PROGRESS
-  PUNCH_LIST
-  COMPLETED
-  LOST
-  NO_BID
-}
-
-// ─────────────────────────────────────────────
-// MARKET INTELLIGENCE TABLES
-// ─────────────────────────────────────────────
-
-model DataCenterOperator {
-  id                String   @id @default(cuid())
-
-  // Identity
-  name              String   @unique
-  parentCompany     String?
-  hqLocation        String?
-  hqState           String?
-  website           String?
-
-  // Classification
-  tier              OperatorTier     @default(TIER_3_EXISTING_MAINTENANCE)
-  cablingOpportunityScore  Int?      // 1-10 scale
-  estimatedAnnualCablingRevenue  Decimal?  @db.Decimal(14, 2)
-
-  // Construction activity
-  activeConstruction  Boolean   @default(false)
-  constructionTimeline String?
-  phaseCount          Int?
-
-  // Relationship tracking
-  relationshipStatus  OperatorRelationshipStatus  @default(NO_CONTACT)
-  primaryContactName  String?
-  primaryContactTitle String?
-  primaryContactEmail String?
-  primaryContactPhone String?
-  lastContactDate     DateTime?
-  nextFollowUp        DateTime?
-  notes               String?   @db.Text
-
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-
-  // Relations
-  facilities        DCFacility[]
-  cablingOpportunities CablingOpportunity[]
-
-  @@index([tier])
-  @@index([relationshipStatus])
-}
-
-model DCFacility {
-  id              String   @id @default(cuid())
-
-  // Parent operator
-  operatorId      String
-  operator        DataCenterOperator  @relation(fields: [operatorId], references: [id], onDelete: Cascade)
-
-  // Location
-  facilityName    String
-  address         String?
-  city            String?
-  state           String?    @default("CO")
-  latitude        Float?
-  longitude       Float?
-
-  // Specs
-  capacityMW      Float?
-  sqft            Int?
-  status          FacilityStatus   @default(OPERATING)
-  yearOpened      Int?
-  yearExpectedCompletion  Int?
-  tierCertification  String?
-
-  // Construction
-  generalContractorId  String?
-  generalContractor    GeneralContractor?  @relation(fields: [generalContractorId], references: [id])
-  estimatedCablingScopeValue  Decimal?  @db.Decimal(14, 2)
-
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-
-  // Relations
-  cablingOpportunities  CablingOpportunity[]
-
-  @@index([operatorId])
-  @@index([status])
-  @@index([generalContractorId])
-}
-
-model GeneralContractor {
-  id              String   @id @default(cuid())
-
-  // Identity
-  name            String   @unique
-  hqLocation      String?
-  website         String?
-  coloradoOffice  Boolean  @default(false)
-  coloradoOfficeAddress  String?
-
-  // DC experience
-  dcExperienceLevel  GCDCExperience  @default(NONE)
-  notableDCProjects  String[]
-  nationalDCClients  String[]
-
-  // Sub qualification
-  approvedSubList          Boolean   @default(false)
-  subQualificationStatus   SubQualificationStatus  @default(NOT_APPLIED)
-  qualificationDate        DateTime?
-  prequalificationRequirements  String?  @db.Text
-
-  // Relationship tracking
-  relationshipStatus  GCRelationshipStatus  @default(NO_CONTACT)
-  primaryContactName  String?
-  primaryContactTitle String?
-  primaryContactEmail String?
-  primaryContactPhone String?
-  lastContactDate     DateTime?
-  nextFollowUp        DateTime?
-  notes               String?   @db.Text
-
-  // Priority
-  priority          GCPriority   @default(MONITOR)
-  estimatedAnnualOpportunity  Decimal?  @db.Decimal(14, 2)
-
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-
-  // Relations
-  facilities        DCFacility[]
-  cablingOpportunities CablingOpportunity[]
-
-  @@index([priority])
-  @@index([relationshipStatus])
-  @@index([subQualificationStatus])
-}
-
-model CablingOpportunity {
-  id              String   @id @default(cuid())
-
-  // Identity
-  name            String
-  description     String?   @db.Text
-
-  // Linked entities
-  operatorId      String?
-  operator        DataCenterOperator?  @relation(fields: [operatorId], references: [id])
-  gcId            String?
-  gc              GeneralContractor?   @relation(fields: [gcId], references: [id])
-  facilityId      String?
-  facility        DCFacility?          @relation(fields: [facilityId], references: [id])
-
-  // Scope
-  facilityAddress   String?
-  facilitySizeMW    Float?
-  cablingScopes     CablingScope[]
-
-  // Financials
-  estimatedValue    Decimal?  @db.Decimal(14, 2)
-  bidSubmittedValue Decimal?  @db.Decimal(14, 2)
-  awardedValue      Decimal?  @db.Decimal(14, 2)
-  actualRevenue     Decimal?  @db.Decimal(14, 2)
-  marginPct         Float?
-
-  // Timeline
-  rfqDate           DateTime?
-  bidDueDate        DateTime?
-  bidSubmittedDate  DateTime?
-  awardDate         DateTime?
-  constructionStart DateTime?
-  constructionEnd   DateTime?
-
-  // Status
-  status            CablingOpportunityStatus  @default(IDENTIFIED)
-  lossReason        String?   @db.Text
-  competitorWhoWon  String?
-
-  // Automation
-  winProbabilityPct      Float?
-  weightedValue          Decimal?  @db.Decimal(14, 2)
-  surfacedFromNewsId     String?
-
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-
-  @@index([operatorId])
-  @@index([gcId])
-  @@index([facilityId])
-  @@index([status])
 }
 
 // ─────────────────────────────────────────────
@@ -1749,16 +1470,12 @@ model MarketMetric {
   id                        String    @id @default(cuid())
 
   recordedAt                DateTime
-  totalMwOperating          Float?
-  totalMwUnderConstruction  Float?
-  totalMwPlanned            Float?
-  activeConstructionProjects Int?
-  estimatedCablingTam       Decimal?  @db.Decimal(14, 2) // Total addressable market
-  gcCoveragePct             Float?    // % of projects with GC relationships
-  weightedPipelineValue     Decimal?  @db.Decimal(14, 2)
   targetsTracked            Int?
-  actionableTargets         Int?      // Targets with composite score >= 70
-  legislationStatus         Json?     // Track both HB26-1030 and SB26-102
+  actionableTargets         Int?      // Targets with composite score >= threshold
+  newListingsThisPeriod     Int?
+  listingsForSaleVolume     Int?
+  weightedPipelineValue     Decimal?  @db.Decimal(14, 2)
+  extraMetrics              Json?     // Extensible key-value for trade-specific or market metrics
 
   @@index([recordedAt])
 }

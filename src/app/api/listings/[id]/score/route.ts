@@ -41,8 +41,6 @@ export async function POST(
       state: listing.state,
       metroArea: listing.metroArea,
       certifications: listing.certifications as string[],
-      dcCertifications: listing.dcCertifications as string[],
-      dcRelevanceScore: listing.dcRelevanceScore,
       askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
       ebitda: listing.ebitda ? Number(listing.ebitda) : null,
       inferredEbitda: listing.inferredEbitda ? Number(listing.inferredEbitda) : null,

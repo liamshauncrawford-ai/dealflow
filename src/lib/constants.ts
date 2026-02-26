@@ -74,7 +74,7 @@ export const NOTIFICATION_TYPE_CONFIG: Record<string, { label: string; priority:
   ACCESS_REQUEST: { label: "Access Request", priority: "high" },
   // AI & Intelligence types
   HIGH_SCORE_DISCOVERY: { label: "High-Score Target Discovered", priority: "high" },
-  DC_PROJECT_NEWS: { label: "DC Construction Update", priority: "normal" },
+  INDUSTRY_NEWS: { label: "Industry Update", priority: "normal" },
   SCORE_CHANGE: { label: "Target Score Changed", priority: "normal" },
   ENRICHMENT_COMPLETE: { label: "Company Research Complete", priority: "normal" },
   WEEKLY_BRIEF: { label: "Weekly Intelligence Brief", priority: "normal" },
@@ -102,19 +102,21 @@ export const DEFAULT_METRO_AREA = "Denver Metro";
 export const DEFAULT_STATE = "CO";
 
 // ─────────────────────────────────────────────
-// THESIS-SPECIFIC CONSTANTS
+// TRADE CATEGORIES — Broadened commercial services
 // ─────────────────────────────────────────────
 
 export const PRIMARY_TRADES = {
-  STRUCTURED_CABLING: { label: "Structured Cabling", color: "#f97316" },
-  SECURITY_SURVEILLANCE: { label: "Security & Surveillance", color: "#64748b" },
-  BUILDING_AUTOMATION_BMS: { label: "Building Automation / BMS", color: "#8b5cf6" },
-  HVAC_CONTROLS: { label: "HVAC Controls", color: "#22c55e" },
-  FIRE_ALARM: { label: "Fire Alarm", color: "#ef4444" },
   ELECTRICAL: { label: "Electrical", color: "#eab308" },
-  AV_INTEGRATION: { label: "AV Integration", color: "#3b82f6" },
-  MANAGED_IT_SERVICES: { label: "Managed IT Services", color: "#14b8a6" },
-  OTHER: { label: "Other", color: "#6b7280" },
+  STRUCTURED_CABLING: { label: "Structured Cabling / Low-Voltage", color: "#f97316" },
+  SECURITY_FIRE_ALARM: { label: "Security / Fire Alarm", color: "#ef4444" },
+  FRAMING_DRYWALL: { label: "Framing / Drywall", color: "#a3a3a3" },
+  HVAC_MECHANICAL: { label: "HVAC / Mechanical", color: "#22c55e" },
+  PLUMBING: { label: "Plumbing", color: "#3b82f6" },
+  PAINTING_FINISHING: { label: "Painting / Finishing", color: "#8b5cf6" },
+  CONCRETE_MASONRY: { label: "Concrete / Masonry", color: "#78716c" },
+  ROOFING: { label: "Roofing", color: "#64748b" },
+  SITE_WORK: { label: "Site Work / Excavation", color: "#854d0e" },
+  GENERAL_COMMERCIAL: { label: "General / Other", color: "#6b7280" },
 } as const;
 
 export type PrimaryTradeKey = keyof typeof PRIMARY_TRADES;
@@ -154,7 +156,14 @@ export const CONTACT_SENTIMENTS = {
   COMMITTED: { label: "Committed", color: "text-emerald-700 bg-emerald-50" },
 } as const;
 
-// Fit Score Engine Weights (Section 8 of briefing)
+// ─────────────────────────────────────────────
+// SCORING — 10-factor deterministic fit score
+// Phase 4 will consolidate into 7 categories:
+//   OWNER_SUCCESSION, FINANCIAL_HEALTH, STRATEGIC_FIT,
+//   OPERATIONAL_QUALITY, GROWTH_POTENTIAL, DEAL_FEASIBILITY,
+//   CERTIFICATION_VALUE
+// ─────────────────────────────────────────────
+
 export const FIT_SCORE_WEIGHTS = {
   OWNER_AGE_RETIREMENT: 0.20,
   TRADE_FIT: 0.15,
@@ -168,22 +177,26 @@ export const FIT_SCORE_WEIGHTS = {
   VALUATION_FIT: 0.05,
 } as const;
 
-// Core target trades for the Colorado DC thesis
+// All trades are target trades in the broadened thesis
 export const TARGET_TRADES: PrimaryTradeKey[] = [
+  "ELECTRICAL",
   "STRUCTURED_CABLING",
-  "SECURITY_SURVEILLANCE",
-  "BUILDING_AUTOMATION_BMS",
+  "SECURITY_FIRE_ALARM",
+  "FRAMING_DRYWALL",
+  "HVAC_MECHANICAL",
+  "PLUMBING",
 ];
 
-// Secondary relevant trades
+// Lower-priority but still relevant trades
 export const SECONDARY_TARGET_TRADES: PrimaryTradeKey[] = [
-  "HVAC_CONTROLS",
-  "FIRE_ALARM",
-  "ELECTRICAL",
+  "PAINTING_FINISHING",
+  "CONCRETE_MASONRY",
+  "ROOFING",
+  "SITE_WORK",
 ];
 
 export const TARGET_STATES = ["CO"];
-export const TARGET_METROS = ["Denver Metro", "Colorado Springs", "Front Range", "Fort Collins"];
+export const TARGET_METROS = ["Denver Metro", "Colorado Springs", "Front Range", "Fort Collins", "Boulder"];
 export const NEIGHBORING_STATES = ["WY", "NE", "KS", "NM", "UT"];
 
 /**
@@ -194,9 +207,7 @@ export const NEIGHBORING_STATES = ["WY", "NE", "KS", "NM", "UT"];
  *   2. Keyword search: ?q_kw={keyword}
  *
  * Each entry is a separate search that the scraper will execute.
- * This ensures we pull listings matching your acquisition thesis
- * (low-voltage trades, IT services, electrical) instead of all
- * Colorado businesses.
+ * Broadened to cover ALL commercial service contractor categories.
  */
 export const THESIS_SEARCH_QUERIES: Array<{
   label: string;
@@ -207,30 +218,31 @@ export const THESIS_SEARCH_QUERIES: Array<{
   /** Max items to pull per search */
   maxItems?: number;
 }> = [
-  // Core thesis trades — structured cabling & low-voltage
+  // Electrical
+  { label: "Electrical Contractor", categorySlug: "electrical-contractor", maxItems: 50 },
+  { label: "Commercial Electrician", keyword: "commercial electrician" },
+  // Structured cabling / low-voltage
   { label: "Structured Cabling", keyword: "structured cabling" },
   { label: "Low Voltage", keyword: "low voltage" },
   { label: "Fiber Optic", keyword: "fiber optic" },
-  { label: "Data Cabling", keyword: "data cabling" },
-  { label: "Network Cabling", keyword: "network cabling" },
-  // Security & surveillance
+  // Security & fire alarm
   { label: "Security Systems", keyword: "security systems" },
-  { label: "Surveillance", keyword: "surveillance" },
-  { label: "Access Control", keyword: "access control" },
-  // Building automation & HVAC controls
-  { label: "Building Automation", keyword: "building automation" },
-  { label: "HVAC Controls", keyword: "HVAC" },
-  // Fire & life safety
   { label: "Fire Alarm", keyword: "fire alarm" },
   { label: "Fire Protection", keyword: "fire protection" },
-  // Electrical (broad category search)
-  { label: "Electrical Contractor", categorySlug: "electrical-contractor", maxItems: 50 },
-  // IT / MSP
-  { label: "Managed IT Services", keyword: "managed IT" },
-  { label: "IT Services", keyword: "IT services" },
-  // AV Integration
-  { label: "Audio Visual", keyword: "audio visual" },
-  // Telecom / data center
-  { label: "Telecommunications", keyword: "telecommunications" },
-  { label: "Data Center", keyword: "data center" },
+  { label: "Access Control", keyword: "access control" },
+  // Framing / drywall
+  { label: "Framing Contractor", keyword: "framing contractor" },
+  { label: "Drywall Contractor", keyword: "drywall contractor" },
+  // HVAC / mechanical
+  { label: "HVAC Contractor", keyword: "HVAC contractor" },
+  { label: "Mechanical Contractor", keyword: "mechanical contractor" },
+  // Plumbing
+  { label: "Plumbing Contractor", keyword: "plumbing contractor" },
+  // Other commercial trades
+  { label: "Painting Contractor", keyword: "commercial painter" },
+  { label: "Roofing Contractor", keyword: "roofing contractor" },
+  { label: "Concrete Contractor", keyword: "concrete contractor" },
+  // General commercial
+  { label: "Construction Subcontractor", keyword: "construction subcontractor" },
+  { label: "Specialty Contractor", keyword: "specialty contractor" },
 ];

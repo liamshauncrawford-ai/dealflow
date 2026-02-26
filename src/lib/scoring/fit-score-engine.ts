@@ -1,8 +1,8 @@
 /**
  * Fit Score Engine — computes acquisition fit score (0-100) for target companies.
  *
- * Implements the weighted scoring criteria from the Colorado Data Center Trades
- * roll-up thesis (Section 8 of the acquisition briefing).
+ * Evaluates commercial service contractors against Crawford Holdings' broadened
+ * acquisition thesis: 11 trade categories across Colorado's Front Range.
  *
  * 10 criteria, each scored 1-10, then weighted and summed to produce 0-100.
  */
@@ -30,8 +30,6 @@ export interface FitScoreInput {
   state: string | null;
   metroArea: string | null;
   certifications: string[];
-  dcCertifications: string[];
-  dcRelevanceScore: number | null;
   askingPrice: number | null;
   ebitda: number | null;
   inferredEbitda: number | null;
@@ -83,7 +81,7 @@ export function computeFitScore(input: FitScoreInput): FitScoreResult {
     recurringRevenue: scoreRecurringRevenue(input.recurringRevenuePct),
     crossSellSynergy: scoreCrossSellSynergy(input.primaryTrade, input.secondaryTrades),
     keyPersonRisk: scoreKeyPersonRisk(input.keyPersonRisk),
-    certifications: scoreCertifications(input.certifications, input.dcCertifications),
+    certifications: scoreCertifications(input.certifications),
     valuationFit: scoreValuationFit(input.askingPrice, input.ebitda, input.inferredEbitda, input.targetMultipleHigh),
   };
 
@@ -145,9 +143,9 @@ function scoreOwnerAge(ageRange: string | null): CriterionScore {
 }
 
 /**
- * 2. Trade Fit / DC Relevance (15%)
- * 10 = core target trade (cabling, security, BAS)
- * 7 = secondary trade (HVAC, electrical, fire alarm)
+ * 2. Trade Fit (15%)
+ * 10 = primary target trade (electrical, cabling, security, HVAC, etc.)
+ * 7 = secondary target trade (painting, concrete, roofing, site work)
  * 3 = other trade
  * 1 = null/unknown
  */
@@ -329,13 +327,12 @@ function scoreKeyPersonRisk(risk: string | null): CriterionScore {
  * 1 = none
  */
 function scoreCertifications(
-  certifications: string[],
-  dcCertifications: string[]
+  certifications: string[]
 ): CriterionScore {
-  const totalCerts = certifications.length + dcCertifications.length;
+  const totalCerts = certifications.length;
 
   // Check for high-value certifications
-  const allCerts = [...certifications, ...dcCertifications].map(c => c.toLowerCase());
+  const allCerts = certifications.map(c => c.toLowerCase());
   const hasHighValue = allCerts.some(c =>
     c.includes("mbe") || c.includes("wbe") || c.includes("gsa") ||
     c.includes("factory") || c.includes("authorized") || c.includes("certified")

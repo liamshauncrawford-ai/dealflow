@@ -90,15 +90,6 @@ export async function POST(request: NextRequest) {
       (listing.certifications as string[])?.length
         ? `Certifications: ${(listing.certifications as string[]).join(", ")}`
         : null,
-      (listing.dcCertifications as string[])?.length
-        ? `DC-Specific Certifications: ${(listing.dcCertifications as string[]).join(", ")}`
-        : null,
-      listing.dcExperience != null
-        ? `Data Center Experience: ${listing.dcExperience ? "Yes" : "No"}`
-        : null,
-      listing.dcRelevanceScore
-        ? `DC Relevance Score: ${listing.dcRelevanceScore}/10`
-        : null,
       listing.tier ? `Tier: ${listing.tier}` : null,
       listing.sellerFinancing != null
         ? `Seller Financing Available: ${listing.sellerFinancing ? "Yes" : "Unknown"}`

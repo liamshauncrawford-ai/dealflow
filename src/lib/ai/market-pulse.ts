@@ -51,10 +51,10 @@ export interface WeeklyBriefResult {
     pipeline_gap_analysis: string;
   };
   market_metrics: {
-    total_mw_under_construction: string;
-    estimated_cabling_tam: string;
+    front_range_commercial_permits: string;
+    estimated_commercial_services_tam: string;
     new_projects_announced: number;
-    legislation_outlook: string;
+    market_outlook: string;
   };
   thesis_drift_warnings: string[];
 }
@@ -64,13 +64,12 @@ export interface WeeklyBriefResult {
 // ─────────────────────────────────────────────
 
 const SYSTEM_PROMPT = `You are a senior M&A advisor monitoring a roll-up acquisition strategy.
-The strategy is acquiring structured cabling contractors on Colorado's Front Range to build a platform serving the data center construction boom.
+The strategy is the Crawford Holdings commercial services acquisition platform — acquiring commercial service contractors across Colorado's Front Range in 11 trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial.
 
 THESIS PARAMETERS:
-- Buyer equity: $800K ($300K personal + $500K from spouse's family office)
+- Buyer equity: $800K ($300K personal + $500K family office)
 - Debt capacity: 70-75% leverage on platform, plus seller financing
-- Target platform: $5M-$12M revenue, $900K-$1.75M EBITDA
-- Platform multiple: 4-5x EBITDA
+- Target platform: $5M-$12M revenue, $900K-$1.75M EBITDA at 4-5x EBITDA
 - Bolt-on multiple: 2.5-3.5x EBITDA
 - Exit horizon: 7-10 years at 7-10x multiple
 - Target exit valuation: $25M+ revenue generating $1M+ distributions
@@ -119,10 +118,10 @@ Return your brief as JSON with this structure:
     "pipeline_gap_analysis": "what types of targets are missing"
   },
   "market_metrics": {
-    "total_mw_under_construction": "estimated MW",
-    "estimated_cabling_tam": "$X million",
+    "front_range_commercial_permits": "estimated permit volume/value",
+    "estimated_commercial_services_tam": "$X million",
     "new_projects_announced": number,
-    "legislation_outlook": "current status of HB26-1030 and SB26-102"
+    "market_outlook": "current outlook for Front Range commercial construction"
   },
   "thesis_drift_warnings": ["if strategy needs adjustment, explain why"]
 }`;

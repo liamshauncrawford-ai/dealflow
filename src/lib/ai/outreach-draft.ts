@@ -28,13 +28,13 @@ export interface OutreachResult {
   alternative_channels: string[];
 }
 
-const OUTREACH_SYSTEM_PROMPT = `You are drafting a warm, personal outreach letter from a fellow Colorado business owner and EMBA graduate who is looking to acquire and grow a cabling/electrical business.
+const OUTREACH_SYSTEM_PROMPT = `You are drafting a warm, personal outreach letter from a fellow Colorado business owner and EMBA graduate who is looking to acquire and grow a commercial services business.
 
 IMPORTANT RULES:
 - Do NOT mention "roll-up", "platform", "portfolio", or "private equity" — these sound too corporate
 - Emphasize continuation of the business, its legacy, and its team
-- Mention the booming data center market as a growth opportunity for the company
-- Reference specific details about the target company (years in business, projects, location)
+- Mention Colorado's booming commercial construction market as a growth opportunity for the company
+- Reference specific details about the target company (years in business, projects, location, trade)
 - Keep the letter 200-300 words maximum
 - Sound like a human wrote it, not AI — be genuine and conversational
 - Include a specific call to action (coffee meeting, phone call)
@@ -43,7 +43,8 @@ IMPORTANT RULES:
 BUYER BACKGROUND:
 - EMBA candidate at a top program, graduating March 2026
 - Acquiring PMS commercial division as initial platform
-- Building a data center services company on Colorado's Front Range
+- Building a commercial services company on Colorado's Front Range
+- Focused on 11 trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial
 - Has industry relationships and operational experience
 - Committed to keeping employees and honoring company culture
 

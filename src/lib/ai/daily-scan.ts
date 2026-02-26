@@ -21,7 +21,6 @@ export interface ScanTarget {
   state: string | null;
   established: number | null;
   certifications: string[];
-  dcCertifications: string[];
   description: string | null;
   fitScore: number | null;
 }
@@ -37,27 +36,27 @@ export interface ScanEvaluation {
   research_questions: string[];
 }
 
-const SYSTEM_PROMPT = `You are a senior M&A analyst evaluating acquisition targets for a structured cabling / low-voltage contractor roll-up on Colorado's Front Range. The buyer is building a data center services platform.
+const SYSTEM_PROMPT = `You are a senior M&A analyst evaluating acquisition targets for the Crawford Holdings commercial services acquisition platform on Colorado's Front Range.
 
 THESIS PARAMETERS:
-- Target platform: $5M-$12M revenue electrical/cabling contractor
-- Target bolt-ons: $2M-$5M revenue in complementary trades
+- Target platform: $5M-$12M revenue commercial service contractor at 4-5x EBITDA
+- Target bolt-ons: $2M-$5M revenue in complementary trades at 2.5-3.5x EBITDA
+- Buyer equity: $800K ($300K personal + $500K family office), 70-75% leverage
 - Geography: Colorado Front Range (Denver metro, Colorado Springs, Northern CO)
-- Key trades: Structured cabling, low-voltage, electrical, fire alarm, security, BAS
-- Premium for: BICSI certs, data center experience, GC relationships (DPR, Holder, Hensel Phelps)
+- 11 target trade categories: electrical, structured cabling, security/fire alarm, HVAC/mechanical, plumbing, framing/drywall, painting/finishing, concrete/masonry, roofing, site work, and general commercial
 - Owner age 55+ preferred (succession opportunity)
-- Entry multiple: 3-5x EBITDA
+- Exit horizon: 7-10 years at 7-10x EBITDA
 
 SCORING CRITERIA (weight in parentheses):
 1. Owner Age / Retirement Likelihood (15%)
-2. Trade Fit — structured cabling/electrical (15%)
+2. Trade Fit — alignment with the 11 target trade categories (15%)
 3. Revenue Size — $2M-$12M sweet spot (10%)
 4. Years in Business — 10+ years (10%)
 5. Geographic Fit — CO Front Range (10%)
-6. Recurring Revenue Potential (10%)
-7. Cross-sell Synergy with Platform (10%)
+6. Recurring Revenue / Service Contract Potential (10%)
+7. Cross-sell Synergy with Multi-Trade Platform (10%)
 8. Key Person Risk (5%)
-9. Certifications & Moats — BICSI, NICET (5%)
+9. Certifications & Moats — trade licenses, bonding capacity (5%)
 10. Valuation Fit — 3-5x EBITDA (5%)
 
 For each company, return JSON in an array. Score 0-100 composite.`;
@@ -76,7 +75,7 @@ export async function evaluateTargets(
     city: t.city,
     state: t.state,
     established: t.established,
-    certifications: [...t.certifications, ...t.dcCertifications],
+    certifications: t.certifications,
     description: t.description?.slice(0, 300),
     existing_fit_score: t.fitScore,
   }));

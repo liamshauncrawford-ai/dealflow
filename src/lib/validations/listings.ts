@@ -10,9 +10,9 @@ const platforms = [
 ] as const;
 
 const primaryTrades = [
-  "STRUCTURED_CABLING", "SECURITY_SURVEILLANCE", "BUILDING_AUTOMATION_BMS",
-  "HVAC_CONTROLS", "FIRE_ALARM", "ELECTRICAL", "AV_INTEGRATION",
-  "MANAGED_IT_SERVICES", "OTHER",
+  "ELECTRICAL", "STRUCTURED_CABLING", "SECURITY_FIRE_ALARM",
+  "FRAMING_DRYWALL", "HVAC_MECHANICAL", "PLUMBING", "PAINTING_FINISHING",
+  "CONCRETE_MASONRY", "ROOFING", "SITE_WORK", "GENERAL_COMMERCIAL",
 ] as const;
 
 const tiers = [
@@ -111,10 +111,6 @@ export const createListingSchema = z.object({
   licenseNumbers: z.array(z.string().max(100)).optional(),
   bonded: z.boolean().nullable().optional(),
   insured: z.boolean().nullable().optional(),
-  dcRelevanceScore: z.number().int().min(1).max(10).nullable().optional(),
-  dcExperience: z.boolean().nullable().optional(),
-  dcClients: z.array(z.string().max(200)).optional(),
-  dcCertifications: z.array(z.string().max(200)).optional(),
   tier: z.enum(tiers).nullable().optional(),
   fitScore: z.number().int().min(0).max(100).nullable().optional(),
   disqualificationReason: z.string().max(5000).nullable().optional(),
@@ -175,10 +171,6 @@ export const updateListingSchema = z.object({
   licenseNumbers: z.array(z.string().max(100)).optional(),
   bonded: z.boolean().nullable().optional(),
   insured: z.boolean().nullable().optional(),
-  dcRelevanceScore: z.number().int().min(1).max(10).nullable().optional(),
-  dcExperience: z.boolean().nullable().optional(),
-  dcClients: z.array(z.string().max(200)).optional(),
-  dcCertifications: z.array(z.string().max(200)).optional(),
   tier: z.enum(tiers).nullable().optional(),
   fitScore: z.number().int().min(0).max(100).nullable().optional(),
   disqualificationReason: z.string().max(5000).nullable().optional(),

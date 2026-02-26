@@ -44,15 +44,17 @@ export const TIER_COLORS: Record<string, string> = {
 // ── Trade Colors (from constants.ts) ──
 
 export const TRADE_COLORS: Record<string, string> = {
-  STRUCTURED_CABLING: "#f97316",
-  SECURITY_SURVEILLANCE: "#64748b",
-  BUILDING_AUTOMATION_BMS: "#8b5cf6",
-  HVAC_CONTROLS: "#22c55e",
-  FIRE_ALARM: "#ef4444",
   ELECTRICAL: "#eab308",
-  AV_INTEGRATION: "#3b82f6",
-  MANAGED_IT_SERVICES: "#14b8a6",
-  OTHER: "#6b7280",
+  STRUCTURED_CABLING: "#f97316",
+  SECURITY_FIRE_ALARM: "#ef4444",
+  FRAMING_DRYWALL: "#a3a3a3",
+  HVAC_MECHANICAL: "#22c55e",
+  PLUMBING: "#3b82f6",
+  PAINTING_FINISHING: "#8b5cf6",
+  CONCRETE_MASONRY: "#78716c",
+  ROOFING: "#64748b",
+  SITE_WORK: "#854d0e",
+  GENERAL_COMMERCIAL: "#6b7280",
 };
 
 // ── Theme-Aware Colors for Axes, Grid, Tooltips ──

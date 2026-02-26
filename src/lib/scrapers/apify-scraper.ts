@@ -70,7 +70,7 @@ export function isApifyAvailable(): boolean {
  * Run the Apify BizBuySell scraper using thesis-targeted search queries.
  *
  * Instead of scraping ALL Colorado listings, this builds targeted search
- * URLs for each thesis trade (structured cabling, security, fire alarm, etc.)
+ * URLs for each thesis trade category (electrical, HVAC, plumbing, etc.)
  * and sends them all to the Apify actor. This means:
  *   - Fewer Apify compute units (crawling targeted pages, not the whole state)
  *   - Higher signal-to-noise ratio (most results match your thesis)
