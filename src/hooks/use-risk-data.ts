@@ -80,3 +80,34 @@ export function useUpdateRiskData(opportunityId: string) {
     },
   });
 }
+
+/**
+ * Deletes a risk assessment by analysisId.
+ */
+export function useDeleteRiskAssessment(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (analysisId: string) => {
+      const res = await fetch(
+        `/api/pipeline/${opportunityId}/risk-assessment`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ analysisId }),
+        },
+      );
+      if (!res.ok) throw new Error("Failed to delete risk assessment");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["risk-data", opportunityId],
+      });
+      toast.success("Risk assessment deleted");
+    },
+    onError: () => {
+      toast.error("Failed to delete risk assessment");
+    },
+  });
+}

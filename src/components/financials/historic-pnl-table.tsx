@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Info } from "lucide-react";
 import { useUpdateHistoricPnlCell } from "@/hooks/use-historic-financials";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -191,7 +192,17 @@ export function HistoricPnlTable({ pnl, opportunityId }: HistoricPnlTableProps) 
                       autoFocus
                     />
                   ) : (
-                    <span className="text-foreground">{row.label}</span>
+                    <span className="flex items-center gap-1 text-foreground">
+                      {row.label}
+                      {row.notes && (
+                        <span className="group relative inline-flex">
+                          <Info className="h-3 w-3 text-blue-400 shrink-0" />
+                          <span className="absolute bottom-full left-0 mb-1 hidden group-hover:block z-20 max-w-xs rounded bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md border whitespace-pre-wrap">
+                            {row.notes}
+                          </span>
+                        </span>
+                      )}
+                    </span>
                   )}
                 </td>
 

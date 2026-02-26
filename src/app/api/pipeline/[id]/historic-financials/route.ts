@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/db";
-import { parseHistoricPnL } from "@/lib/financial/parse-historic-pnl";
+import { parseHistoricWorkbook } from "@/lib/financial/parse-historic-pnl";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -33,7 +34,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 /**
  * POST /api/pipeline/[id]/historic-financials
- * Upload and parse an Excel P&L file.
+ * Upload and parse an Excel workbook (all sheets).
  * Accepts multipart/form-data with a "file" field.
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -82,10 +83,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Parse the spreadsheet
+    // Parse the workbook (all sheets)
     let parsed;
     try {
-      parsed = parseHistoricPnL(buffer, fileName);
+      parsed = parseHistoricWorkbook(buffer, fileName);
     } catch (parseErr) {
       console.error("Excel parse error:", parseErr);
       return NextResponse.json(
@@ -99,50 +100,59 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    if (parsed.rows.length === 0) {
+    if (parsed.sheets.length === 0) {
       return NextResponse.json(
-        { error: "No data rows found in the spreadsheet" },
+        { error: "No data found in the spreadsheet" },
         { status: 400 },
       );
     }
 
-    // Create the HistoricPnL with all rows in a transaction
-    const historicPnL = await prisma.$transaction(async (tx) => {
-      const pnl = await tx.historicPnL.create({
-        data: {
-          opportunityId: id,
-          title: parsed.title,
-          companyName: parsed.companyName,
-          basis: parsed.basis,
-          sourceFileName: fileName,
-          columns: parsed.columns as unknown as Prisma.InputJsonValue,
-        },
-      });
+    // Generate a workbookGroup UUID to link sheets from this upload
+    const workbookGroup = parsed.sheets.length > 1 ? randomUUID() : null;
 
-      // Bulk create rows
-      await tx.historicPnLRow.createMany({
-        data: parsed.rows.map((row, index) => ({
-          historicPnlId: pnl.id,
-          label: row.label,
-          displayOrder: index,
-          depth: row.depth,
-          isTotal: row.isTotal,
-          isSummary: row.isSummary,
-          isBlank: row.isBlank,
-          values: row.values as unknown as Prisma.InputJsonValue,
-        })),
-      });
+    // Create one HistoricPnL per sheet in a transaction
+    const created = await prisma.$transaction(async (tx) => {
+      const results = [];
 
-      // Re-fetch with rows included
-      return tx.historicPnL.findUnique({
-        where: { id: pnl.id },
-        include: {
-          rows: { orderBy: { displayOrder: "asc" } },
-        },
-      });
+      for (const sheet of parsed.sheets) {
+        const pnl = await tx.historicPnL.create({
+          data: {
+            opportunityId: id,
+            title: sheet.sheetName || sheet.title,
+            companyName: sheet.companyName,
+            basis: sheet.basis,
+            sourceFileName: fileName,
+            workbookGroup,
+            columns: sheet.columns as unknown as Prisma.InputJsonValue,
+          },
+        });
+
+        await tx.historicPnLRow.createMany({
+          data: sheet.rows.map((row, index) => ({
+            historicPnlId: pnl.id,
+            label: row.label,
+            displayOrder: index,
+            depth: row.depth,
+            isTotal: row.isTotal,
+            isSummary: row.isSummary,
+            isBlank: row.isBlank,
+            notes: row.notes,
+            values: row.values as unknown as Prisma.InputJsonValue,
+          })),
+        });
+
+        const full = await tx.historicPnL.findUnique({
+          where: { id: pnl.id },
+          include: { rows: { orderBy: { displayOrder: "asc" } } },
+        });
+
+        if (full) results.push(full);
+      }
+
+      return results;
     });
 
-    return NextResponse.json(historicPnL, { status: 201 });
+    return NextResponse.json({ historicPnLs: created }, { status: 201 });
   } catch (error) {
     console.error("Error uploading historic P&L:", error);
     return NextResponse.json(
@@ -154,24 +164,41 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/pipeline/[id]/historic-financials?pnlId=XXX
- * Delete a historic P&L snapshot and all its rows.
+ *    or ?workbookGroup=XXX (deletes all sheets in a workbook group)
  */
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const pnlId = searchParams.get("pnlId");
+    const workbookGroup = searchParams.get("workbookGroup");
 
-    if (!pnlId) {
+    if (!pnlId && !workbookGroup) {
       return NextResponse.json(
-        { error: "pnlId query parameter is required" },
+        { error: "pnlId or workbookGroup query parameter is required" },
         { status: 400 },
       );
     }
 
-    // Verify it belongs to this opportunity
+    if (workbookGroup) {
+      // Delete all P&Ls in this workbook group
+      const count = await prisma.historicPnL.deleteMany({
+        where: { workbookGroup, opportunityId: id },
+      });
+
+      if (count.count === 0) {
+        return NextResponse.json(
+          { error: "No P&Ls found for this workbook group" },
+          { status: 404 },
+        );
+      }
+
+      return NextResponse.json({ success: true, deletedCount: count.count });
+    }
+
+    // Single P&L delete (existing behavior)
     const existing = await prisma.historicPnL.findFirst({
-      where: { id: pnlId, opportunityId: id },
+      where: { id: pnlId!, opportunityId: id },
     });
 
     if (!existing) {
@@ -181,10 +208,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Cascade delete removes rows automatically
-    await prisma.historicPnL.delete({
-      where: { id: pnlId },
-    });
+    await prisma.historicPnL.delete({ where: { id: pnlId! } });
 
     return NextResponse.json({ success: true });
   } catch (error) {

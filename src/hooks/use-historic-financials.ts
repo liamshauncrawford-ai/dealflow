@@ -170,3 +170,34 @@ export function useDeleteHistoricPnl(opportunityId: string) {
     },
   });
 }
+
+// ─── Mutation: Delete all P&Ls in a workbook group ──
+
+export function useDeleteHistoricWorkbookGroup(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (workbookGroup: string) => {
+      const res = await fetch(
+        `/api/pipeline/${opportunityId}/historic-financials?workbookGroup=${workbookGroup}`,
+        { method: "DELETE" },
+      );
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete workbook");
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["historic-financials", opportunityId],
+      });
+      toast.success("Workbook deleted");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}

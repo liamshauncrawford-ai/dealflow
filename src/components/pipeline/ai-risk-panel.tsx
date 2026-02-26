@@ -20,6 +20,7 @@ import { useRiskAssessment } from "@/hooks/use-ai";
 import {
   useRiskData,
   useUpdateRiskData,
+  useDeleteRiskAssessment,
   type RiskAssessmentData,
 } from "@/hooks/use-risk-data";
 import { cn, formatRelativeDate } from "@/lib/utils";
@@ -56,6 +57,7 @@ export function AIRiskPanel({ opportunityId }: AIRiskPanelProps) {
   const { data: riskResponse, isLoading } = useRiskData(opportunityId);
   const generateMutation = useRiskAssessment(opportunityId);
   const updateMutation = useUpdateRiskData(opportunityId);
+  const deleteMutation = useDeleteRiskAssessment(opportunityId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<RiskAssessmentData | null>(null);
@@ -85,6 +87,13 @@ export function AIRiskPanel({ opportunityId }: AIRiskPanelProps) {
 
   const handleGenerate = () => {
     generateMutation.mutate();
+  };
+
+  const handleDelete = () => {
+    if (!analysisId) return;
+    if (confirm("Delete this risk assessment? This cannot be undone.")) {
+      deleteMutation.mutate(analysisId);
+    }
   };
 
   // Loading state
@@ -302,6 +311,18 @@ export function AIRiskPanel({ opportunityId }: AIRiskPanelProps) {
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (
               <RefreshCw className="h-3 w-3" />
+            )}
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+            title="Delete assessment"
+          >
+            {deleteMutation.isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Trash2 className="h-3 w-3" />
             )}
           </button>
         </div>

@@ -5,6 +5,9 @@
  * the exact QuickBooks layout — preserving hierarchy, account codes,
  * parent/child subtotals, and all "Total" rows.
  *
+ * Supports multi-sheet workbooks: parseHistoricWorkbook() iterates every
+ * sheet and returns one ParsedHistoricPnL per parseable tab.
+ *
  * No AI needed: instant, zero-cost, perfectly accurate.
  */
 
@@ -24,6 +27,7 @@ export interface ParsedRow {
   isTotal: boolean;
   isSummary: boolean;
   isBlank: boolean;
+  notes: string | null;
 }
 
 export interface ParsedHistoricPnL {
@@ -32,6 +36,11 @@ export interface ParsedHistoricPnL {
   basis: string | null;
   columns: ParsedColumn[];
   rows: ParsedRow[];
+}
+
+export interface ParsedHistoricWorkbook {
+  sheets: Array<ParsedHistoricPnL & { sheetName: string }>;
+  sourceFileName: string;
 }
 
 // ─── Summary row patterns ───────────────────────
@@ -47,7 +56,7 @@ const SUMMARY_LABELS = new Set([
 const BASIS_PATTERN = /^(cash|accrual)\s+basis$/i;
 const TOTAL_PREFIX = /^total\s+/i;
 
-// ─── Main parser ────────────────────────────────
+// ─── Single-sheet parser (backward compatible) ──
 
 export function parseHistoricPnL(
   buffer: Buffer,
@@ -55,7 +64,6 @@ export function parseHistoricPnL(
 ): ParsedHistoricPnL {
   const workbook = XLSX.read(buffer, { type: "buffer" });
 
-  // Use first sheet (most QuickBooks exports have a single sheet)
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) {
     throw new Error("Spreadsheet has no sheets");
@@ -75,9 +83,68 @@ export function parseHistoricPnL(
     throw new Error("Spreadsheet has too few rows to parse");
   }
 
+  return parseSheet(rawRows, null);
+}
+
+// ─── Multi-sheet workbook parser ────────────────
+
+/**
+ * Parse ALL sheets from an Excel workbook.
+ * Returns one ParsedHistoricPnL per parseable sheet, each tagged with its sheetName.
+ */
+export function parseHistoricWorkbook(
+  buffer: Buffer,
+  fileName: string,
+): ParsedHistoricWorkbook {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+
+  if (workbook.SheetNames.length === 0) {
+    throw new Error("Spreadsheet has no sheets");
+  }
+
+  const sheets: Array<ParsedHistoricPnL & { sheetName: string }> = [];
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+
+    const rawRows: (string | number | null)[][] = XLSX.utils.sheet_to_json(
+      sheet,
+      { header: 1, defval: "", raw: true },
+    );
+
+    // Skip empty sheets (less than 3 rows)
+    if (rawRows.length < 3) continue;
+
+    try {
+      const parsed = parseSheet(rawRows, sheetName);
+      sheets.push({ ...parsed, sheetName });
+    } catch {
+      // Skip sheets that fail to parse (e.g., chart sheets, summary sheets with no data)
+      console.warn(`Skipping sheet "${sheetName}" — failed to parse`);
+    }
+  }
+
+  if (sheets.length === 0) {
+    throw new Error("No parseable sheets found in workbook");
+  }
+
+  return { sheets, sourceFileName: fileName };
+}
+
+// ─── Core sheet parser (shared logic) ───────────
+
+/**
+ * Core sheet parser — works on raw rows from a single sheet.
+ * If sheetName is provided, it overrides the detected title.
+ */
+function parseSheet(
+  rawRows: (string | number | null)[][],
+  sheetName: string | null,
+): ParsedHistoricPnL {
   // ── Phase 1: Detect metadata & columns ──
 
-  const { companyName, title, basis, columnHeaderIdx, columns } =
+  const { companyName, title, basis, columnHeaderIdx, columns, lastDataColIdx } =
     detectMetadataAndColumns(rawRows);
 
   // ── Phase 2: Parse data rows ──
@@ -104,6 +171,17 @@ export function parseHistoricPnL(
       }
     }
 
+    // Scan for annotation text in columns beyond the data columns
+    let notes: string | null = null;
+    const noteParts: string[] = [];
+    for (let c = lastDataColIdx + 1; c < raw.length; c++) {
+      const val = String(raw[c] ?? "").trim();
+      if (val) noteParts.push(val);
+    }
+    if (noteParts.length > 0) {
+      notes = noteParts.join(" — ");
+    }
+
     const allValuesEmpty = values.every((v) => v === null);
     const isBlank = !label && allValuesEmpty;
     const isTotal = TOTAL_PREFIX.test(label);
@@ -116,6 +194,7 @@ export function parseHistoricPnL(
       isTotal,
       isSummary,
       isBlank,
+      notes,
     });
   }
 
@@ -123,7 +202,13 @@ export function parseHistoricPnL(
 
   assignDepths(parsedRows);
 
-  return { companyName, title, basis, columns, rows: parsedRows };
+  return {
+    companyName,
+    title: sheetName || title,
+    basis,
+    columns,
+    rows: parsedRows,
+  };
 }
 
 // ─── Phase 1 helpers ────────────────────────────
@@ -133,6 +218,7 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
   let title: string | null = null;
   let basis: string | null = null;
   let columnHeaderIdx = -1;
+  let lastDataColIdx = 0;
   const columns: ParsedColumn[] = [];
 
   // Scan the first ~10 rows for metadata and column headers
@@ -175,6 +261,8 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
           subheader: hasSubheaders ? (subheaders[c] ?? null) : null,
         });
       }
+
+      lastDataColIdx = columns.length; // 1-indexed: columns occupy indices 1..columns.length
       break;
     }
 
@@ -202,6 +290,7 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
           for (let cc = 1; cc < row.length; cc++) {
             columns.push({ header: `Column ${cc}`, subheader: null });
           }
+          lastDataColIdx = columns.length;
           break;
         }
       }
@@ -209,7 +298,7 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
     }
   }
 
-  return { companyName, title, basis, columnHeaderIdx, columns };
+  return { companyName, title, basis, columnHeaderIdx, columns, lastDataColIdx };
 }
 
 function isColumnHeaderRow(candidates: string[]): boolean {

@@ -5,15 +5,52 @@ import {
   useHistoricFinancials,
   useUploadHistoricPnl,
   useDeleteHistoricPnl,
+  useDeleteHistoricWorkbookGroup,
 } from "@/hooks/use-historic-financials";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { HistoricPnlUpload } from "@/components/financials/historic-pnl-upload";
+import { WorkbookCard } from "@/components/financials/workbook-card";
 import { HistoricPnlTable } from "@/components/financials/historic-pnl-table";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 interface HistoricFinancialsTabContentProps {
   opportunityId: string;
+}
+
+/**
+ * Groups P&Ls by workbookGroup. Ungrouped P&Ls (workbookGroup = null)
+ * are each treated as standalone entries.
+ */
+function groupByWorkbook(pnls: any[]): Array<{
+  key: string;
+  workbookGroup: string | null;
+  fileName: string;
+  pnls: any[];
+}> {
+  const groups = new Map<
+    string,
+    { workbookGroup: string | null; fileName: string; pnls: any[] }
+  >();
+
+  for (const pnl of pnls) {
+    const groupKey = pnl.workbookGroup || `standalone-${pnl.id}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, {
+        workbookGroup: pnl.workbookGroup,
+        fileName: pnl.sourceFileName || "Untitled",
+        pnls: [],
+      });
+    }
+
+    groups.get(groupKey)!.pnls.push(pnl);
+  }
+
+  return Array.from(groups.entries()).map(([key, group]) => ({
+    key,
+    ...group,
+  }));
 }
 
 export function HistoricFinancialsTabContent({
@@ -23,6 +60,7 @@ export function HistoricFinancialsTabContent({
     useHistoricFinancials(opportunityId);
   const uploadPnl = useUploadHistoricPnl(opportunityId);
   const deletePnl = useDeleteHistoricPnl(opportunityId);
+  const deleteWorkbook = useDeleteHistoricWorkbookGroup(opportunityId);
 
   if (isLoading) {
     return (
@@ -33,6 +71,7 @@ export function HistoricFinancialsTabContent({
   }
 
   const hasData = historicPnLs.length > 0;
+  const workbookGroups = groupByWorkbook(historicPnLs);
 
   return (
     <div className="space-y-6">
@@ -58,55 +97,70 @@ export function HistoricFinancialsTabContent({
         />
       )}
 
-      {/* P&L tables */}
-      {historicPnLs.map((pnl: any) => (
-        <ErrorBoundary key={pnl.id}>
-          <div className="space-y-3">
-            {/* P&L header */}
-            <div className="flex items-start justify-between">
-              <div>
-                {pnl.companyName && (
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {pnl.companyName}
-                  </h3>
-                )}
-                {pnl.title && (
-                  <p className="text-sm text-muted-foreground">{pnl.title}</p>
-                )}
-                {pnl.basis && (
-                  <p className="text-xs text-muted-foreground/70">
-                    {pnl.basis}
-                  </p>
-                )}
+      {/* Workbook groups + standalone P&Ls */}
+      {workbookGroups.map((group) => (
+        <ErrorBoundary key={group.key}>
+          {group.workbookGroup ? (
+            /* Multi-sheet workbook — render WorkbookCard with sub-tabs */
+            <WorkbookCard
+              pnls={group.pnls}
+              fileName={group.fileName}
+              opportunityId={opportunityId}
+              onDelete={() => deleteWorkbook.mutate(group.workbookGroup!)}
+              isDeleting={deleteWorkbook.isPending}
+            />
+          ) : (
+            /* Standalone P&L (no workbookGroup) — backward compatible */
+            <div className="space-y-3">
+              <div className="flex items-start justify-between">
+                <div>
+                  {group.pnls[0]?.companyName && (
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {group.pnls[0].companyName}
+                    </h3>
+                  )}
+                  {group.pnls[0]?.title && (
+                    <p className="text-sm text-muted-foreground">
+                      {group.pnls[0].title}
+                    </p>
+                  )}
+                  {group.pnls[0]?.basis && (
+                    <p className="text-xs text-muted-foreground/70">
+                      {group.pnls[0].basis}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {group.pnls[0]?.sourceFileName && (
+                    <span className="text-xs text-muted-foreground/50">
+                      {group.pnls[0].sourceFileName}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "Delete this historic P&L? This cannot be undone.",
+                        )
+                      ) {
+                        deletePnl.mutate(group.pnls[0].id);
+                      }
+                    }}
+                    disabled={deletePnl.isPending}
+                    className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                    title="Delete this P&L"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {pnl.sourceFileName && (
-                  <span className="text-xs text-muted-foreground/50">
-                    {pnl.sourceFileName}
-                  </span>
-                )}
-                <button
-                  onClick={() => {
-                    if (
-                      confirm(
-                        "Delete this historic P&L? This cannot be undone.",
-                      )
-                    ) {
-                      deletePnl.mutate(pnl.id);
-                    }
-                  }}
-                  disabled={deletePnl.isPending}
-                  className="text-muted-foreground hover:text-destructive transition-colors p-1"
-                  title="Delete this P&L"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
 
-            {/* The table */}
-            <HistoricPnlTable pnl={pnl} opportunityId={opportunityId} />
-          </div>
+              <HistoricPnlTable
+                pnl={group.pnls[0]}
+                opportunityId={opportunityId}
+              />
+            </div>
+          )}
         </ErrorBoundary>
       ))}
     </div>

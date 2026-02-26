@@ -1172,6 +1172,7 @@ model HistoricPnL {
   companyName     String?           // e.g., "Precision Media Solutions, LLC"
   basis           String?           // e.g., "Cash Basis"
   sourceFileName  String?           // Original uploaded file name
+  workbookGroup   String?           // UUID grouping sheets from same file upload
 
   // Column definitions as JSON array:
   // [{ "header": "2025 YTD", "subheader": "Jan 1 - Oct 15" }, { "header": "2024", "subheader": "Jan - Dec" }]
@@ -1183,6 +1184,7 @@ model HistoricPnL {
   updatedAt       DateTime          @updatedAt
 
   @@index([opportunityId])
+  @@index([workbookGroup])
 }
 
 model HistoricPnLRow {
@@ -1197,6 +1199,7 @@ model HistoricPnLRow {
   isTotal         Boolean           @default(false) // "Total X" rows — rendered bold
   isSummary       Boolean           @default(false) // Gross Profit, Net Income, etc. — rendered bold
   isBlank         Boolean           @default(false) // Empty separator row
+  notes           String?           // Annotation text from extra columns
 
   // Values for each column as JSON array: [629800.67, 873730.61] or [null, null]
   // Array length matches the columns array on the parent HistoricPnL

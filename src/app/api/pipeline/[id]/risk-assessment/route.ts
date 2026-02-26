@@ -195,3 +195,61 @@ export async function PATCH(
     );
   }
 }
+
+// ─────────────────────────────────────────────
+// DELETE /api/pipeline/[id]/risk-assessment
+//
+// Deletes a specific risk assessment by analysisId.
+// ─────────────────────────────────────────────
+
+const deleteSchema = z.object({
+  analysisId: z.string(),
+});
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const { id: opportunityId } = await params;
+    const body = await request.json();
+    const parsed = deleteSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { analysisId } = parsed.data;
+
+    // Verify the analysis belongs to this opportunity and is a risk assessment
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        opportunityId,
+        analysisType: "RISK_ASSESSMENT",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Risk assessment not found" },
+        { status: 404 },
+      );
+    }
+
+    await prisma.aIAnalysisResult.delete({
+      where: { id: analysisId },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[risk-assessment] DELETE error:", err);
+    return NextResponse.json(
+      { error: "Failed to delete risk assessment" },
+      { status: 500 },
+    );
+  }
+}
