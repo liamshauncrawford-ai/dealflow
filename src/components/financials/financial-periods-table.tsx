@@ -53,6 +53,7 @@ const OVERRIDE_MAP: Record<string, string> = {
   totalOpex: "overrideTotalOpex",
   ebitda: "overrideEbitda",
   adjustedEbitda: "overrideAdjustedEbitda",
+  ebit: "overrideEbit",
   netIncome: "overrideNetIncome",
 };
 

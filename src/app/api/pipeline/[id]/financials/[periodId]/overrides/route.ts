@@ -13,6 +13,7 @@ const ALLOWED_OVERRIDE_FIELDS = [
   "overrideTotalOpex",
   "overrideEbitda",
   "overrideAdjustedEbitda",
+  "overrideEbit",
   "overrideNetIncome",
 ] as const;
 

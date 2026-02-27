@@ -34,6 +34,7 @@ export interface PeriodOverrides {
   overrideTotalOpex?: number | null;
   overrideEbitda?: number | null;
   overrideAdjustedEbitda?: number | null;
+  overrideEbit?: number | null;
   overrideNetIncome?: number | null;
 }
 
@@ -100,7 +101,7 @@ export function recomputePeriodSummary(
   const ebitda = overrides?.overrideEbitda ?? (grossProfit - totalOpex);
 
   const depreciationAmort = sumByCategory(lineItems, "D_AND_A");
-  const ebit = ebitda - depreciationAmort;
+  const ebit = overrides?.overrideEbit ?? (ebitda - depreciationAmort);
 
   const interestExpense = sumByCategory(lineItems, "INTEREST");
   const taxExpense = sumByCategory(lineItems, "TAX");

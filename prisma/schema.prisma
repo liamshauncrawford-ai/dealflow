@@ -1091,6 +1091,7 @@ model FinancialPeriod {
   overrideTotalOpex        Decimal?        @db.Decimal(14, 2)
   overrideEbitda           Decimal?        @db.Decimal(14, 2)
   overrideAdjustedEbitda   Decimal?        @db.Decimal(14, 2)
+  overrideEbit             Decimal?        @db.Decimal(14, 2)
   overrideNetIncome        Decimal?        @db.Decimal(14, 2)
 
   // Metadata
