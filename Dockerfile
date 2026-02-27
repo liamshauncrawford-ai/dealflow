@@ -61,6 +61,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_module
 # Copy xlsx (serverExternalPackage — not traced by Next.js standalone)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/xlsx ./node_modules/xlsx
 
+# Copy Anthropic SDK (serverExternalPackage — deep subpath imports not traced)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@anthropic-ai ./node_modules/@anthropic-ai
+
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 
 USER nextjs
