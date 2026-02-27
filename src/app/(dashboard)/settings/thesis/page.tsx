@@ -65,8 +65,8 @@ export default function ThesisSettingsPage() {
       />
 
       <PlatformCompanySection
-        currentPlatformId={config.platformListingId}
-        onSave={(id) => mutation.mutateAsync({ platformListingId: id })}
+        currentPlatformListingId={config.platformListingId}
+        onSave={(opportunityId) => mutation.mutateAsync({ platformOpportunityId: opportunityId })}
         isSaving={mutation.isPending}
       />
 
@@ -210,30 +210,39 @@ function PipelineValueStagesSection({
 /* ─── Section 2: Platform Company ─── */
 
 function PlatformCompanySection({
-  currentPlatformId,
+  currentPlatformListingId,
   onSave,
   isSaving,
 }: {
-  currentPlatformId: string | null;
-  onSave: (id: string | null) => Promise<unknown>;
+  currentPlatformListingId: string | null;
+  onSave: (opportunityId: string | null) => Promise<unknown>;
   isSaving: boolean;
 }) {
-  const { data: listings, isLoading: listingsLoading } = useListingsForPlatform();
-  const [selectedId, setSelectedId] = useState<string | null>(currentPlatformId);
+  const { data: options, isLoading: optionsLoading } = useListingsForPlatform();
+  const [selectedOppId, setSelectedOppId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const isDirty = selectedId !== currentPlatformId;
 
+  // Resolve current platform listing ID → opportunity ID for initial selection
   useEffect(() => {
-    setSelectedId(currentPlatformId);
-  }, [currentPlatformId]);
+    if (!options || selectedOppId !== null) return;
+    const current = options.find(
+      (o) => o.tier === "OWNED" || o.listingId === currentPlatformListingId,
+    );
+    setSelectedOppId(current?.opportunityId ?? null);
+  }, [options, currentPlatformListingId, selectedOppId]);
+
+  // Detect dirty state: compare selected opportunity's listing to current platform listing
+  const selectedOption = options?.find((o) => o.opportunityId === selectedOppId);
+  const currentOption = options?.find(
+    (o) => o.tier === "OWNED" || o.listingId === currentPlatformListingId,
+  );
+  const isDirty = selectedOppId !== (currentOption?.opportunityId ?? null);
 
   const handleSave = async () => {
-    await onSave(selectedId);
+    await onSave(selectedOppId);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
-
-  const currentPlatform = listings?.find((l) => l.tier === "OWNED" || l.id === currentPlatformId);
 
   return (
     <div className="rounded-lg border bg-card">
@@ -243,23 +252,23 @@ function PlatformCompanySection({
       </div>
       <div className="p-5 space-y-4">
         <p className="text-sm text-muted-foreground">
-          Designate which company is the &quot;platform&quot; for your roll-up
-          thesis. This drives Capital Deployed, Platform Revenue, Platform
-          EBITDA, and MOIC calculations.
+          Designate which pipeline company is the &quot;platform&quot; for your
+          roll-up thesis. This drives Capital Deployed, Platform Revenue,
+          Platform EBITDA, and MOIC calculations.
         </p>
 
-        {currentPlatform && (
+        {currentOption && (
           <div className="rounded-md bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-900/50 px-4 py-3">
             <p className="text-xs text-purple-600 dark:text-purple-400 font-medium">
               Current Platform
             </p>
             <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
-              {currentPlatform.title}
+              {currentOption.title}
             </p>
-            {currentPlatform.revenue && (
+            {currentOption.revenue && (
               <p className="text-xs text-purple-700 dark:text-purple-300 mt-0.5">
-                Revenue: {formatCurrency(currentPlatform.revenue)}
-                {currentPlatform.ebitda && ` | EBITDA: ${formatCurrency(currentPlatform.ebitda)}`}
+                Revenue: {formatCurrency(currentOption.revenue)}
+                {currentOption.ebitda && ` | EBITDA: ${formatCurrency(currentOption.ebitda)}`}
               </p>
             )}
           </div>
@@ -269,22 +278,22 @@ function PlatformCompanySection({
           <label className="block text-sm font-medium mb-1">
             Select Platform Company
           </label>
-          {listingsLoading ? (
+          {optionsLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading listings...
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading pipeline companies...
             </div>
           ) : (
             <select
-              value={selectedId || ""}
-              onChange={(e) => setSelectedId(e.target.value || null)}
+              value={selectedOppId || ""}
+              onChange={(e) => setSelectedOppId(e.target.value || null)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
             >
               <option value="">None (no platform designated)</option>
-              {listings?.map((listing) => (
-                <option key={listing.id} value={listing.id}>
-                  {listing.title}
-                  {listing.tier === "OWNED" ? " (current platform)" : ""}
-                  {listing.ebitda ? ` — EBITDA: ${formatCurrency(listing.ebitda)}` : ""}
+              {options?.map((opt) => (
+                <option key={opt.opportunityId} value={opt.opportunityId}>
+                  {opt.title}
+                  {opt.tier === "OWNED" ? " (current platform)" : ""}
+                  {opt.ebitda ? ` — EBITDA: ${formatCurrency(opt.ebitda)}` : ""}
                 </option>
               ))}
             </select>

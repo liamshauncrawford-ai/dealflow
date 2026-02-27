@@ -25,8 +25,14 @@ export function useThesisSettings() {
 // Update thesis settings
 // ─────────────────────────────────────────────
 
+/** Extends ThesisConfig with transient fields the API accepts but aren't stored directly */
+type ThesisUpdate = Partial<ThesisConfig> & {
+  /** Resolves to platformListingId server-side (auto-creates listing if needed) */
+  platformOpportunityId?: string | null;
+};
+
 async function updateThesisSettings(
-  updates: Partial<ThesisConfig>
+  updates: ThesisUpdate
 ): Promise<ThesisConfig> {
   const res = await fetch("/api/settings/thesis", {
     method: "PATCH",
@@ -45,7 +51,7 @@ async function updateThesisSettings(
 export function useUpdateThesisSettings() {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutation<ThesisConfig, Error, ThesisUpdate>({
     mutationFn: updateThesisSettings,
     onSuccess: () => {
       // Invalidate thesis settings and stats (dashboard recalculates)
@@ -56,38 +62,31 @@ export function useUpdateThesisSettings() {
 }
 
 // ─────────────────────────────────────────────
-// Fetch listings for platform company selector
+// Fetch pipeline opportunities for platform company selector
 // ─────────────────────────────────────────────
 
-interface ListingOption {
-  id: string;
+export interface PlatformOption {
+  opportunityId: string;
+  listingId: string | null;
   title: string;
   tier: string | null;
   ebitda: number | null;
   revenue: number | null;
 }
 
-async function fetchListingsForPlatformSelector(): Promise<ListingOption[]> {
-  const res = await fetch("/api/listings?limit=200&sort=title&order=asc");
+async function fetchPlatformOptions(): Promise<PlatformOption[]> {
+  const res = await fetch("/api/settings/thesis/platform-options");
   if (!res.ok) {
-    throw new Error("Failed to fetch listings");
+    throw new Error("Failed to fetch platform options");
   }
   const data = await res.json();
-  return (data.listings ?? []).map(
-    (l: { id: string; title: string; tier: string | null; ebitda: number | null; revenue: number | null }) => ({
-      id: l.id,
-      title: l.title,
-      tier: l.tier,
-      ebitda: l.ebitda ? Number(l.ebitda) : null,
-      revenue: l.revenue ? Number(l.revenue) : null,
-    })
-  );
+  return data.options ?? [];
 }
 
 export function useListingsForPlatform() {
-  return useQuery({
-    queryKey: ["listings-for-platform"],
-    queryFn: fetchListingsForPlatformSelector,
+  return useQuery<PlatformOption[]>({
+    queryKey: ["platform-options"],
+    queryFn: fetchPlatformOptions,
     staleTime: 60_000, // 1 minute
   });
 }

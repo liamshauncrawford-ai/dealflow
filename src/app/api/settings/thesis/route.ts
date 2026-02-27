@@ -14,6 +14,7 @@ const patchSchema = z.object({
     .min(1, "At least one stage must be selected")
     .optional(),
   platformListingId: z.string().nullable().optional(),
+  platformOpportunityId: z.string().nullable().optional(),
   exitMultipleLow: z.number().min(1).max(50).optional(),
   exitMultipleHigh: z.number().min(1).max(50).optional(),
   minimumEbitda: z.number().min(0).optional(),
@@ -77,8 +78,13 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    // Handle platform listing change — update tier flags
-    if (updates.platformListingId !== undefined) {
+    // Handle platform change — resolve opportunity to listing, then update tier flags
+    if (updates.platformOpportunityId !== undefined) {
+      const resolvedListingId = await resolveOpportunityToListing(updates.platformOpportunityId);
+      updates.platformListingId = resolvedListingId;
+      await handlePlatformChange(resolvedListingId);
+    } else if (updates.platformListingId !== undefined) {
+      // Legacy path: direct listing ID (for backward compatibility)
       await handlePlatformChange(updates.platformListingId);
     }
 
@@ -114,6 +120,52 @@ export async function PATCH(request: NextRequest) {
 // ─────────────────────────────────────────────
 // Platform Company Change Handler
 // ─────────────────────────────────────────────
+
+/**
+ * Resolve an opportunity ID to a listing ID.
+ *
+ * If the opportunity already has an associated listing, returns that ID.
+ * If not, auto-creates a minimal listing from the opportunity data and links them.
+ * Returns null if the opportunity ID is null (clearing the platform).
+ */
+async function resolveOpportunityToListing(opportunityId: string | null): Promise<string | null> {
+  if (!opportunityId) return null;
+
+  const opportunity = await prisma.opportunity.findUnique({
+    where: { id: opportunityId },
+    select: {
+      id: true,
+      listingId: true,
+      title: true,
+      description: true,
+      actualRevenue: true,
+      actualEbitda: true,
+    },
+  });
+
+  if (!opportunity) {
+    throw new Error("Opportunity not found");
+  }
+
+  // Already has a listing — use it
+  if (opportunity.listingId) {
+    return opportunity.listingId;
+  }
+
+  // No listing yet — create one from opportunity data and link it
+  const listing = await prisma.listing.create({
+    data: {
+      title: opportunity.title,
+      description: opportunity.description,
+      revenue: opportunity.actualRevenue,
+      ebitda: opportunity.actualEbitda,
+      tier: "TIER_1_ACTIVE", // will be set to OWNED by handlePlatformChange
+      opportunity: { connect: { id: opportunity.id } },
+    },
+  });
+
+  return listing.id;
+}
 
 async function handlePlatformChange(newPlatformId: string | null) {
   // Remove OWNED tier from current platform listing(s)
