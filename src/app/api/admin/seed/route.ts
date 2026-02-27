@@ -116,56 +116,7 @@ export async function POST(request: NextRequest) {
     });
     await ensureSource(pms.id, "MANUAL", "manual://seed-pms");
 
-    // 2. Precision Media Solutions — Commercial Division (OWNED)
-    const precisionMedia = await prisma.listing.upsert({
-      where: { id: "seed-precision-media" },
-      update: { latitude: 39.7392, longitude: -104.9903 },
-      create: {
-        id: "seed-precision-media",
-        title: "Precision Media Solutions - Commercial Division",
-        businessName: "Precision Media Solutions - Commercial Division",
-        description: "Full-service AV integration and digital signage company serving commercial, hospitality, and corporate clients across the Denver Metro area. Specializes in conference room AV, digital signage networks, and building-wide audio/video distribution.",
-        city: "Denver",
-        state: "CO",
-        metroArea: "Denver Metro",
-        industry: "Construction / Low Voltage",
-        category: "AV Integration & Digital Signage",
-        revenue: 2_200_000,
-        employees: 12,
-        established: 2015,
-        isManualEntry: true,
-        primaryTrade: "ELECTRICAL",
-        secondaryTrades: ["SECURITY_FIRE_ALARM"],
-        tier: "OWNED",
-        website: "https://precisionmediasolutions.com",
-        certifications: ["CTS Certified", "Licensed", "Bonded", "Insured"],
-        bonded: true,
-        insured: true,
-        targetMultipleLow: 3.0,
-        targetMultipleHigh: 5.0,
-        fitScore: 0,
-        latitude: 39.7392,
-        longitude: -104.9903,
-      },
-    });
-    await ensureSource(precisionMedia.id, "MANUAL", "manual://seed-precision-media");
-
-    // 2b. Precision Media — Opportunity record
-    await prisma.opportunity.upsert({
-      where: { id: "seed-opp-precision-media" },
-      update: {},
-      create: {
-        id: "seed-opp-precision-media",
-        title: "Precision Media Solutions — Commercial Division",
-        listingId: precisionMedia.id,
-        stage: "DUE_DILIGENCE",
-        priority: "HIGH",
-        keyPersonRisk: "LOW",
-        recurringRevenuePct: 0.30,
-      },
-    });
-
-    // 3. TIER 1 — SPC Communications
+    // 2. TIER 1 — SPC Communications
     const spc = await prisma.listing.upsert({
       where: { id: "seed-spc-communications" },
       update: { latitude: 39.7294, longitude: -104.8319 },
@@ -577,10 +528,10 @@ export async function POST(request: NextRequest) {
       await ensureSource(t3.id, "MANUAL", `manual://${t3.id}`);
     }
 
-    results.thesisTargets = 7 + tier3Targets.length; // OWNED (2) + TIER_1 (3) + TIER_2 (2) + TIER_3
+    results.thesisTargets = 6 + tier3Targets.length; // OWNED (1) + TIER_1 (3) + TIER_2 (2) + TIER_3
 
     // ── Compute fit scores for scorable targets ───────────────
-    const scorableListings = [spc, isi, msi, coControls, anchor, pms, precisionMedia];
+    const scorableListings = [spc, isi, msi, coControls, anchor, pms];
     const oppMap: Record<string, typeof spcOpp> = {
       [spc.id]: spcOpp,
       [isi.id]: isiOpp,
