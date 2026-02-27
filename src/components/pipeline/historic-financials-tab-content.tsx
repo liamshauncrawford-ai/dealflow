@@ -1,11 +1,12 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Trash2, ArrowRightLeft, Loader2 } from "lucide-react";
 import {
   useHistoricFinancials,
   useUploadHistoricPnl,
   useDeleteHistoricPnl,
   useDeleteHistoricWorkbookGroup,
+  useConvertHistoricToFinancials,
 } from "@/hooks/use-historic-financials";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { HistoricPnlUpload } from "@/components/financials/historic-pnl-upload";
@@ -61,6 +62,7 @@ export function HistoricFinancialsTabContent({
   const uploadPnl = useUploadHistoricPnl(opportunityId);
   const deletePnl = useDeleteHistoricPnl(opportunityId);
   const deleteWorkbook = useDeleteHistoricWorkbookGroup(opportunityId);
+  const convertFinancials = useConvertHistoricToFinancials(opportunityId);
 
   if (isLoading) {
     return (
@@ -77,13 +79,38 @@ export function HistoricFinancialsTabContent({
     <div className="space-y-6">
       {/* Toolbar */}
       {hasData && (
-        <div className="flex items-center justify-between">
-          <HistoricPnlUpload
-            onFileSelected={(file) => uploadPnl.mutate(file)}
-            isUploading={uploadPnl.isPending}
-            compact
-          />
-          <p className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <HistoricPnlUpload
+              onFileSelected={(file) => uploadPnl.mutate(file)}
+              isUploading={uploadPnl.isPending}
+              compact
+            />
+            <button
+              onClick={() => {
+                if (
+                  confirm(
+                    "This will replace all existing Financial Overview data with values extracted from this P&L. Continue?",
+                  )
+                ) {
+                  convertFinancials.mutate({ replaceExisting: true });
+                }
+              }}
+              disabled={convertFinancials.isPending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+              title="Create Financial Overview periods from this P&L data (no AI needed)"
+            >
+              {convertFinancials.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRightLeft className="h-4 w-4" />
+              )}
+              {convertFinancials.isPending
+                ? "Converting…"
+                : "Populate Financial Overview"}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground shrink-0">
             Double-click any cell to edit
           </p>
         </div>

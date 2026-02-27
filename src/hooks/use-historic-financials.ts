@@ -171,6 +171,51 @@ export function useDeleteHistoricPnl(opportunityId: string) {
   });
 }
 
+// ─── Mutation: Convert Historic P&L → Financial Periods ──
+
+export function useConvertHistoricToFinancials(opportunityId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (options?: { replaceExisting?: boolean }) => {
+      const res = await fetch(
+        `/api/pipeline/${opportunityId}/historic-financials/convert`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(options ?? { replaceExisting: true }),
+        },
+      );
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to convert financials");
+      }
+
+      return res.json();
+    },
+    onSuccess: (data) => {
+      // Invalidate both historic and financial period queries
+      queryClient.invalidateQueries({
+        queryKey: ["historic-financials", opportunityId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["financial-periods", opportunityId],
+      });
+      // Also invalidate the opportunity query to reflect updated summary
+      queryClient.invalidateQueries({
+        queryKey: ["opportunity"],
+      });
+      toast.success(
+        `Created ${data.created} financial period(s) from "${data.sheetUsed}"`,
+      );
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
 // ─── Mutation: Delete all P&Ls in a workbook group ──
 
 export function useDeleteHistoricWorkbookGroup(opportunityId: string) {
