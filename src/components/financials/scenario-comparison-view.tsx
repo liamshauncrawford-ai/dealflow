@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { BarChart3, Sparkles, Loader2, AlertTriangle, Shield, TrendingDown, Handshake } from "lucide-react";
 import type { ValuationScenario } from "@/hooks/use-valuation-scenarios";
 import { useCompareScenarios } from "@/hooks/use-valuation-scenarios";
@@ -55,6 +55,14 @@ export function ScenarioComparisonView({
   const [aiComparison, setAiComparison] = useState<ScenarioComparisonResult | null>(null);
 
   const compareMutation = useCompareScenarios(opportunityId);
+
+  // Auto-select first 2 scenarios on initial load
+  useEffect(() => {
+    if (scenarios.length >= 2 && selectedIds.size === 0) {
+      setSelectedIds(new Set(scenarios.slice(0, 2).map((s) => s.id)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scenarios]);
 
   // Build ComparisonScenario objects from selected scenarios
   const selectedScenarios: ComparisonScenario[] = useMemo(() => {
