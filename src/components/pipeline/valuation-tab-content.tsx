@@ -45,6 +45,7 @@ import {
   getMostRecentAnnual,
   type PeriodSummary,
 } from "@/lib/financial/period-to-valuation-mapper";
+import { ScenarioComparisonView } from "@/components/financials/scenario-comparison-view";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -94,6 +95,7 @@ export function ValuationTabContent({
   opportunityId,
   opportunity,
 }: ValuationTabContentProps) {
+  const [subTab, setSubTab] = useState<"model" | "compare">("model");
   const [inputs, setInputs] = useState<ValuationInputs>(DEFAULT_INPUTS);
   const [showSensitivity, setShowSensitivity] = useState(false);
   const [showProjection, setShowProjection] = useState(true);
@@ -375,6 +377,39 @@ export function ValuationTabContent({
 
   return (
     <div className="space-y-6">
+      {/* Sub-tab toggle */}
+      <div className="flex items-center gap-1 rounded-lg bg-muted p-1 w-fit">
+        <button
+          onClick={() => setSubTab("model")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            subTab === "model"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Model
+        </button>
+        <button
+          onClick={() => setSubTab("compare")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+            subTab === "compare"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Compare
+        </button>
+      </div>
+
+      {subTab === "compare" && (
+        <ScenarioComparisonView
+          opportunityId={opportunityId}
+          scenarios={scenarios}
+          isLoading={scenariosLoading}
+        />
+      )}
+
+      {subTab === "model" && (<>
       {/* ── Scenario + Year Toolbar ── */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Scenario Selector */}
@@ -952,6 +987,7 @@ export function ValuationTabContent({
           <SensitivitySection inputs={inputs} outputs={outputs} show={showSensitivity} onToggle={() => setShowSensitivity(!showSensitivity)} />
         </div>
       </div>
+      </>)}
     </div>
   );
 }
