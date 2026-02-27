@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Layers,
   Plus,
@@ -22,10 +21,10 @@ import {
   type RollupCompany,
 } from "@/lib/financial/rollup-engine";
 import {
-  type ListingSummary,
-  mapListingToRollupCompany,
-  formatListingOption,
+  mapOpportunityToRollupCompany,
+  formatOpportunityOption,
 } from "@/lib/financial/listing-mapper";
+import { usePipelineCompanies } from "@/hooks/use-pipeline-companies";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -62,14 +61,7 @@ export default function RollUpModelPage() {
   const [inputs, setInputs] = useState<RollupInputs>(DEFAULT_ROLLUP_INPUTS);
   const [showProjection, setShowProjection] = useState(true);
 
-  const { data: listings } = useQuery({
-    queryKey: ["listings-for-rollup"],
-    queryFn: async () => {
-      const res = await fetch("/api/listings?pageSize=100&sortBy=compositeScore&sortDir=desc&meetsThreshold=false");
-      if (!res.ok) return { listings: [] };
-      return res.json() as Promise<{ listings: ListingSummary[] }>;
-    },
-  });
+  const { data: pipelineCompanies } = usePipelineCompanies();
 
   const outputs = useMemo(() => calculateRollup(inputs), [inputs]);
 
@@ -119,11 +111,11 @@ export default function RollUpModelPage() {
     }));
   }, []);
 
-  const loadListingToPlatform = useCallback(
-    (listingId: string) => {
-      const listing = listings?.listings.find((l) => l.id === listingId);
-      if (!listing) return;
-      const mapped = mapListingToRollupCompany(listing, {
+  const loadCompanyToPlatform = useCallback(
+    (opportunityId: string) => {
+      const company = pipelineCompanies?.find((c) => c.opportunityId === opportunityId);
+      if (!company) return;
+      const mapped = mapOpportunityToRollupCompany(company, {
         id: "platform",
         close_year: 1,
         entry_multiple: inputs.platform.entry_multiple,
@@ -133,14 +125,14 @@ export default function RollUpModelPage() {
         platform: mapped,
       }));
     },
-    [listings, inputs.platform.entry_multiple],
+    [pipelineCompanies, inputs.platform.entry_multiple],
   );
 
-  const loadListingToBoltOn = useCallback(
-    (index: number, listingId: string) => {
-      const listing = listings?.listings.find((l) => l.id === listingId);
-      if (!listing) return;
-      const mapped = mapListingToRollupCompany(listing, {
+  const loadCompanyToBoltOn = useCallback(
+    (index: number, opportunityId: string) => {
+      const company = pipelineCompanies?.find((c) => c.opportunityId === opportunityId);
+      if (!company) return;
+      const mapped = mapOpportunityToRollupCompany(company, {
         id: `bolton-${index}`,
         close_year: index + 2,
       });
@@ -149,7 +141,7 @@ export default function RollUpModelPage() {
         boltOns: prev.boltOns.map((b, i) => (i === index ? mapped : b)),
       }));
     },
-    [listings],
+    [pipelineCompanies],
   );
 
   const reset = useCallback(() => setInputs(DEFAULT_ROLLUP_INPUTS), []);
@@ -195,16 +187,16 @@ export default function RollUpModelPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {listings?.listings && listings.listings.length > 0 && (
+              {pipelineCompanies && pipelineCompanies.length > 0 && (
                 <select
-                  onChange={(e) => e.target.value && loadListingToPlatform(e.target.value)}
+                  onChange={(e) => e.target.value && loadCompanyToPlatform(e.target.value)}
                   className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
                   defaultValue=""
                 >
                   <option value="">Load from pipeline...</option>
-                  {listings.listings.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {formatListingOption(l)}
+                  {pipelineCompanies.map((c) => (
+                    <option key={c.opportunityId} value={c.opportunityId}>
+                      {formatOpportunityOption(c)}
                     </option>
                   ))}
                 </select>
@@ -260,16 +252,16 @@ export default function RollUpModelPage() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                {listings?.listings && listings.listings.length > 0 && (
+                {pipelineCompanies && pipelineCompanies.length > 0 && (
                   <select
-                    onChange={(e) => e.target.value && loadListingToBoltOn(i, e.target.value)}
+                    onChange={(e) => e.target.value && loadCompanyToBoltOn(i, e.target.value)}
                     className="w-full rounded-md border bg-transparent px-3 py-1.5 text-sm"
                     defaultValue=""
                   >
                     <option value="">Load from pipeline...</option>
-                    {listings.listings.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {formatListingOption(l)}
+                    {pipelineCompanies.map((c) => (
+                      <option key={c.opportunityId} value={c.opportunityId}>
+                        {formatOpportunityOption(c)}
                       </option>
                     ))}
                   </select>

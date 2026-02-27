@@ -1,13 +1,15 @@
 /**
- * Shared utility for mapping target business (Listing) data into
- * financial model inputs across the Valuation, Roll-Up, and Comparison pages.
+ * Shared utility for mapping target business data into financial model inputs
+ * across the Valuation, Roll-Up, and Comparison pages.
  *
- * Centralizes the EBITDA fallback chain and display formatting so all
- * financial pages behave consistently.
+ * Supports both Listing-based (scraped leads) and Opportunity-based (pipeline
+ * deals) data sources. Centralizes EBITDA fallback chains and display
+ * formatting so all financial pages behave consistently.
  */
 
 import type { ValuationInputs } from "./valuation-engine";
 import type { RollupCompany } from "./rollup-engine";
+import type { PipelineCompany } from "@/hooks/use-pipeline-companies";
 
 // ─────────────────────────────────────────────
 // Listing summary shape (matches API response)
@@ -188,6 +190,100 @@ export function formatListingOption(listing: ListingSummary): string {
   if (details.length > 0) parts.push(details.join(", "));
 
   if (listing.compositeScore) parts.push(`(Score: ${listing.compositeScore})`);
+
+  return parts.join(" — ");
+}
+
+// ─────────────────────────────────────────────
+// Pipeline Opportunity → Roll-Up mapping
+// ─────────────────────────────────────────────
+
+/**
+ * Resolves best available revenue from a pipeline opportunity:
+ * actualRevenue (opportunity) → listing.revenue → 0
+ */
+function resolveOpportunityRevenue(company: PipelineCompany): number {
+  return company.actualRevenue || company.listing?.revenue || 0;
+}
+
+/**
+ * Resolves best available EBITDA from a pipeline opportunity through an
+ * extended fallback chain that bridges opportunity + listing data:
+ * actualEbitda → listing.ebitda → listing.sde → listing.inferredEbitda → listing.inferredSde → 0
+ */
+function resolveOpportunityEbitda(company: PipelineCompany): number {
+  return (
+    company.actualEbitda ||
+    company.listing?.ebitda ||
+    company.listing?.sde ||
+    company.listing?.inferredEbitda ||
+    company.listing?.inferredSde ||
+    0
+  );
+}
+
+/**
+ * Resolves best available price (for entry multiple derivation):
+ * offerPrice (opportunity) → listing.askingPrice → 0
+ */
+function resolveOpportunityPrice(company: PipelineCompany): number {
+  return company.offerPrice || company.listing?.askingPrice || 0;
+}
+
+/**
+ * Maps a pipeline opportunity into a RollupCompany for platform or bolt-on slots.
+ * Uses the extended fallback chain: opportunity data → linked listing data → defaults.
+ */
+export function mapOpportunityToRollupCompany(
+  company: PipelineCompany,
+  defaults: Partial<RollupCompany> = {},
+): RollupCompany {
+  const ebitda = resolveOpportunityEbitda(company);
+  const price = resolveOpportunityPrice(company);
+
+  // Derive entry multiple from price / EBITDA if both are available
+  const derivedMultiple =
+    price > 0 && ebitda > 0
+      ? Math.round((price / ebitda) * 10) / 10
+      : null;
+
+  return {
+    id: defaults.id ?? company.opportunityId,
+    name: company.title,
+    revenue: resolveOpportunityRevenue(company),
+    ebitda,
+    entry_multiple:
+      derivedMultiple !== null && derivedMultiple >= 2 && derivedMultiple <= 6
+        ? derivedMultiple
+        : defaults.entry_multiple ?? 3.5,
+    close_year: defaults.close_year ?? 1,
+  };
+}
+
+/**
+ * Formats a pipeline opportunity for display in a dropdown option.
+ * Example: "Mountain States Framing — $3.2M rev, $650K EBITDA (DUE_DILIGENCE)"
+ */
+export function formatOpportunityOption(company: PipelineCompany): string {
+  const parts: string[] = [company.title];
+
+  const details: string[] = [];
+  const revenue = resolveOpportunityRevenue(company);
+  const ebitda = resolveOpportunityEbitda(company);
+
+  if (revenue > 0) details.push(`${fmtCompact(revenue)} rev`);
+  if (ebitda > 0) details.push(`${fmtCompact(ebitda)} EBITDA`);
+
+  const city = company.listing?.city;
+  const state = company.listing?.state;
+  if (city && state) details.push(`${city}, ${state}`);
+  else if (state) details.push(state);
+
+  if (details.length > 0) parts.push(details.join(", "));
+
+  // Show pipeline stage as context (human-readable)
+  const stageLabel = company.stage.replace(/_/g, " ");
+  parts.push(`(${stageLabel})`);
 
   return parts.join(" — ");
 }
