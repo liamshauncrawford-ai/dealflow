@@ -135,3 +135,27 @@ export function useDeleteValuationScenario(opportunityId: string) {
     },
   });
 }
+
+// ─────────────────────────────────────────────
+// Mutation: Compare scenarios with AI
+// ─────────────────────────────────────────────
+
+export function useCompareScenarios(opportunityId: string) {
+  return useMutation({
+    mutationFn: async (scenarioIds: string[]) => {
+      const res = await fetch(`/api/pipeline/${opportunityId}/valuation/compare`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scenarioIds }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to compare scenarios");
+      }
+      return res.json();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}

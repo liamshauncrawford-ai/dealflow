@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { BarChart3, Sparkles, Loader2 } from "lucide-react";
+import { BarChart3, Sparkles, Loader2, AlertTriangle, Shield, TrendingDown, Handshake } from "lucide-react";
 import type { ValuationScenario } from "@/hooks/use-valuation-scenarios";
+import { useCompareScenarios } from "@/hooks/use-valuation-scenarios";
 import type { ValuationInputs, ValuationOutputs } from "@/lib/financial/valuation-engine";
 import { ScenarioComparisonTable, type ComparisonScenario } from "./scenario-comparison-table";
 import { ScenarioComparisonCharts } from "./scenario-comparison-charts";
@@ -52,7 +53,8 @@ export function ScenarioComparisonView({
 }: ScenarioComparisonViewProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [aiComparison, setAiComparison] = useState<ScenarioComparisonResult | null>(null);
-  const [isComparing, setIsComparing] = useState(false);
+
+  const compareMutation = useCompareScenarios(opportunityId);
 
   // Build ComparisonScenario objects from selected scenarios
   const selectedScenarios: ComparisonScenario[] = useMemo(() => {
@@ -80,26 +82,16 @@ export function ScenarioComparisonView({
     });
   };
 
-  const handleAICompare = async () => {
+  const handleAICompare = () => {
     if (selectedScenarios.length < 2) return;
-    setIsComparing(true);
-    try {
-      const res = await fetch(`/api/pipeline/${opportunityId}/valuation/compare`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenarioIds: selectedScenarios.map((s) => s.id) }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to compare scenarios");
-      }
-      const data = await res.json();
-      setAiComparison(data.comparison);
-    } catch (err) {
-      console.error("AI comparison failed:", err);
-    } finally {
-      setIsComparing(false);
-    }
+    compareMutation.mutate(
+      selectedScenarios.map((s) => s.id),
+      {
+        onSuccess: (data) => {
+          setAiComparison(data.comparison);
+        },
+      },
+    );
   };
 
   // ── Loading state ──
@@ -161,10 +153,10 @@ export function ScenarioComparisonView({
           <div className="space-y-4">
             <button
               onClick={handleAICompare}
-              disabled={isComparing || selectedScenarios.length < 2}
+              disabled={compareMutation.isPending || selectedScenarios.length < 2}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {isComparing ? (
+              {compareMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Sparkles className="h-4 w-4" />
@@ -172,8 +164,8 @@ export function ScenarioComparisonView({
               Compare with AI
             </button>
 
-            {/* AI Result Panel */}
-            {isComparing && (
+            {/* AI Loading State */}
+            {compareMutation.isPending && (
               <div className="rounded-lg border bg-card p-4">
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 animate-spin text-primary" />
@@ -182,7 +174,8 @@ export function ScenarioComparisonView({
               </div>
             )}
 
-            {aiComparison && !isComparing && (
+            {/* AI Result Panel */}
+            {aiComparison && !compareMutation.isPending && (
               <AIComparisonPanel comparison={aiComparison} />
             )}
           </div>
@@ -199,7 +192,7 @@ export function ScenarioComparisonView({
 }
 
 // ─────────────────────────────────────────────
-// AI Comparison Panel
+// AI Comparison Panel (follows financial-analysis-panel.tsx pattern)
 // ─────────────────────────────────────────────
 
 function AIComparisonPanel({ comparison }: { comparison: ScenarioComparisonResult }) {
@@ -213,20 +206,37 @@ function AIComparisonPanel({ comparison }: { comparison: ScenarioComparisonResul
       <div className="p-4 space-y-4">
         {/* Verdict */}
         <div className="rounded-md bg-muted/30 p-3">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Verdict</h4>
           <p className="text-sm leading-relaxed">{comparison.verdict}</p>
         </div>
 
-        {/* Risk-Adjusted Assessment */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Risk-Adjusted Assessment</h4>
-          <p className="text-sm leading-relaxed">{comparison.risk_adjusted_assessment}</p>
+        {/* Risk-Adjusted Assessment + Downside Resilience side by side */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Risk-Adjusted Assessment
+              </h4>
+            </div>
+            <p className="text-sm leading-relaxed">{comparison.risk_adjusted_assessment}</p>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <TrendingDown className="h-3.5 w-3.5 text-red-500" />
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Downside Resilience
+              </h4>
+            </div>
+            <p className="text-sm leading-relaxed">{comparison.downside_resilience}</p>
+          </div>
         </div>
 
         {/* Value Creation Bridge */}
         {comparison.value_creation_bridge.length > 0 && (
           <div>
-            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Value Creation Bridge</h4>
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Value Creation Bridge
+            </h4>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
@@ -254,19 +264,23 @@ function AIComparisonPanel({ comparison }: { comparison: ScenarioComparisonResul
 
         {/* Covenant & Underwriting Check */}
         <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Covenant & Underwriting Check</h4>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Shield className="h-3.5 w-3.5 text-blue-500" />
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Covenant & Underwriting Check
+            </h4>
+          </div>
           <p className="text-sm leading-relaxed">{comparison.covenant_check}</p>
-        </div>
-
-        {/* Downside Resilience */}
-        <div>
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Downside Resilience</h4>
-          <p className="text-sm leading-relaxed">{comparison.downside_resilience}</p>
         </div>
 
         {/* Negotiation Strategy */}
         <div className="rounded-md border bg-primary/5 p-3">
-          <h4 className="text-xs font-medium text-primary uppercase tracking-wide mb-1">Negotiation Strategy</h4>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Handshake className="h-3.5 w-3.5 text-primary" />
+            <h4 className="text-xs font-medium text-primary uppercase tracking-wide">
+              Negotiation Strategy
+            </h4>
+          </div>
           <p className="text-sm leading-relaxed">{comparison.negotiation_strategy}</p>
         </div>
       </div>
