@@ -144,7 +144,7 @@ function parseSheet(
 ): ParsedHistoricPnL {
   // ── Phase 1: Detect metadata & columns ──
 
-  const { companyName, title, basis, columnHeaderIdx, columns, lastDataColIdx } =
+  const { companyName, title, basis, columnHeaderIdx, columns, dataColIndices, lastDataColIdx } =
     detectMetadataAndColumns(rawRows);
 
   // ── Phase 2: Parse data rows ──
@@ -153,16 +153,45 @@ function parseSheet(
   const numCols = columns.length;
   const parsedRows: ParsedRow[] = [];
 
+  // Determine label column range from tracked data positions
+  const firstDataCol = dataColIndices.length > 0 ? Math.min(...dataColIndices) : 1;
+  const labelEndCol = firstDataCol - 1; // inclusive — last column used for labels
+  const isMultiColLabel = labelEndCol > 0;
+
+  // Track which column each label came from (for column-based depth assignment)
+  const labelCols: number[] = [];
+
   for (let i = dataStartIdx; i < rawRows.length; i++) {
     const raw = rawRows[i];
     if (!raw) continue;
 
-    const label = String(raw[0] ?? "").trim();
+    // Build label from label columns
+    let label = "";
+    let labelCol = 0;
 
-    // Extract numeric values from data columns
+    if (isMultiColLabel) {
+      // Multi-column labels: find the rightmost non-empty cell in label range
+      for (let c = labelEndCol; c >= 0; c--) {
+        const cellVal = String(raw[c] ?? "").trim();
+        if (cellVal) {
+          label = cellVal;
+          labelCol = c;
+          break;
+        }
+      }
+    } else {
+      // Single-column labels (col 0)
+      label = String(raw[0] ?? "").trim();
+      labelCol = 0;
+    }
+
+    labelCols.push(labelCol);
+
+    // Extract numeric values from tracked data column positions
     const values: (number | null)[] = [];
-    for (let c = 1; c <= numCols; c++) {
-      const cell = raw[c];
+    for (let c = 0; c < numCols; c++) {
+      const rawIdx = dataColIndices[c];
+      const cell = rawIdx !== undefined ? raw[rawIdx] : undefined;
       if (cell === "" || cell === null || cell === undefined) {
         values.push(null);
       } else {
@@ -171,7 +200,7 @@ function parseSheet(
       }
     }
 
-    // Scan for annotation text in columns beyond the data columns
+    // Scan for annotation text in columns beyond the last data column
     let notes: string | null = null;
     const noteParts: string[] = [];
     for (let c = lastDataColIdx + 1; c < raw.length; c++) {
@@ -200,7 +229,31 @@ function parseSheet(
 
   // ── Phase 3: Calculate hierarchy depths ──
 
-  assignDepths(parsedRows);
+  if (isMultiColLabel) {
+    // For multi-column label sheets, depth is derived from column position.
+    // Build a rank mapping from unique non-summary, non-blank label columns.
+    const uniqueCols = new Set<number>();
+    for (let i = 0; i < parsedRows.length; i++) {
+      if (!parsedRows[i].isBlank && !parsedRows[i].isSummary) {
+        uniqueCols.add(labelCols[i]);
+      }
+    }
+    const sortedCols = Array.from(uniqueCols).sort((a, b) => a - b);
+    const rankMap = new Map<number, number>();
+    sortedCols.forEach((col, rank) => rankMap.set(col, rank));
+
+    for (let i = 0; i < parsedRows.length; i++) {
+      const row = parsedRows[i];
+      if (row.isBlank || row.isSummary) {
+        row.depth = 0;
+      } else {
+        row.depth = rankMap.get(labelCols[i]) ?? 0;
+      }
+    }
+  } else {
+    // For single-column label sheets, use the heuristic Total-matching approach
+    assignDepths(parsedRows);
+  }
 
   return {
     companyName,
@@ -220,8 +273,9 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
   let columnHeaderIdx = -1;
   let lastDataColIdx = 0;
   const columns: ParsedColumn[] = [];
+  const dataColIndices: number[] = []; // Raw column indices where data lives
 
-  // Scan the first ~10 rows for metadata and column headers
+  // Scan the first ~15 rows for metadata and column headers
   const scanLimit = Math.min(rawRows.length, 15);
 
   for (let i = 0; i < scanLimit; i++) {
@@ -230,39 +284,40 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
 
     const firstCell = String(row[0] ?? "").trim();
 
-    // Check if this row has column headers (columns B+ have year-like or date-range values)
-    const headerCandidates: string[] = [];
+    // Check if this row has column headers — track both text AND raw column index
+    const headerCandidates: Array<{ text: string; rawColIndex: number }> = [];
     for (let c = 1; c < row.length; c++) {
       const val = String(row[c] ?? "").trim();
-      if (val) headerCandidates.push(val);
+      if (val) headerCandidates.push({ text: val, rawColIndex: c });
     }
 
-    if (headerCandidates.length > 0 && isColumnHeaderRow(headerCandidates)) {
+    if (headerCandidates.length > 0 && isColumnHeaderRow(headerCandidates.map(h => h.text))) {
       columnHeaderIdx = i;
 
-      // Check if next row has subheaders (date ranges)
+      // Check if next row has subheaders (date ranges) at the SAME raw column positions
       const nextRow = rawRows[i + 1];
-      const subheaders: (string | null)[] = [];
       let hasSubheaders = false;
+      const subheaderMap = new Map<number, string>();
 
       if (nextRow) {
-        for (let c = 1; c <= headerCandidates.length; c++) {
-          const val = String(nextRow[c] ?? "").trim();
-          subheaders.push(val || null);
+        for (const hc of headerCandidates) {
+          const val = String(nextRow[hc.rawColIndex] ?? "").trim();
           if (val && /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(val)) {
             hasSubheaders = true;
           }
+          if (val) subheaderMap.set(hc.rawColIndex, val);
         }
       }
 
-      for (let c = 0; c < headerCandidates.length; c++) {
+      for (const hc of headerCandidates) {
         columns.push({
-          header: headerCandidates[c],
-          subheader: hasSubheaders ? (subheaders[c] ?? null) : null,
+          header: hc.text,
+          subheader: hasSubheaders ? (subheaderMap.get(hc.rawColIndex) ?? null) : null,
         });
+        dataColIndices.push(hc.rawColIndex);
       }
 
-      lastDataColIdx = columns.length; // 1-indexed: columns occupy indices 1..columns.length
+      lastDataColIdx = Math.max(...dataColIndices);
       break;
     }
 
@@ -280,7 +335,6 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
 
   // Fallback: if no column headers detected, treat all non-A columns as data
   if (columnHeaderIdx === -1 || columns.length === 0) {
-    // Find the first row with numeric data to determine column count
     for (let i = 0; i < rawRows.length; i++) {
       const row = rawRows[i];
       if (!row) continue;
@@ -289,8 +343,9 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
           columnHeaderIdx = Math.max(0, i - 1);
           for (let cc = 1; cc < row.length; cc++) {
             columns.push({ header: `Column ${cc}`, subheader: null });
+            dataColIndices.push(cc);
           }
-          lastDataColIdx = columns.length;
+          lastDataColIdx = dataColIndices.length > 0 ? Math.max(...dataColIndices) : 0;
           break;
         }
       }
@@ -298,15 +353,20 @@ function detectMetadataAndColumns(rawRows: (string | number | null)[][]) {
     }
   }
 
-  return { companyName, title, basis, columnHeaderIdx, columns, lastDataColIdx };
+  return { companyName, title, basis, columnHeaderIdx, columns, dataColIndices, lastDataColIdx };
 }
 
 function isColumnHeaderRow(candidates: string[]): boolean {
-  // A column header row contains year-like values (2024, 2025 YTD, etc.)
+  // A column header row contains year-like or period-like values
   return candidates.some((val) => {
     const s = val.trim();
-    // Matches: "2024", "2025 YTD", "Jan - Dec 2024", "FY 2023", etc.
-    return /\b20\d{2}\b/.test(s) || /\bYTD\b/i.test(s) || /\bFY\b/i.test(s);
+    // 4-digit year: "2024", "2025 YTD", "Jan - Dec 2024", "FY 2023"
+    if (/\b20\d{2}\b/.test(s)) return true;
+    // Month abbreviation + 2-digit year: "Jan - Dec 24", "Aug 24", "Sep 24"
+    if (/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b.*\b\d{2}\b/i.test(s)) return true;
+    // YTD / FY labels
+    if (/\bYTD\b/i.test(s) || /\bFY\b/i.test(s)) return true;
+    return false;
   });
 }
 
