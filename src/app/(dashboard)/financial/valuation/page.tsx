@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
   Calculator,
   TrendingUp,
@@ -27,11 +27,10 @@ import {
 } from "@/lib/financial/valuation-engine";
 import type { ValuationCommentary } from "@/lib/ai/valuation-commentary";
 import {
-  type ListingSummary,
-  mapListingToValuationInputs,
-  formatListingOption,
-  ebitdaSourceLabel,
+  mapOpportunityToValuationInputs,
+  formatOpportunityOption,
 } from "@/lib/financial/listing-mapper";
+import { usePipelineCompanies } from "@/hooks/use-pipeline-companies";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -70,15 +69,7 @@ export default function ValuationCalculatorPage() {
   const [showProjection, setShowProjection] = useState(true);
   const [commentary, setCommentary] = useState<ValuationCommentary | null>(null);
 
-  // Fetch pipeline listings so user can pre-fill from a target
-  const { data: listings } = useQuery({
-    queryKey: ["listings-for-valuation"],
-    queryFn: async () => {
-      const res = await fetch("/api/listings?pageSize=100&sortBy=compositeScore&sortDir=desc&meetsThreshold=false");
-      if (!res.ok) return { listings: [] };
-      return res.json() as Promise<{ listings: ListingSummary[] }>;
-    },
-  });
+  const { data: pipelineCompanies } = usePipelineCompanies();
 
   const update = useCallback(
     <K extends keyof ValuationInputs>(field: K, value: ValuationInputs[K]) => {
@@ -97,22 +88,23 @@ export default function ValuationCalculatorPage() {
     [],
   );
 
-  const loadListing = useCallback(
-    (listingId: string) => {
-      const listing = listings?.listings.find((l) => l.id === listingId);
-      if (!listing) return;
-      setInputs((prev) => mapListingToValuationInputs(listing, prev));
+  const loadCompany = useCallback(
+    (opportunityId: string) => {
+      const company = pipelineCompanies?.find((c) => c.opportunityId === opportunityId);
+      if (!company) return;
+      setInputs((prev) => mapOpportunityToValuationInputs(company, prev));
     },
-    [listings],
+    [pipelineCompanies],
   );
 
   const outputs = useMemo(() => calculateValuation(inputs), [inputs]);
 
-  // Find the currently selected listing name for AI commentary
-  const selectedListing = listings?.listings.find((l) =>
-    l.revenue != null && Number(l.revenue) === inputs.target_revenue,
-  );
-  const companyName = selectedListing?.businessName || selectedListing?.title || "Target Company";
+  // Find the currently selected company name for AI commentary
+  const selectedCompany = pipelineCompanies?.find((c) => {
+    const rev = c.actualRevenue || c.listing?.revenue || 0;
+    return rev > 0 && rev === inputs.target_revenue;
+  });
+  const companyName = selectedCompany?.title || "Target Company";
 
   const aiCommentary = useMutation({
     mutationFn: async () => {
@@ -193,7 +185,7 @@ export default function ValuationCalculatorPage() {
       </div>
 
       {/* Pre-fill from Pipeline */}
-      {listings?.listings && listings.listings.length > 0 && (
+      {pipelineCompanies && pipelineCompanies.length > 0 && (
         <Card>
           <CardContent className="py-3">
             <div className="flex items-center gap-3">
@@ -201,14 +193,14 @@ export default function ValuationCalculatorPage() {
                 Load from pipeline:
               </label>
               <select
-                onChange={(e) => e.target.value && loadListing(e.target.value)}
+                onChange={(e) => e.target.value && loadCompany(e.target.value)}
                 className="flex-1 rounded-md border bg-transparent px-3 py-1.5 text-sm"
                 defaultValue=""
               >
-                <option value="">Select a target...</option>
-                {listings.listings.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {formatListingOption(l)}
+                <option value="">Select a pipeline opportunity...</option>
+                {pipelineCompanies.map((c) => (
+                  <option key={c.opportunityId} value={c.opportunityId}>
+                    {formatOpportunityOption(c)}
                   </option>
                 ))}
               </select>

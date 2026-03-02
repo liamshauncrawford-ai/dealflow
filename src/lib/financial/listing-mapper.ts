@@ -261,6 +261,52 @@ export function mapOpportunityToRollupCompany(
 }
 
 /**
+ * Maps a pipeline opportunity into valuation inputs.
+ * Uses the extended fallback chain: opportunity data → linked listing data → defaults.
+ */
+export function mapOpportunityToValuationInputs(
+  company: PipelineCompany,
+  defaults: ValuationInputs,
+): ValuationInputs {
+  const revenue = resolveOpportunityRevenue(company);
+  const ebitda = resolveOpportunityEbitda(company);
+  const price = resolveOpportunityPrice(company);
+  const margin = revenue > 0 ? ebitda / revenue : 0;
+  const derivedMultiple =
+    price > 0 && ebitda > 0
+      ? Math.round((price / ebitda) * 10) / 10
+      : null;
+
+  return {
+    ...defaults,
+    target_revenue: revenue,
+    target_ebitda: ebitda,
+    target_ebitda_margin: margin,
+    entry_multiple:
+      derivedMultiple !== null && derivedMultiple >= 2 && derivedMultiple <= 8
+        ? derivedMultiple
+        : defaults.entry_multiple,
+  };
+}
+
+/**
+ * Maps a pipeline opportunity into comparison inputs.
+ */
+export function buildComparisonInputsFromOpportunity(
+  company: PipelineCompany,
+  standardDefaults: ValuationInputs,
+): ValuationInputs {
+  const revenue = resolveOpportunityRevenue(company);
+  const ebitda = resolveOpportunityEbitda(company);
+  return {
+    ...standardDefaults,
+    target_revenue: revenue,
+    target_ebitda: ebitda,
+    target_ebitda_margin: revenue > 0 ? ebitda / revenue : 0,
+  };
+}
+
+/**
  * Formats a pipeline opportunity for display in a dropdown option.
  * Example: "Mountain States Framing — $3.2M rev, $650K EBITDA (DUE_DILIGENCE)"
  */
