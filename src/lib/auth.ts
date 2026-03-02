@@ -9,6 +9,8 @@ import type { UserRole } from "@prisma/client";
 const ADMIN_EMAILS = [
   "liamshauncrawford@gmail.com",
   "liam@crawfordholdings.co",
+  "fjlanasa@gmail.com",
+  "spadafin@gmail.com",
 ];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
