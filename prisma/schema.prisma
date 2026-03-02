@@ -516,10 +516,20 @@ model StageChange {
   @@index([opportunityId])
 }
 
+enum NoteType {
+  GENERAL
+  RESEARCH
+  MEETING_NOTES
+  AI_ANALYSIS
+  DUE_DILIGENCE
+}
+
 model Note {
   id              String        @id @default(cuid())
 
   content         String        @db.Text
+  title           String?
+  noteType        NoteType      @default(GENERAL)
 
   listingId       String?
   listing         Listing?      @relation(fields: [listingId], references: [id], onDelete: Cascade)

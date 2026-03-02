@@ -38,6 +38,8 @@ export async function POST(
     const note = await prisma.note.create({
       data: {
         content: parsed.data.content,
+        title: parsed.data.title || null,
+        noteType: parsed.data.noteType || "GENERAL",
         opportunityId: id,
       },
     });
