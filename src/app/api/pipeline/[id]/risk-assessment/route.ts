@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assessDealRisk } from "@/lib/ai/risk-assessment";
 import { isAIEnabled } from "@/lib/ai/claude-client";
+import { generateAnalysis, getLatestAnalysis, editAnalysis, deleteAnalysis } from "@/lib/ai/analysis-manager";
 import { z } from "zod";
 
 // ─────────────────────────────────────────────
@@ -18,12 +19,9 @@ export async function GET(
   try {
     const { id: opportunityId } = await params;
 
-    const latest = await prisma.aIAnalysisResult.findFirst({
-      where: {
-        opportunityId,
-        analysisType: "RISK_ASSESSMENT",
-      },
-      orderBy: { createdAt: "desc" },
+    const latest = await getLatestAnalysis({
+      opportunityId,
+      analysisType: "RISK_ASSESSMENT",
     });
 
     if (!latest) {
@@ -78,51 +76,24 @@ export async function POST(
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
     }
 
-    // Check for cached result (if less than 24 hours old, return it)
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const cached = await prisma.aIAnalysisResult.findFirst({
-      where: {
-        opportunityId,
-        analysisType: "RISK_ASSESSMENT",
-        createdAt: { gte: oneDayAgo },
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (cached) {
-      return NextResponse.json({
-        analysisId: cached.id,
-        result: cached.resultData,
-        modelUsed: cached.modelUsed,
-        inputTokens: cached.inputTokens,
-        outputTokens: cached.outputTokens,
-        cached: true,
-      });
-    }
-
-    // Generate new assessment
-    const { result, inputTokens, outputTokens, modelUsed } =
-      await assessDealRisk(opportunityId);
-
-    // Cache the result
-    const analysis = await prisma.aIAnalysisResult.create({
-      data: {
-        opportunityId,
-        analysisType: "RISK_ASSESSMENT",
-        resultData: result as object,
-        modelUsed,
-        inputTokens,
-        outputTokens,
+    const { result: analysis, cached } = await generateAnalysis({
+      opportunityId,
+      analysisType: "RISK_ASSESSMENT",
+      cacheHours: 24,
+      generateFn: async () => {
+        const { result, inputTokens, outputTokens, modelUsed } =
+          await assessDealRisk(opportunityId);
+        return { resultData: result, inputTokens, outputTokens, modelUsed };
       },
     });
 
     return NextResponse.json({
       analysisId: analysis.id,
-      result,
-      modelUsed,
-      inputTokens,
-      outputTokens,
-      cached: false,
+      result: analysis.resultData,
+      modelUsed: analysis.modelUsed,
+      inputTokens: analysis.inputTokens,
+      outputTokens: analysis.outputTokens,
+      cached,
     });
   } catch (err) {
     console.error("[risk-assessment] Error:", err);
@@ -178,10 +149,7 @@ export async function PATCH(
       );
     }
 
-    const updated = await prisma.aIAnalysisResult.update({
-      where: { id: analysisId },
-      data: { resultData: resultData as object },
-    });
+    const updated = await editAnalysis(analysisId, resultData);
 
     return NextResponse.json({
       analysisId: updated.id,
@@ -240,9 +208,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.aIAnalysisResult.delete({
-      where: { id: analysisId },
-    });
+    await deleteAnalysis(analysisId);
 
     return NextResponse.json({ success: true });
   } catch (err) {
