@@ -10,6 +10,7 @@
 
 import { callClaude, safeJsonParse } from "./claude-client";
 import { prisma } from "@/lib/db";
+import { getOpportunityNotesContext } from "./note-context";
 
 // ─────────────────────────────────────────────
 // Types
@@ -120,6 +121,8 @@ export async function assessDealRisk(
 
   // Build context for Claude
   const context = buildAssessmentContext(opp);
+  const notesContext = await getOpportunityNotesContext(opportunityId);
+  const fullContext = context + notesContext;
 
   const modelUsed = "claude-sonnet-4-5";
 
@@ -129,7 +132,7 @@ export async function assessDealRisk(
     messages: [
       {
         role: "user",
-        content: `Assess the risk of this deal:\n\n${context}`,
+        content: `Assess the risk of this deal:\n\n${fullContext}`,
       },
     ],
     maxTokens: 3000,
@@ -253,13 +256,7 @@ function buildAssessmentContext(opp: any): string {
     sections.push(`## Recent Email Activity\n${emailSummaries.join("\n")}`);
   }
 
-  // Notes
-  if (opp.notes && opp.notes.length > 0) {
-    const noteContent = opp.notes
-      .map((n: any) => `- ${n.content.slice(0, 200)}`)
-      .slice(0, 5);
-    sections.push(`## Notes\n${noteContent.join("\n")}`);
-  }
+  // Notes are now handled by getOpportunityNotesContext() and appended separately
 
   return sections.join("\n\n");
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { runDeepDive } from "@/lib/ai/deep-dive";
+import { getOpportunityNotesContext } from "@/lib/ai/note-context";
 import { formatCurrency } from "@/lib/utils";
 
 /**
@@ -136,10 +137,16 @@ export async function POST(request: NextRequest) {
       )
       .join("\n");
 
+    // Fetch full notes context via shared helper
+    let notesContext = "";
+    if (listing.opportunity?.id) {
+      notesContext = await getOpportunityNotesContext(listing.opportunity.id);
+    }
+
     // Run the deep dive
     const { result, inputTokens, outputTokens } = await runDeepDive({
       companyName: listing.businessName || listing.title,
-      companyData: dataLines.join("\n"),
+      companyData: dataLines.join("\n") + notesContext,
       recentActivity: recentActivity || undefined,
     });
 

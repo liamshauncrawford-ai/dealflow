@@ -3,13 +3,13 @@ import { prisma } from "@/lib/db";
 
 /**
  * GET /api/market-intel/map
- * Returns geo-located listings for the Market Map.
- * Phase 2 will add project pipeline and client markers.
+ * Returns geo-located listings and pipeline opportunities for the Market Map.
  */
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const showListings = params.get("showListings") !== "false";
+    const showPipeline = params.get("showPipeline") !== "false";
 
     const listings: Array<{
       id: string;
@@ -63,7 +63,66 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ listings });
+    // Fetch pipeline opportunities with geo-located listings
+    let pipelineDeals: Array<{
+      id: string;
+      title: string;
+      stage: string;
+      dealValue: number | null;
+      latitude: number;
+      longitude: number;
+      city: string | null;
+      state: string | null;
+      primaryTrade: string | null;
+      revenue: number | null;
+    }> = [];
+
+    if (showPipeline) {
+      const rawDeals = await prisma.opportunity.findMany({
+        where: {
+          stage: { notIn: ["CLOSED_LOST", "CLOSED_WON"] },
+          listing: {
+            latitude: { not: null },
+            longitude: { not: null },
+          },
+        },
+        select: {
+          id: true,
+          title: true,
+          stage: true,
+          dealValue: true,
+          listing: {
+            select: {
+              latitude: true,
+              longitude: true,
+              city: true,
+              state: true,
+              primaryTrade: true,
+              revenue: true,
+            },
+          },
+        },
+      });
+
+      pipelineDeals = rawDeals
+        .filter(
+          (d) => d.listing?.latitude != null && d.listing?.longitude != null,
+        )
+        .map((d) => ({
+          id: d.id,
+          title: d.title,
+          stage: d.stage,
+          dealValue: d.dealValue ? Number(d.dealValue) : null,
+          latitude: d.listing!.latitude!,
+          longitude: d.listing!.longitude!,
+          city: d.listing?.city ?? null,
+          state: d.listing?.state ?? null,
+          primaryTrade: d.listing?.primaryTrade ?? null,
+          revenue: d.listing?.revenue ? Number(d.listing.revenue) : null,
+        }));
+    }
+
+    return NextResponse.json({ listings, pipelineDeals });
   } catch (error) {
     console.error("Error fetching map data:", error);
     return NextResponse.json(

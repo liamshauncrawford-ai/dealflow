@@ -109,8 +109,14 @@ export const updateStageHistorySchema = z.object({
 // Notes
 // ─────────────────────────────────────────────
 
+const noteTypes = [
+  "GENERAL", "RESEARCH", "MEETING_NOTES", "AI_ANALYSIS", "DUE_DILIGENCE",
+] as const;
+
 export const createNoteSchema = z.object({
-  content: z.string().min(1, "Note content is required").max(10000),
+  content: z.string().min(1, "Note content is required").max(50000),
+  title: z.string().max(200).nullable().optional(),
+  noteType: z.enum(noteTypes).optional(),
 });
 
 // ─────────────────────────────────────────────

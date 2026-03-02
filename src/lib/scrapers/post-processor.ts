@@ -334,6 +334,29 @@ async function processOneListing(
         },
       });
     }
+
+    // Flag non-Colorado listings as out-of-geography
+    if (!isColorado && freshListing.state) {
+      await prisma.listing.update({
+        where: { id: listingId },
+        data: {
+          thesisAlignment: "out_of_geography",
+          tier: "TIER_3_DISQUALIFIED",
+        },
+      });
+
+      // Auto-tag
+      const geoTag = await prisma.tag.upsert({
+        where: { name: "OUT_OF_GEOGRAPHY" },
+        create: { name: "OUT_OF_GEOGRAPHY", color: "#EF4444" },
+        update: {},
+      });
+      await prisma.listingTag.upsert({
+        where: { listingId_tagId: { listingId, tagId: geoTag.id } },
+        create: { listingId, tagId: geoTag.id },
+        update: {},
+      });
+    }
   }
 
   return isNew ? "new" : "updated";

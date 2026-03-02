@@ -117,6 +117,15 @@ export async function POST(request: NextRequest) {
         results.dora = { error: msg };
       }
 
+      // Record market metrics snapshot after scrape
+      try {
+        const { recordMarketMetrics } = await import("@/lib/market-metrics");
+        await recordMarketMetrics();
+      } catch (err) {
+        console.error("[scrape_all] Failed to record market metrics:", err);
+        // Non-fatal — don't fail the scrape because of metrics
+      }
+
       return NextResponse.json({
         action: "scrape_all",
         results,

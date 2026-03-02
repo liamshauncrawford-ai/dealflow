@@ -1,17 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   GitCompare,
   Loader2,
-  Plus,
   X,
   CheckCircle,
   AlertTriangle,
-  HelpCircle,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   calculateValuation,
   DEFAULT_INPUTS,
@@ -19,15 +16,14 @@ import {
   type ValuationOutputs,
 } from "@/lib/financial/valuation-engine";
 import {
-  type ListingSummary,
-  buildComparisonInputs,
-  formatListingOption,
-  ebitdaSourceLabel,
-  resolveEbitda,
+  buildComparisonInputsFromOpportunity,
+  formatOpportunityOption,
 } from "@/lib/financial/listing-mapper";
+import { usePipelineCompanies, type PipelineCompany } from "@/hooks/use-pipeline-companies";
 
 interface ComparisonTarget {
-  listing: ListingSummary;
+  company: PipelineCompany;
+  inputs: ValuationInputs;
   outputs: ValuationOutputs;
 }
 
@@ -65,8 +61,8 @@ function scoreBadge(score: number | null): { text: string; color: string } {
   return { text: `${score}`, color: "text-red-600 dark:text-red-400" };
 }
 
-function buildInputs(listing: ListingSummary): ValuationInputs {
-  return buildComparisonInputs(listing, DEFAULT_INPUTS);
+function buildInputs(company: PipelineCompany): ValuationInputs {
+  return buildComparisonInputsFromOpportunity(company, DEFAULT_INPUTS);
 }
 
 // ─────────────────────────────────────────────
@@ -76,25 +72,22 @@ function buildInputs(listing: ListingSummary): ValuationInputs {
 export default function DealComparisonPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["listings-for-compare"],
-    queryFn: async () => {
-      const res = await fetch("/api/listings?pageSize=100&sortBy=compositeScore&sortDir=desc&meetsThreshold=false");
-      if (!res.ok) return { listings: [] };
-      return res.json() as Promise<{ listings: ListingSummary[] }>;
-    },
-  });
+  const { data: pipelineCompanies, isLoading } = usePipelineCompanies();
 
   const targets = useMemo<ComparisonTarget[]>(() => {
-    if (!data?.listings) return [];
+    if (!pipelineCompanies) return [];
     return selectedIds
-      .map((id) => data.listings.find((l) => l.id === id))
+      .map((id) => pipelineCompanies.find((c) => c.opportunityId === id))
       .filter(Boolean)
-      .map((listing) => ({
-        listing: listing!,
-        outputs: calculateValuation(buildInputs(listing!)),
-      }));
-  }, [selectedIds, data]);
+      .map((company) => {
+        const inputs = buildInputs(company!);
+        return {
+          company: company!,
+          inputs,
+          outputs: calculateValuation(inputs),
+        };
+      });
+  }, [selectedIds, pipelineCompanies]);
 
   const addTarget = (id: string) => {
     if (selectedIds.length >= 4 || selectedIds.includes(id)) return;
@@ -105,7 +98,7 @@ export default function DealComparisonPage() {
     setSelectedIds((prev) => prev.filter((x) => x !== id));
   };
 
-  const availableListings = data?.listings.filter((l) => !selectedIds.includes(l.id)) ?? [];
+  const availableCompanies = pipelineCompanies?.filter((c) => !selectedIds.includes(c.opportunityId)) ?? [];
 
   return (
     <div className="space-y-6">
@@ -128,12 +121,12 @@ export default function DealComparisonPage() {
             </label>
             {targets.map((t) => (
               <span
-                key={t.listing.id}
+                key={t.company.opportunityId}
                 className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm"
               >
-                {t.listing.businessName || t.listing.title || "Unnamed"}
+                {t.company.title}
                 <button
-                  onClick={() => removeTarget(t.listing.id)}
+                  onClick={() => removeTarget(t.company.opportunityId)}
                   className="ml-1 hover:text-red-500"
                 >
                   <X className="h-3 w-3" />
@@ -150,9 +143,9 @@ export default function DealComparisonPage() {
                 value=""
               >
                 <option value="">+ Add target...</option>
-                {availableListings.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {formatListingOption(l)}
+                {availableCompanies.map((c) => (
+                  <option key={c.opportunityId} value={c.opportunityId}>
+                    {formatOpportunityOption(c)}
                   </option>
                 ))}
               </select>
@@ -193,37 +186,41 @@ export default function DealComparisonPage() {
                     </th>
                     {targets.map((t) => (
                       <th
-                        key={t.listing.id}
+                        key={t.company.opportunityId}
                         className="text-center py-3 px-4 min-w-[160px] font-medium"
                       >
-                        {t.listing.businessName || t.listing.title || "Unnamed"}
+                        {t.company.title}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   <CompareRow
+                    label="Pipeline Stage"
+                    values={targets.map((t) => {
+                      const stage = t.company.stage.replace(/_/g, " ");
+                      return <span className="capitalize">{stage.toLowerCase()}</span>;
+                    })}
+                  />
+                  <CompareRow
                     label="Composite Score"
                     values={targets.map((t) => {
-                      const b = scoreBadge(t.listing.compositeScore);
+                      const b = scoreBadge(t.company.listing?.compositeScore ?? null);
                       return <span className={`font-bold ${b.color}`}>{b.text}</span>;
                     })}
                   />
                   <CompareRow
                     label="Revenue"
                     values={targets.map((t) =>
-                      t.listing.revenue ? fmtK(Number(t.listing.revenue)) : "N/A",
+                      t.inputs.target_revenue > 0 ? fmtK(t.inputs.target_revenue) : "N/A",
                     )}
-                    highlight={highlightMax(targets.map((t) => Number(t.listing.revenue) || 0))}
+                    highlight={highlightMax(targets.map((t) => t.inputs.target_revenue))}
                   />
                   <CompareRow
                     label="Est. EBITDA"
-                    values={targets.map((t) => {
-                      const ebitda = resolveEbitda(t.listing);
-                      return ebitda > 0 ? (
-                        <span title={ebitdaSourceLabel(t.listing)}>{fmtK(ebitda)}</span>
-                      ) : "N/A";
-                    })}
+                    values={targets.map((t) =>
+                      t.inputs.target_ebitda > 0 ? fmtK(t.inputs.target_ebitda) : "N/A",
+                    )}
                   />
                   <CompareRow
                     label="Est. EV @ 4x"
@@ -238,30 +235,10 @@ export default function DealComparisonPage() {
                     label="Location"
                     values={targets.map(
                       (t) =>
-                        [t.listing.city, t.listing.state].filter(Boolean).join(", ") || "N/A",
+                        [t.company.listing?.city, t.company.listing?.state]
+                          .filter(Boolean)
+                          .join(", ") || "N/A",
                     )}
-                  />
-                  <CompareRow
-                    label="Established"
-                    values={targets.map((t) =>
-                      t.listing.established ? `${t.listing.established}` : "N/A",
-                    )}
-                  />
-                  <CompareRow
-                    label="Primary Trade"
-                    values={targets.map((t) => t.listing.primaryTrade || "N/A")}
-                  />
-                  <CompareRow
-                    label="Certifications"
-                    values={targets.map((t) =>
-                      t.listing.certifications?.length
-                        ? t.listing.certifications.join(", ")
-                        : "None",
-                    )}
-                  />
-                  <CompareRow
-                    label="Tier"
-                    values={targets.map((t) => t.listing.tier || "N/A")}
                   />
                   <CompareRow
                     label="DSCR @ 4x"
@@ -295,29 +272,6 @@ export default function DealComparisonPage() {
                     highlight={highlightMax(
                       targets.map((t) => t.outputs.exit.irr ?? 0),
                     )}
-                  />
-                  <CompareRow
-                    label="Thesis Alignment"
-                    values={targets.map((t) => {
-                      const a = t.listing.thesisAlignment;
-                      if (a === "strong")
-                        return <span className="text-emerald-600 dark:text-emerald-400 font-medium">Strong</span>;
-                      if (a === "moderate")
-                        return <span className="text-amber-600 dark:text-amber-400">Moderate</span>;
-                      if (a === "weak") return <span className="text-red-500">Weak</span>;
-                      return <span className="text-muted-foreground">N/A</span>;
-                    })}
-                  />
-                  <CompareRow
-                    label="Enrichment"
-                    values={targets.map((t) => {
-                      const s = t.listing.enrichmentStatus;
-                      if (s === "complete")
-                        return <CheckCircle className="h-4 w-4 text-emerald-500 mx-auto" />;
-                      if (s === "in_progress")
-                        return <Loader2 className="h-4 w-4 animate-spin text-blue-500 mx-auto" />;
-                      return <HelpCircle className="h-4 w-4 text-muted-foreground mx-auto" />;
-                    })}
                   />
                 </tbody>
               </table>

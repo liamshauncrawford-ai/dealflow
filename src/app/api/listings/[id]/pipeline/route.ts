@@ -69,6 +69,12 @@ export async function POST(
       }
     }
 
+    // Auto-hide the listing since it's now a pipeline opportunity
+    await prisma.listing.update({
+      where: { id },
+      data: { isHidden: true },
+    });
+
     // Refetch with contacts included
     const result = await prisma.opportunity.findUnique({
       where: { id: opportunity.id },

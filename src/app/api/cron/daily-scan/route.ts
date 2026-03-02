@@ -217,6 +217,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Record market metrics snapshot
+    try {
+      const { recordMarketMetrics } = await import("@/lib/market-metrics");
+      await recordMarketMetrics();
+    } catch (err) {
+      console.error("[daily-scan] Failed to record market metrics:", err);
+      // Non-fatal — don't fail the scan because of metrics
+    }
+
     return NextResponse.json({
       message: "Daily scan complete",
       scored: totalScored,

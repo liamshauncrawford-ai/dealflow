@@ -178,12 +178,19 @@ export function ListingsTable({
       size: 280,
       cell: ({ row }) => (
         <div className="max-w-[280px]">
-          <Link
-            href={`/listings/${row.original.id}`}
-            className="font-medium text-primary hover:underline"
-          >
-            {truncate(row.original.title, 50)}
-          </Link>
+          <div className="flex items-center gap-1.5">
+            <Link
+              href={`/listings/${row.original.id}`}
+              className="font-medium text-primary hover:underline"
+            >
+              {truncate(row.original.title, 50)}
+            </Link>
+            {row.original.thesisAlignment === "out_of_geography" && (
+              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                Out of Geography
+              </span>
+            )}
+          </div>
           {row.original.industry && (
             <p className="text-xs text-muted-foreground">{row.original.industry}</p>
           )}
