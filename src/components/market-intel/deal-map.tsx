@@ -55,7 +55,11 @@ function MapSkeleton() {
   );
 }
 
-export default function DealMap() {
+interface DealMapProps {
+  compact?: boolean;
+}
+
+export default function DealMap({ compact }: DealMapProps) {
   const { data, isLoading, error } = useQuery<MapData>({
     queryKey: ["market-map"],
     queryFn: async () => {
@@ -80,5 +84,5 @@ export default function DealMap() {
     );
   }
 
-  return <DealMapInner data={data ?? null} isLoading={isLoading} />;
+  return <DealMapInner data={data ?? null} isLoading={isLoading} compact={compact} />;
 }
