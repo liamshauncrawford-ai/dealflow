@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { PRIMARY_TRADES, type PrimaryTradeKey } from "@/lib/constants";
+import { sanitizeScrapedText } from "@/lib/scrapers/parser-utils";
+
+/** Sanitize a text field, returning null if nothing remains after cleanup. */
+function cleanField(text: string | null): string | null {
+  if (!text) return null;
+  const cleaned = sanitizeScrapedText(text);
+  return cleaned || null;
+}
 
 /**
  * GET /api/market-intel/overview
@@ -163,20 +171,20 @@ export async function GET() {
 
       topTargets: topTargets.map((t) => ({
         id: t.id,
-        name: t.businessName || t.title,
+        name: cleanField(t.businessName) || cleanField(t.title) || "Untitled",
         primaryTrade: t.primaryTrade,
         score: t.compositeScore ?? t.fitScore,
         thesisAlignment: t.thesisAlignment,
         tier: t.tier,
-        location: [t.city, t.state].filter(Boolean).join(", "),
+        location: [cleanField(t.city), cleanField(t.state)].filter(Boolean).join(", "),
         revenue: t.revenue ? Number(t.revenue) : null,
       })),
 
       recentListings: recentListings.map((l) => ({
         id: l.id,
-        name: l.businessName || l.title,
+        name: cleanField(l.businessName) || cleanField(l.title) || "Untitled",
         primaryTrade: l.primaryTrade,
-        location: [l.city, l.state].filter(Boolean).join(", "),
+        location: [cleanField(l.city), cleanField(l.state)].filter(Boolean).join(", "),
         createdAt: l.createdAt.toISOString(),
       })),
 
