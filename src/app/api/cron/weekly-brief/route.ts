@@ -152,6 +152,9 @@ export async function POST(request: NextRequest) {
       (result.inputTokens / 1_000_000) * 3.0 +
       (result.outputTokens / 1_000_000) * 15.0;
 
+    // ── Delete previous briefs (keep-latest-only) ──
+    await prisma.weeklyBrief.deleteMany({});
+
     // ── Store WeeklyBrief ────────────────────────
 
     await prisma.weeklyBrief.create({
