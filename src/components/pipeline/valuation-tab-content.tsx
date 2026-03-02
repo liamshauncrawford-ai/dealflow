@@ -274,13 +274,25 @@ export function ValuationTabContent({
   }, [inputs, scenarios.length, createScenario]);
 
   const handleLoadScenario = useCallback(
-    (scenarioId: string) => {
+    async (scenarioId: string) => {
       const scenario = scenarios.find((s) => s.id === scenarioId);
       if (!scenario) return;
       setActiveScenarioId(scenario.id);
       setInputs(scenario.inputs as unknown as ValuationInputs);
       setScenarioName(scenario.modelName || "Untitled");
-      setCommentary(null);
+
+      // Load persisted commentary if available
+      try {
+        const res = await fetch(`/api/ai/valuation-commentary?valuationModelId=${scenarioId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCommentary(data.commentary ?? null);
+        } else {
+          setCommentary(null);
+        }
+      } catch {
+        setCommentary(null);
+      }
     },
     [scenarios],
   );
@@ -339,6 +351,7 @@ export function ValuationTabContent({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           companyName,
+          valuationModelId: activeScenarioId ?? undefined,
           modelOutputs: {
             enterprise_value: outputs.deal.enterprise_value,
             equity_check: outputs.deal.equity_check,
