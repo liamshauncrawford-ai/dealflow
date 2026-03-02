@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import Link from "next/link";
 import {
   BarChart3,
@@ -89,6 +90,25 @@ function useMarketOverview() {
 
 export default function MarketOverviewPage() {
   const { data, isLoading } = useMarketOverview();
+  const queryClient = useQueryClient();
+
+  const generateBrief = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/cron/weekly-brief", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? "Failed to generate brief");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Weekly brief generated");
+      queryClient.invalidateQueries({ queryKey: ["market-overview"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to generate brief");
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -137,11 +157,20 @@ export default function MarketOverviewPage() {
               <Zap className="h-4 w-4 text-muted-foreground" />
               <h2 className="font-medium">Weekly Intelligence Brief</h2>
             </div>
-            {data?.brief?.createdAt && (
-              <span className="text-xs text-muted-foreground">
-                {formatRelativeDate(data.brief.createdAt)}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {data?.brief?.createdAt && (
+                <span className="text-xs text-muted-foreground">
+                  {formatRelativeDate(data.brief.createdAt)}
+                </span>
+              )}
+              <button
+                onClick={() => generateBrief.mutate()}
+                disabled={generateBrief.isPending}
+                className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {generateBrief.isPending ? "Generating..." : "Generate Brief"}
+              </button>
+            </div>
           </div>
           <div className="p-5">
             {isLoading ? (
