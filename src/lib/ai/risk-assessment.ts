@@ -109,10 +109,25 @@ export async function assessDealRisk(
         orderBy: { createdAt: "desc" },
       },
       aiAnalyses: {
-        where: { analysisType: "CIM_EXTRACTION" },
-        select: { resultData: true },
-        take: 1,
+        where: { analysisType: { in: ["CIM_EXTRACTION", "FINANCIAL_ANALYSIS"] } },
+        select: { analysisType: true, resultData: true, createdAt: true },
+        take: 2,
         orderBy: { createdAt: "desc" },
+      },
+      // Live financial data (source of truth)
+      financialPeriods: {
+        include: { lineItems: true, addBacks: true },
+        orderBy: { year: "desc" },
+      },
+      // Historic P&L spreadsheet data
+      historicPnLs: {
+        include: { rows: true },
+        orderBy: { createdAt: "desc" },
+      },
+      // Valuation scenarios
+      valuationModels: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
       },
     },
   });
@@ -120,7 +135,7 @@ export async function assessDealRisk(
   if (!opp) throw new Error("Opportunity not found");
 
   // Build context for Claude
-  const context = buildAssessmentContext(opp);
+  const context = buildAssessmentContext(opp, opp.historicPnLs);
   const notesContext = await getOpportunityNotesContext(opportunityId);
   const fullContext = context + notesContext;
 
@@ -147,6 +162,16 @@ export async function assessDealRisk(
   result.concerns = result.concerns || [];
   result.keyQuestions = result.keyQuestions || [];
 
+  // If FinancialPeriod data exists, ensure Opportunity cache is up-to-date
+  if (opp.financialPeriods && opp.financialPeriods.length > 0) {
+    try {
+      const { syncOpportunitySummary } = await import("@/lib/financial/sync-opportunity");
+      await syncOpportunitySummary(opportunityId);
+    } catch {
+      // Non-fatal: sync failure shouldn't block the assessment
+    }
+  }
+
   return {
     result,
     inputTokens: response.inputTokens,
@@ -160,7 +185,7 @@ export async function assessDealRisk(
 // ─────────────────────────────────────────────
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function buildAssessmentContext(opp: any): string {
+function buildAssessmentContext(opp: any, historicPnLs: any[]): string {
   const sections: string[] = [];
 
   // Deal overview
@@ -170,23 +195,158 @@ function buildAssessmentContext(opp: any): string {
 - Priority: ${opp.priority}
 - Description: ${opp.description || "N/A"}`);
 
-  // Financials
-  const financials: string[] = [];
-  if (opp.offerPrice) financials.push(`Offer Price: $${Number(opp.offerPrice).toLocaleString()}`);
-  if (opp.actualRevenue) financials.push(`Revenue: $${Number(opp.actualRevenue).toLocaleString()}`);
-  if (opp.actualEbitda) financials.push(`EBITDA: $${Number(opp.actualEbitda).toLocaleString()}`);
-  if (opp.actualEbitdaMargin) financials.push(`EBITDA Margin: ${(Number(opp.actualEbitdaMargin) * 100).toFixed(1)}%`);
-  if (opp.revenueTrend) financials.push(`Revenue Trend: ${opp.revenueTrend}`);
-  if (opp.recurringRevenuePct) financials.push(`Recurring Revenue: ${(Number(opp.recurringRevenuePct) * 100).toFixed(0)}%`);
-  if (opp.customerConcentration) financials.push(`Customer Concentration (top client): ${(Number(opp.customerConcentration) * 100).toFixed(0)}%`);
-  if (opp.dealValue) financials.push(`Deal Value: $${Number(opp.dealValue).toLocaleString()}`);
-  if (opp.backlog) financials.push(`Backlog: $${Number(opp.backlog).toLocaleString()}`);
+  // ─── Verified Financial Data (FinancialPeriod — source of truth) ───
+  if (opp.financialPeriods && opp.financialPeriods.length > 0) {
+    const fpLines: string[] = ["## Verified Financial Data (FinancialPeriod records — source of truth)"];
 
-  if (financials.length > 0) {
-    sections.push(`## Financials\n${financials.map((f) => `- ${f}`).join("\n")}`);
+    // Sort by year descending for display
+    const periods = [...opp.financialPeriods]
+      .filter((p: any) => p.periodType === "ANNUAL")
+      .sort((a: any, b: any) => (b.year ?? 0) - (a.year ?? 0));
+
+    for (const p of periods) {
+      const year = p.year ?? "Unknown";
+      const rev = p.totalRevenue ? `$${Number(p.totalRevenue).toLocaleString()}` : "N/A";
+      const cogs = p.totalCogs ? `$${Number(p.totalCogs).toLocaleString()}` : "N/A";
+      const gp = p.grossProfit ? `$${Number(p.grossProfit).toLocaleString()}` : "N/A";
+      const gpMargin = p.grossProfit && p.totalRevenue
+        ? `${((Number(p.grossProfit) / Number(p.totalRevenue)) * 100).toFixed(1)}%`
+        : "";
+      const opex = p.totalOpex ? `$${Number(p.totalOpex).toLocaleString()}` : "N/A";
+      const ebitda = p.ebitda ? `$${Number(p.ebitda).toLocaleString()}` : "N/A";
+      const adjEbitda = p.adjustedEbitda ? `$${Number(p.adjustedEbitda).toLocaleString()}` : "N/A";
+      const adjMargin = p.adjustedEbitdaMargin
+        ? `${(Number(p.adjustedEbitdaMargin) * 100).toFixed(1)}%`
+        : "";
+      const sde = p.sde ? `$${Number(p.sde).toLocaleString()}` : null;
+
+      fpLines.push(`### FY${year}`);
+      fpLines.push(`- Revenue: ${rev} | COGS: ${cogs} | Gross Profit: ${gp} ${gpMargin ? `(${gpMargin})` : ""}`);
+      fpLines.push(`- Operating Expenses: ${opex}`);
+      fpLines.push(`- EBITDA: ${ebitda} | Adj. EBITDA: ${adjEbitda} ${adjMargin ? `(${adjMargin} margin)` : ""}`);
+      if (sde) fpLines.push(`- SDE: ${sde}`);
+
+      // Add-back detail
+      if (p.addBacks && p.addBacks.length > 0) {
+        const addBackItems = p.addBacks
+          .map((ab: any) => `${ab.category}: $${Number(ab.amount).toLocaleString()}${ab.description ? ` (${ab.description})` : ""}`)
+          .join(", ");
+        fpLines.push(`- Add-backs: ${addBackItems}`);
+      }
+    }
+
+    // YoY growth if 2+ periods
+    if (periods.length >= 2) {
+      const recent = periods[0];
+      const prior = periods[1];
+      if (recent.totalRevenue && prior.totalRevenue) {
+        const revGrowth = ((Number(recent.totalRevenue) - Number(prior.totalRevenue)) / Number(prior.totalRevenue) * 100).toFixed(1);
+        fpLines.push(`\nYoY Revenue Growth: ${revGrowth}%`);
+      }
+      if (recent.adjustedEbitda && prior.adjustedEbitda) {
+        const ebitdaGrowth = ((Number(recent.adjustedEbitda) - Number(prior.adjustedEbitda)) / Number(prior.adjustedEbitda) * 100).toFixed(1);
+        fpLines.push(`YoY Adj. EBITDA Growth: ${ebitdaGrowth}%`);
+      }
+    }
+
+    sections.push(fpLines.join("\n"));
+
+    // Discrepancy detection
+    const latestPeriod = periods[0];
+    if (latestPeriod) {
+      const discrepancies: string[] = [];
+      const fpEbitda = Number(latestPeriod.adjustedEbitda ?? latestPeriod.ebitda ?? 0);
+      const oppEbitda = Number(opp.actualEbitda ?? 0);
+      if (oppEbitda !== 0 && fpEbitda !== 0 && Math.abs(fpEbitda - oppEbitda) / Math.abs(fpEbitda) > 0.1) {
+        discrepancies.push(`Opportunity.actualEbitda = $${oppEbitda.toLocaleString()} but FinancialPeriod shows $${fpEbitda.toLocaleString()}`);
+      }
+      const fpRevenue = Number(latestPeriod.totalRevenue ?? 0);
+      const oppRevenue = Number(opp.actualRevenue ?? 0);
+      if (oppRevenue !== 0 && fpRevenue !== 0 && Math.abs(fpRevenue - oppRevenue) / Math.abs(fpRevenue) > 0.1) {
+        discrepancies.push(`Opportunity.actualRevenue = $${oppRevenue.toLocaleString()} but FinancialPeriod shows $${fpRevenue.toLocaleString()}`);
+      }
+      if (discrepancies.length > 0) {
+        sections.push(`## DATA DISCREPANCY — Use FinancialPeriod as authoritative\n${discrepancies.map(d => `- ${d}`).join("\n")}`);
+      }
+    }
+  } else {
+    // Fallback to Opportunity flat fields if no FinancialPeriod data
+    const financials: string[] = [];
+    if (opp.offerPrice) financials.push(`Offer Price: $${Number(opp.offerPrice).toLocaleString()}`);
+    if (opp.actualRevenue) financials.push(`Revenue: $${Number(opp.actualRevenue).toLocaleString()}`);
+    if (opp.actualEbitda) financials.push(`EBITDA: $${Number(opp.actualEbitda).toLocaleString()}`);
+    if (opp.actualEbitdaMargin) financials.push(`EBITDA Margin: ${(Number(opp.actualEbitdaMargin) * 100).toFixed(1)}%`);
+    if (opp.revenueTrend) financials.push(`Revenue Trend: ${opp.revenueTrend}`);
+    if (opp.recurringRevenuePct) financials.push(`Recurring Revenue: ${(Number(opp.recurringRevenuePct) * 100).toFixed(0)}%`);
+    if (opp.customerConcentration) financials.push(`Customer Concentration (top client): ${(Number(opp.customerConcentration) * 100).toFixed(0)}%`);
+    if (opp.dealValue) financials.push(`Deal Value: $${Number(opp.dealValue).toLocaleString()}`);
+    if (opp.backlog) financials.push(`Backlog: $${Number(opp.backlog).toLocaleString()}`);
+    if (financials.length > 0) {
+      sections.push(`## Financials (from Opportunity cache — no detailed periods available)\n${financials.map(f => `- ${f}`).join("\n")}`);
+    }
   }
 
-  // Listing data
+  // ─── Historic P&L (raw spreadsheet data) ───
+  if (historicPnLs && historicPnLs.length > 0) {
+    const hpLines: string[] = [];
+    for (const sheet of historicPnLs) {
+      const title = sheet.title || sheet.companyName || "Untitled P&L";
+      const columns = (sheet.columns as any[]) || [];
+      const colHeaders = columns.map((c: any) => c.header || "?").join(" | ");
+      hpLines.push(`### ${title}`);
+      if (colHeaders) hpLines.push(`Periods: ${colHeaders}`);
+
+      // Include summary rows (Gross Profit, Net Income, etc.)
+      const summaryRows = (sheet.rows || []).filter((r: any) => r.isSummary || r.isTotal);
+      for (const row of summaryRows.slice(0, 10)) {
+        const vals = (row.values as number[]) || [];
+        const formatted = vals.map((v: number | null) => v != null ? `$${Number(v).toLocaleString()}` : "N/A").join(" | ");
+        hpLines.push(`- ${row.label}: ${formatted}`);
+      }
+    }
+    if (hpLines.length > 0) {
+      sections.push(`## Historic P&L (raw spreadsheet import)\n${hpLines.join("\n")}`);
+    }
+  }
+
+  // ─── Prior Financial Analysis (if available) ───
+  const financialAnalysis = opp.aiAnalyses?.find((a: any) => a.analysisType === "FINANCIAL_ANALYSIS");
+  if (financialAnalysis?.resultData) {
+    const fa = financialAnalysis.resultData as any;
+    const faLines: string[] = [];
+    if (fa.overallScore) faLines.push(`Quality Score: ${fa.overallScore}/10`);
+    if (fa.summary) faLines.push(`Summary: ${fa.summary}`);
+    if (fa.redFlags?.length) faLines.push(`Red Flags: ${fa.redFlags.join("; ")}`);
+    if (fa.concerns?.length) faLines.push(`Concerns: ${fa.concerns.join("; ")}`);
+    if (faLines.length > 0) {
+      sections.push(`## Prior AI Financial Analysis\n${faLines.map(l => `- ${l}`).join("\n")}`);
+    }
+  }
+
+  // ─── Valuation Context (if available) ───
+  if (opp.valuationModels && opp.valuationModels.length > 0) {
+    const val = opp.valuationModels[0];
+    const inputs = val.inputs as any;
+    const outputs = val.outputs as any;
+    const valLines: string[] = [];
+    if (inputs?.entry_multiple) valLines.push(`Entry Multiple: ${inputs.entry_multiple}x`);
+    if (inputs?.target_ebitda) valLines.push(`Target EBITDA: $${Number(inputs.target_ebitda).toLocaleString()}`);
+    if (outputs?.enterprise_value) valLines.push(`Implied EV: $${Number(outputs.enterprise_value).toLocaleString()}`);
+    if (outputs?.dscr) valLines.push(`DSCR: ${outputs.dscr}x`);
+    if (outputs?.irr) valLines.push(`IRR: ${(outputs.irr * 100).toFixed(1)}%`);
+    if (outputs?.moic) valLines.push(`MOIC: ${outputs.moic}x`);
+    if (val.aiCommentary) valLines.push(`AI Commentary: ${JSON.stringify(val.aiCommentary).slice(0, 300)}`);
+    if (valLines.length > 0) {
+      sections.push(`## Valuation Context\n${valLines.map(l => `- ${l}`).join("\n")}`);
+    }
+  }
+
+  // ─── Offer Price (always include if set) ───
+  if (opp.offerPrice) {
+    sections.push(`## Offer\n- Offer Price: $${Number(opp.offerPrice).toLocaleString()}`);
+  }
+
+  // Listing data (broker snapshot)
   if (opp.listing) {
     const l = opp.listing;
     const listingInfo: string[] = [];
@@ -196,9 +356,8 @@ function buildAssessmentContext(opp: any): string {
     if (l.employees) listingInfo.push(`Employees: ${l.employees}`);
     if (l.city || l.state) listingInfo.push(`Location: ${[l.city, l.state].filter(Boolean).join(", ")}`);
     if (l.description) listingInfo.push(`Description: ${l.description.slice(0, 500)}`);
-
     if (listingInfo.length > 0) {
-      sections.push(`## Listing Information\n${listingInfo.map((f) => `- ${f}`).join("\n")}`);
+      sections.push(`## Listing Information (broker snapshot)\n${listingInfo.map(f => `- ${f}`).join("\n")}`);
     }
   }
 
@@ -209,9 +368,8 @@ function buildAssessmentContext(opp: any): string {
   if (opp.certificationTransferRisk) risks.push(`Certification Transfer Risk: ${opp.certificationTransferRisk}`);
   if (opp.customerRetentionRisk) risks.push(`Customer Retention Risk: ${opp.customerRetentionRisk}`);
   if (opp.dealStructure) risks.push(`Deal Structure: ${opp.dealStructure}`);
-
   if (risks.length > 0) {
-    sections.push(`## Current Risk Assessment\n${risks.map((r) => `- ${r}`).join("\n")}`);
+    sections.push(`## Current Risk Assessment\n${risks.map(r => `- ${r}`).join("\n")}`);
   }
 
   // Contacts
@@ -227,20 +385,18 @@ function buildAssessmentContext(opp: any): string {
   }
 
   // CIM extraction data (if available)
-  if (opp.aiAnalyses && opp.aiAnalyses.length > 0) {
-    const cimData = opp.aiAnalyses[0].resultData as any;
-    if (cimData) {
-      const cimInfo: string[] = [];
-      if (cimData.serviceLines?.length) cimInfo.push(`Service Lines: ${cimData.serviceLines.join(", ")}`);
-      if (cimData.keyClients?.length) cimInfo.push(`Key Clients: ${cimData.keyClients.join(", ")}`);
-      if (cimData.certifications?.length) cimInfo.push(`Certifications: ${cimData.certifications.join(", ")}`);
-      if (cimData.reasonForSale) cimInfo.push(`Reason for Sale: ${cimData.reasonForSale}`);
-      if (cimData.riskFlags?.length) cimInfo.push(`CIM Risk Flags: ${cimData.riskFlags.join("; ")}`);
-      if (cimData.thesisFitAssessment) cimInfo.push(`Prior Thesis Fit Assessment: ${cimData.thesisFitAssessment}`);
-
-      if (cimInfo.length > 0) {
-        sections.push(`## CIM Analysis Data\n${cimInfo.map((c) => `- ${c}`).join("\n")}`);
-      }
+  const cimAnalysis = opp.aiAnalyses?.find((a: any) => a.analysisType === "CIM_EXTRACTION");
+  if (cimAnalysis?.resultData) {
+    const cimData = cimAnalysis.resultData as any;
+    const cimInfo: string[] = [];
+    if (cimData.serviceLines?.length) cimInfo.push(`Service Lines: ${cimData.serviceLines.join(", ")}`);
+    if (cimData.keyClients?.length) cimInfo.push(`Key Clients: ${cimData.keyClients.join(", ")}`);
+    if (cimData.certifications?.length) cimInfo.push(`Certifications: ${cimData.certifications.join(", ")}`);
+    if (cimData.reasonForSale) cimInfo.push(`Reason for Sale: ${cimData.reasonForSale}`);
+    if (cimData.riskFlags?.length) cimInfo.push(`CIM Risk Flags: ${cimData.riskFlags.join("; ")}`);
+    if (cimData.thesisFitAssessment) cimInfo.push(`Prior Thesis Fit Assessment: ${cimData.thesisFitAssessment}`);
+    if (cimInfo.length > 0) {
+      sections.push(`## CIM Analysis Data\n${cimInfo.map(c => `- ${c}`).join("\n")}`);
     }
   }
 
