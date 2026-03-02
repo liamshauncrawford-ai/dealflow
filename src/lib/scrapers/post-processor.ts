@@ -324,6 +324,7 @@ async function processOneListing(
         data: {
           primaryTrade: detectedTrade,
           fitScore: fitResult.fitScore,
+          compositeScore: fitResult.fitScore, // Seed composite with fit score until AI scoring runs
           tier: isColorado && fitResult.fitScore >= 60
             ? "TIER_1_ACTIVE"
             : isColorado && fitResult.fitScore >= 40

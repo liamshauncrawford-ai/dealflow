@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   GripVertical,
@@ -110,6 +111,238 @@ const STAGE_GATE_RULES: Record<string, { check: (opp: any) => boolean; message: 
 
 type ViewMode = "stage" | "activity";
 
+// ─────────────────────────────────────────────
+// KanbanCard — click-to-navigate with drag awareness
+// ─────────────────────────────────────────────
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+function KanbanCard({
+  opp,
+  stageKey,
+  draggedId,
+  onDragStart,
+}: {
+  opp: any;
+  stageKey: PipelineStageKey;
+  draggedId: string | null;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+}) {
+  const router = useRouter();
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null);
+
+  const stage = PIPELINE_STAGES[stageKey];
+  const daysInStage = opp.stageHistory?.[0]?.createdAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(opp.stageHistory[0].createdAt).getTime()) / 86400000))
+    : null;
+  const aging = daysInStage !== null ? getAgingStatus(daysInStage, stageKey) : null;
+
+  return (
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, opp.id)}
+      onMouseDown={(e) => {
+        mouseDownPos.current = { x: e.clientX, y: e.clientY };
+      }}
+      onClick={(e) => {
+        // Navigate only if mouse didn't move much (not a drag)
+        if (mouseDownPos.current) {
+          const dx = Math.abs(e.clientX - mouseDownPos.current.x);
+          const dy = Math.abs(e.clientY - mouseDownPos.current.y);
+          if (dx < 5 && dy < 5) {
+            // Don't navigate if clicking on an interactive child (links, buttons)
+            const target = e.target as HTMLElement;
+            if (!target.closest("a") && !target.closest("button")) {
+              router.push(`/pipeline/${opp.id}`);
+            }
+          }
+        }
+        mouseDownPos.current = null;
+      }}
+      className={cn(
+        "cursor-pointer rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing border-l-[3px]",
+        draggedId === opp.id && "opacity-50",
+        aging ? aging.borderColor : "border-l-transparent"
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
+        <div className="min-w-0 flex-1">
+          <Link
+            href={`/pipeline/${opp.id}`}
+            className="text-sm font-medium text-foreground hover:text-primary hover:underline"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {opp.title}
+          </Link>
+
+          {/* Owner name */}
+          {opp.contacts?.[0]?.name && (
+            <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+              <User className="h-2.5 w-2.5" />
+              <span>{opp.contacts[0].name}</span>
+            </div>
+          )}
+
+          {/* Priority & Win Probability */}
+          {(opp.priority === "CRITICAL" || opp.priority === "HIGH" || opp.priority === "MEDIUM" || (opp.winProbability != null && opp.winProbability > 0)) && (
+            <div className="mt-1 flex items-center gap-1.5">
+              {opp.priority === "CRITICAL" && (
+                <span className="inline-flex items-center gap-0.5 text-destructive animate-pulse">
+                  <Flag className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold">CRITICAL</span>
+                </span>
+              )}
+              {opp.priority === "HIGH" && (
+                <span className="inline-flex items-center gap-0.5 text-warning">
+                  <Flag className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold">HIGH</span>
+                </span>
+              )}
+              {opp.priority === "MEDIUM" && (
+                <Flag className="h-3 w-3 text-info opacity-60" />
+              )}
+              {opp.winProbability != null && opp.winProbability > 0 && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                  {Math.round(opp.winProbability * 100)}%
+                </span>
+              )}
+            </div>
+          )}
+
+          {opp.listing && (
+            <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+              {opp.listing.city && (
+                <span>{opp.listing.city}, {opp.listing.state}</span>
+              )}
+              {opp.listing.tier && <TierBadge tier={opp.listing.tier} size="sm" />}
+              {(opp.listing.compositeScore ?? opp.listing.fitScore) != null && (
+                <FitScoreGauge score={(opp.listing.compositeScore ?? opp.listing.fitScore)!} size="sm" showLabel={false} />
+              )}
+              {opp.listing.primaryTrade && (
+                <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
+                  {PRIMARY_TRADES[opp.listing.primaryTrade as PrimaryTradeKey]?.label ?? opp.listing.primaryTrade}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="mt-2 flex items-center justify-between">
+            <div className="flex flex-col gap-0.5">
+              {/* Implied EV or asking price */}
+              {(() => {
+                const ebitdaVal = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
+                const multLow = opp.listing?.targetMultipleLow ?? 3.0;
+                const multHigh = opp.listing?.targetMultipleHigh ?? 5.0;
+                if (ebitdaVal && ebitdaVal > 0) {
+                  return (
+                    <span className="text-xs font-medium text-foreground" title={`EBITDA \u00d7 ${multLow}\u2013${multHigh}x`}>
+                      {formatCurrency(ebitdaVal * multLow)} \u2013 {formatCurrency(ebitdaVal * multHigh)}
+                    </span>
+                  );
+                }
+                return (
+                  <span className="text-xs font-medium text-foreground">
+                    {opp.listing?.askingPrice
+                      ? formatCurrency(Number(opp.listing.askingPrice))
+                      : "Price N/A"}
+                  </span>
+                );
+              })()}
+              {opp.offerPrice && (
+                <span className="text-[10px] font-medium text-emerald-600">
+                  Offer: {formatCurrency(Number(opp.offerPrice))}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {opp.emails && opp.emails.length > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Mail className="h-3 w-3" />
+                  {opp.emails.length}
+                </span>
+              )}
+              {opp.notes && opp.notes.length > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <MessageSquare className="h-3 w-3" />
+                  {opp.notes.length}
+                </span>
+              )}
+              {/* Color-coded aging badge */}
+              {aging ? (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                    aging.bgColor, aging.color
+                  )}
+                  title={`${daysInStage} days in ${stage.label}`}
+                >
+                  <Clock className="h-2.5 w-2.5" />
+                  {aging.label}
+                </span>
+              ) : (
+                <span className="flex items-center gap-0.5">
+                  <Clock className="h-3 w-3" />
+                  {formatRelativeDate(opp.updatedAt)}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Next follow-up date */}
+          {opp.contacts?.[0]?.nextFollowUpDate && (
+            <div className={cn(
+              "mt-1.5 flex items-center gap-1 text-[10px]",
+              new Date(opp.contacts[0].nextFollowUpDate) < new Date()
+                ? "text-red-600 font-medium"
+                : "text-muted-foreground"
+            )}>
+              <CalendarClock className="h-2.5 w-2.5" />
+              Follow-up: {new Date(opp.contacts[0].nextFollowUpDate).toLocaleDateString()}
+            </div>
+          )}
+
+          {/* Last email preview */}
+          {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
+            <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+              <Mail className="h-2.5 w-2.5 flex-shrink-0" />
+              <span className="truncate">
+                {opp.emails[0].email.subject || "(no subject)"}
+              </span>
+              {opp.emails[0].email.sentAt && (
+                <span className="flex-shrink-0 ml-auto">
+                  {formatRelativeDate(opp.emails[0].email.sentAt)}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Source badges */}
+          {opp.listing?.sources && opp.listing.sources.length > 0 && (
+            <div className="mt-2 flex gap-1">
+              {opp.listing.sources
+                .filter((s: { sourceUrl: string }) => !s.sourceUrl.startsWith("manual://"))
+                .slice(0, 3)
+                .map((s: { id: string; sourceUrl: string }) => (
+                  <a
+                    key={s.id}
+                    href={s.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded p-0.5 text-muted-foreground hover:text-primary"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function KanbanColumn({
   stageKey,
@@ -184,200 +417,15 @@ function KanbanColumn({
             Drop here
           </div>
         ) : (
-          stageOpps.map((opp: any) => {
-            // Precompute aging status for border + badge
-            const daysInStage = opp.stageHistory?.[0]?.createdAt
-              ? Math.max(0, Math.floor((Date.now() - new Date(opp.stageHistory[0].createdAt).getTime()) / 86400000))
-              : null;
-            const aging = daysInStage !== null ? getAgingStatus(daysInStage, stageKey) : null;
-
-            return (
-              <div
-                key={opp.id}
-                draggable
-                onDragStart={(e) => onDragStart(e, opp.id)}
-                className={cn(
-                  "cursor-grab rounded-md border bg-card p-3 shadow-sm transition-all hover:shadow-md active:cursor-grabbing border-l-[3px]",
-                  draggedId === opp.id && "opacity-50",
-                  aging ? aging.borderColor : "border-l-transparent"
-                )}
-              >
-                <div className="flex items-start gap-2">
-                  <GripVertical className="mt-0.5 h-4 w-4 flex-shrink-0 text-muted-foreground/40" />
-                  <div className="min-w-0 flex-1">
-                    <Link
-                      href={`/pipeline/${opp.id}`}
-                      className="text-sm font-medium text-foreground hover:text-primary hover:underline"
-                    >
-                      {opp.title}
-                    </Link>
-
-                    {/* Owner name */}
-                    {opp.contacts?.[0]?.name && (
-                      <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <User className="h-2.5 w-2.5" />
-                        <span>{opp.contacts[0].name}</span>
-                      </div>
-                    )}
-
-                    {/* Priority & Win Probability */}
-                    {(opp.priority === "CRITICAL" || opp.priority === "HIGH" || opp.priority === "MEDIUM" || (opp.winProbability != null && opp.winProbability > 0)) && (
-                      <div className="mt-1 flex items-center gap-1.5">
-                        {opp.priority === "CRITICAL" && (
-                          <span className="inline-flex items-center gap-0.5 text-destructive animate-pulse">
-                            <Flag className="h-3 w-3" />
-                            <span className="text-[10px] font-semibold">CRITICAL</span>
-                          </span>
-                        )}
-                        {opp.priority === "HIGH" && (
-                          <span className="inline-flex items-center gap-0.5 text-warning">
-                            <Flag className="h-3 w-3" />
-                            <span className="text-[10px] font-semibold">HIGH</span>
-                          </span>
-                        )}
-                        {opp.priority === "MEDIUM" && (
-                          <Flag className="h-3 w-3 text-info opacity-60" />
-                        )}
-                        {opp.winProbability != null && opp.winProbability > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
-                            {Math.round(opp.winProbability * 100)}%
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {opp.listing && (
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                        {opp.listing.city && (
-                          <span>{opp.listing.city}, {opp.listing.state}</span>
-                        )}
-                        {opp.listing.tier && <TierBadge tier={opp.listing.tier} size="sm" />}
-                        {(opp.listing.compositeScore ?? opp.listing.fitScore) != null && (
-                          <FitScoreGauge score={(opp.listing.compositeScore ?? opp.listing.fitScore)!} size="sm" showLabel={false} />
-                        )}
-                        {opp.listing.primaryTrade && (
-                          <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium">
-                            {PRIMARY_TRADES[opp.listing.primaryTrade as PrimaryTradeKey]?.label ?? opp.listing.primaryTrade}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="flex flex-col gap-0.5">
-                        {/* Implied EV or asking price */}
-                        {(() => {
-                          const ebitdaVal = opp.listing?.ebitda ? Number(opp.listing.ebitda) : (opp.listing?.inferredEbitda ? Number(opp.listing.inferredEbitda) : null);
-                          const multLow = opp.listing?.targetMultipleLow ?? 3.0;
-                          const multHigh = opp.listing?.targetMultipleHigh ?? 5.0;
-                          if (ebitdaVal && ebitdaVal > 0) {
-                            return (
-                              <span className="text-xs font-medium text-foreground" title={`EBITDA × ${multLow}–${multHigh}x`}>
-                                {formatCurrency(ebitdaVal * multLow)} – {formatCurrency(ebitdaVal * multHigh)}
-                              </span>
-                            );
-                          }
-                          return (
-                            <span className="text-xs font-medium text-foreground">
-                              {opp.listing?.askingPrice
-                                ? formatCurrency(Number(opp.listing.askingPrice))
-                                : "Price N/A"}
-                            </span>
-                          );
-                        })()}
-                        {opp.offerPrice && (
-                          <span className="text-[10px] font-medium text-emerald-600">
-                            Offer: {formatCurrency(Number(opp.offerPrice))}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {opp.emails && opp.emails.length > 0 && (
-                          <span className="flex items-center gap-0.5">
-                            <Mail className="h-3 w-3" />
-                            {opp.emails.length}
-                          </span>
-                        )}
-                        {opp.notes && opp.notes.length > 0 && (
-                          <span className="flex items-center gap-0.5">
-                            <MessageSquare className="h-3 w-3" />
-                            {opp.notes.length}
-                          </span>
-                        )}
-                        {/* Color-coded aging badge */}
-                        {aging ? (
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                              aging.bgColor, aging.color
-                            )}
-                            title={`${daysInStage} days in ${stage.label}`}
-                          >
-                            <Clock className="h-2.5 w-2.5" />
-                            {aging.label}
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-0.5">
-                            <Clock className="h-3 w-3" />
-                            {formatRelativeDate(opp.updatedAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Next follow-up date */}
-                    {opp.contacts?.[0]?.nextFollowUpDate && (
-                      <div className={cn(
-                        "mt-1.5 flex items-center gap-1 text-[10px]",
-                        new Date(opp.contacts[0].nextFollowUpDate) < new Date()
-                          ? "text-red-600 font-medium"
-                          : "text-muted-foreground"
-                      )}>
-                        <CalendarClock className="h-2.5 w-2.5" />
-                        Follow-up: {new Date(opp.contacts[0].nextFollowUpDate).toLocaleDateString()}
-                      </div>
-                    )}
-
-                    {/* Last email preview */}
-                    {opp.emails && opp.emails.length > 0 && opp.emails[0]?.email && (
-                      <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Mail className="h-2.5 w-2.5 flex-shrink-0" />
-                        <span className="truncate">
-                          {opp.emails[0].email.subject || "(no subject)"}
-                        </span>
-                        {opp.emails[0].email.sentAt && (
-                          <span className="flex-shrink-0 ml-auto">
-                            {formatRelativeDate(opp.emails[0].email.sentAt)}
-                          </span>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Source badges */}
-                    {opp.listing?.sources && opp.listing.sources.length > 0 && (
-                      <div className="mt-2 flex gap-1">
-                        {opp.listing.sources
-                          .filter((s: { sourceUrl: string }) => !s.sourceUrl.startsWith("manual://"))
-                          .slice(0, 3)
-                          .map((s: { id: string; sourceUrl: string }) => (
-                            <a
-                              key={s.id}
-                              href={s.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded p-0.5 text-muted-foreground hover:text-primary"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
+          stageOpps.map((opp: any) => (
+            <KanbanCard
+              key={opp.id}
+              opp={opp}
+              stageKey={stageKey}
+              draggedId={draggedId}
+              onDragStart={onDragStart}
+            />
+          ))
         )}
       </div>
     </div>

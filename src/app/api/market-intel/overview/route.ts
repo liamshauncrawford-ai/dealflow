@@ -54,11 +54,14 @@ export async function GET() {
         _avg: { fitScore: true },
       }),
 
-      // Top 10 targets by composite score
+      // Top 10 targets by best available score (compositeScore preferred, fitScore fallback)
       prisma.listing.findMany({
         where: {
           isHidden: false,
-          compositeScore: { not: null },
+          OR: [
+            { compositeScore: { not: null } },
+            { fitScore: { not: null } },
+          ],
         },
         select: {
           id: true,
@@ -66,13 +69,17 @@ export async function GET() {
           businessName: true,
           primaryTrade: true,
           compositeScore: true,
+          fitScore: true,
           thesisAlignment: true,
           tier: true,
           city: true,
           state: true,
           revenue: true,
         },
-        orderBy: { compositeScore: "desc" },
+        orderBy: [
+          { compositeScore: { sort: "desc", nulls: "last" } },
+          { fitScore: { sort: "desc", nulls: "last" } },
+        ],
         take: 10,
       }),
 
@@ -158,7 +165,7 @@ export async function GET() {
         id: t.id,
         name: t.businessName || t.title,
         primaryTrade: t.primaryTrade,
-        score: t.compositeScore,
+        score: t.compositeScore ?? t.fitScore,
         thesisAlignment: t.thesisAlignment,
         tier: t.tier,
         location: [t.city, t.state].filter(Boolean).join(", "),

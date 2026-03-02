@@ -76,6 +76,9 @@ export function parseLocation(text: string): {
 
   if (!text) return result;
 
+  // Reject inputs containing URLs or HTML attributes — corrupted scraper data
+  if (/https?:\/\//i.test(text) || /href=/i.test(text)) return result;
+
   let cleaned = normalizeText(text);
 
   // Extract zip code (5-digit or 5+4 format)
@@ -111,6 +114,20 @@ export function parseLocation(text: string): {
 export function normalizeText(text: string): string {
   if (!text) return "";
   return text.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Strip HTML attributes and raw URLs that accidentally leaked into scraped text.
+ * Catches patterns like: href="https://..." or standalone https://... URLs.
+ */
+export function sanitizeScrapedText(text: string): string {
+  if (!text) return "";
+  // Remove HTML-attribute-like patterns: attr="value"
+  let cleaned = text.replace(/\w+="[^"]*"/g, "");
+  // Remove standalone URLs
+  cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, "");
+  // Collapse whitespace and trim
+  return cleaned.replace(/\s+/g, " ").trim();
 }
 
 /**
