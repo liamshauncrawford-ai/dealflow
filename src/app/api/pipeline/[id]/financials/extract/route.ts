@@ -3,6 +3,8 @@ import * as XLSX from "xlsx";
 import { prisma } from "@/lib/db";
 import { extractFinancials } from "@/lib/ai/financial-extractor";
 import { isAIEnabled } from "@/lib/ai/claude-client";
+import { generateAnalysis, getLatestAnalysis, editAnalysis, deleteAnalysis } from "@/lib/ai/analysis-manager";
+import { z } from "zod";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -69,6 +71,43 @@ function extractTextFromBuffer(buffer: Buffer, fileName: string): string {
 
 // Allow up to 2 minutes for large file extraction + Claude API retries
 export const maxDuration = 120;
+
+// ─────────────────────────────────────────────
+// GET /api/pipeline/[id]/financials/extract
+//
+// Returns the latest cached financial extraction for an opportunity.
+// ─────────────────────────────────────────────
+
+export async function GET(
+  _request: NextRequest,
+  { params }: RouteParams,
+) {
+  try {
+    const { id: opportunityId } = await params;
+
+    const latest = await getLatestAnalysis({
+      opportunityId,
+      analysisType: "FINANCIAL_EXTRACTION",
+    });
+
+    if (!latest) {
+      return NextResponse.json({ result: null });
+    }
+
+    return NextResponse.json({
+      analysisId: latest.id,
+      result: latest.resultData,
+      modelUsed: latest.modelUsed,
+      createdAt: latest.createdAt,
+    });
+  } catch (err) {
+    console.error("[financials/extract] GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch financial extraction" },
+      { status: 500 },
+    );
+  }
+}
 
 /**
  * POST /api/pipeline/[id]/financials/extract
@@ -149,12 +188,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
   }
 
-  // ── Step 2: Run AI extraction ──
-  let extraction;
+  // ── Step 2: Run AI extraction via generateAnalysis ──
   const divisionFilter = typeof json.divisionFilter === "string" ? json.divisionFilter : undefined;
 
   try {
-    extraction = await extractFinancials(documentText, { divisionFilter });
+    const { result: analysis, cached } = await generateAnalysis({
+      opportunityId: id,
+      analysisType: "FINANCIAL_EXTRACTION",
+      cacheHours: 24,
+      generateFn: async () => {
+        const extraction = await extractFinancials(documentText, { divisionFilter });
+        return {
+          resultData: extraction,
+          modelUsed: "claude-sonnet-4-5",
+          inputTokens: 0,
+          outputTokens: 0,
+        };
+      },
+    });
+
+    return NextResponse.json({
+      analysisId: analysis.id,
+      ...(analysis.resultData as object),
+      cached,
+    });
   } catch (aiErr: unknown) {
     const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
     console.error("AI extraction failed:", aiErr);
@@ -196,29 +253,120 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       { status: 500 }
     );
   }
+}
 
-  // ── Step 3: Cache result ──
+// ─────────────────────────────────────────────
+// PATCH /api/pipeline/[id]/financials/extract
+//
+// Updates an existing financial extraction's resultData.
+// ─────────────────────────────────────────────
+
+const patchSchema = z.object({
+  analysisId: z.string(),
+  resultData: z.record(z.string(), z.unknown()),
+});
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: RouteParams,
+) {
   try {
-    const cached = await prisma.aIAnalysisResult.create({
-      data: {
-        opportunityId: id,
+    const { id: opportunityId } = await params;
+    const body = await request.json();
+    const parsed = patchSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { analysisId, resultData } = parsed.data;
+
+    // Verify the analysis belongs to this opportunity
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        opportunityId,
         analysisType: "FINANCIAL_EXTRACTION",
-        resultData: extraction as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-        modelUsed: "claude-sonnet-4-5",
-        inputTokens: 0,
-        outputTokens: 0,
       },
     });
 
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Financial extraction not found" },
+        { status: 404 },
+      );
+    }
+
+    const updated = await editAnalysis(analysisId, resultData);
+
     return NextResponse.json({
-      analysisId: cached.id,
-      ...extraction,
+      analysisId: updated.id,
+      result: updated.resultData,
     });
-  } catch (dbErr) {
-    console.error("Failed to cache extraction result:", dbErr);
+  } catch (err) {
+    console.error("[financials/extract] PATCH error:", err);
     return NextResponse.json(
-      { error: "Extraction succeeded but failed to save results. Please try again." },
-      { status: 500 }
+      { error: "Failed to update financial extraction" },
+      { status: 500 },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// DELETE /api/pipeline/[id]/financials/extract
+//
+// Deletes a specific financial extraction by analysisId.
+// ─────────────────────────────────────────────
+
+const deleteSchema = z.object({
+  analysisId: z.string(),
+});
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams,
+) {
+  try {
+    const { id: opportunityId } = await params;
+    const body = await request.json();
+    const parsed = deleteSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { analysisId } = parsed.data;
+
+    // Verify the analysis belongs to this opportunity
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        opportunityId,
+        analysisType: "FINANCIAL_EXTRACTION",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Financial extraction not found" },
+        { status: 404 },
+      );
+    }
+
+    await deleteAnalysis(analysisId);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[financials/extract] DELETE error:", err);
+    return NextResponse.json(
+      { error: "Failed to delete financial extraction" },
+      { status: 500 },
     );
   }
 }

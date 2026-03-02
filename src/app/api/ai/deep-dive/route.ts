@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { runDeepDive } from "@/lib/ai/deep-dive";
 import { getOpportunityNotesContext } from "@/lib/ai/note-context";
 import { formatCurrency } from "@/lib/utils";
+import { generateAnalysis, getLatestAnalysis, editAnalysis, deleteAnalysis } from "@/lib/ai/analysis-manager";
+import { z } from "zod";
 
 /**
  * POST /api/ai/deep-dive
@@ -53,145 +55,148 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the company data string from all available fields
-    const primaryContact = listing.opportunity?.contacts?.find(
-      (c) => c.isPrimary
-    );
+    const { result: analysis, cached } = await generateAnalysis({
+      listingId,
+      analysisType: "DEEP_DIVE",
+      cacheHours: 24,
+      generateFn: async () => {
+        // Build the company data string from all available fields
+        const primaryContact = listing.opportunity?.contacts?.find(
+          (c) => c.isPrimary
+        );
 
-    const dataLines: string[] = [
-      `Business Name: ${listing.businessName || listing.title}`,
-      listing.description ? `Description: ${listing.description}` : null,
-      listing.primaryTrade ? `Primary Trade: ${listing.primaryTrade}` : null,
-      (listing.secondaryTrades as string[])?.length
-        ? `Secondary Trades: ${(listing.secondaryTrades as string[]).join(", ")}`
-        : null,
-      listing.city || listing.state
-        ? `Location: ${[listing.city, listing.state].filter(Boolean).join(", ")}`
-        : null,
-      listing.metroArea ? `Metro Area: ${listing.metroArea}` : null,
-      listing.revenue
-        ? `Revenue: ${formatCurrency(Number(listing.revenue))}`
-        : null,
-      listing.ebitda
-        ? `EBITDA: ${formatCurrency(Number(listing.ebitda))}`
-        : null,
-      listing.inferredEbitda
-        ? `Inferred EBITDA: ${formatCurrency(Number(listing.inferredEbitda))}`
-        : null,
-      listing.sde
-        ? `SDE: ${formatCurrency(Number(listing.sde))}`
-        : null,
-      listing.askingPrice
-        ? `Asking Price: ${formatCurrency(Number(listing.askingPrice))}`
-        : null,
-      listing.established
-        ? `Established: ${listing.established} (${new Date().getFullYear() - listing.established} years)`
-        : null,
-      listing.employees ? `Employees: ${listing.employees}` : null,
-      (listing.certifications as string[])?.length
-        ? `Certifications: ${(listing.certifications as string[]).join(", ")}`
-        : null,
-      listing.tier ? `Tier: ${listing.tier}` : null,
-      listing.sellerFinancing != null
-        ? `Seller Financing Available: ${listing.sellerFinancing ? "Yes" : "Unknown"}`
-        : null,
-      listing.reasonForSale
-        ? `Reason for Sale: ${listing.reasonForSale}`
-        : null,
-      listing.facilities
-        ? `Facilities: ${listing.facilities}`
-        : null,
-      listing.bonded != null ? `Bonded: ${listing.bonded ? "Yes" : "No"}` : null,
-      listing.insured != null ? `Insured: ${listing.insured ? "Yes" : "No"}` : null,
-      listing.website ? `Website: ${listing.website}` : null,
-      listing.compositeScore != null
-        ? `Current Composite Score: ${listing.compositeScore}/100`
-        : null,
-      listing.thesisAlignment
-        ? `Thesis Alignment: ${listing.thesisAlignment}`
-        : null,
-      listing.synergyNotes
-        ? `Synergy Notes: ${listing.synergyNotes}`
-        : null,
-      // Contact info
-      primaryContact?.name
-        ? `Primary Contact: ${primaryContact.name}`
-        : null,
-      primaryContact?.role ? `Contact Role: ${primaryContact.role}` : null,
-      primaryContact?.estimatedAgeRange
-        ? `Estimated Owner Age: ${primaryContact.estimatedAgeRange}`
-        : null,
-      // Broker info
-      listing.brokerName ? `Broker: ${listing.brokerName}` : null,
-      listing.brokerCompany
-        ? `Broker Company: ${listing.brokerCompany}`
-        : null,
-    ].filter(Boolean) as string[];
+        const dataLines: string[] = [
+          `Business Name: ${listing.businessName || listing.title}`,
+          listing.description ? `Description: ${listing.description}` : null,
+          listing.primaryTrade ? `Primary Trade: ${listing.primaryTrade}` : null,
+          (listing.secondaryTrades as string[])?.length
+            ? `Secondary Trades: ${(listing.secondaryTrades as string[]).join(", ")}`
+            : null,
+          listing.city || listing.state
+            ? `Location: ${[listing.city, listing.state].filter(Boolean).join(", ")}`
+            : null,
+          listing.metroArea ? `Metro Area: ${listing.metroArea}` : null,
+          listing.revenue
+            ? `Revenue: ${formatCurrency(Number(listing.revenue))}`
+            : null,
+          listing.ebitda
+            ? `EBITDA: ${formatCurrency(Number(listing.ebitda))}`
+            : null,
+          listing.inferredEbitda
+            ? `Inferred EBITDA: ${formatCurrency(Number(listing.inferredEbitda))}`
+            : null,
+          listing.sde
+            ? `SDE: ${formatCurrency(Number(listing.sde))}`
+            : null,
+          listing.askingPrice
+            ? `Asking Price: ${formatCurrency(Number(listing.askingPrice))}`
+            : null,
+          listing.established
+            ? `Established: ${listing.established} (${new Date().getFullYear() - listing.established} years)`
+            : null,
+          listing.employees ? `Employees: ${listing.employees}` : null,
+          (listing.certifications as string[])?.length
+            ? `Certifications: ${(listing.certifications as string[]).join(", ")}`
+            : null,
+          listing.tier ? `Tier: ${listing.tier}` : null,
+          listing.sellerFinancing != null
+            ? `Seller Financing Available: ${listing.sellerFinancing ? "Yes" : "Unknown"}`
+            : null,
+          listing.reasonForSale
+            ? `Reason for Sale: ${listing.reasonForSale}`
+            : null,
+          listing.facilities
+            ? `Facilities: ${listing.facilities}`
+            : null,
+          listing.bonded != null ? `Bonded: ${listing.bonded ? "Yes" : "No"}` : null,
+          listing.insured != null ? `Insured: ${listing.insured ? "Yes" : "No"}` : null,
+          listing.website ? `Website: ${listing.website}` : null,
+          listing.compositeScore != null
+            ? `Current Composite Score: ${listing.compositeScore}/100`
+            : null,
+          listing.thesisAlignment
+            ? `Thesis Alignment: ${listing.thesisAlignment}`
+            : null,
+          listing.synergyNotes
+            ? `Synergy Notes: ${listing.synergyNotes}`
+            : null,
+          // Contact info
+          primaryContact?.name
+            ? `Primary Contact: ${primaryContact.name}`
+            : null,
+          primaryContact?.role ? `Contact Role: ${primaryContact.role}` : null,
+          primaryContact?.estimatedAgeRange
+            ? `Estimated Owner Age: ${primaryContact.estimatedAgeRange}`
+            : null,
+          // Broker info
+          listing.brokerName ? `Broker: ${listing.brokerName}` : null,
+          listing.brokerCompany
+            ? `Broker Company: ${listing.brokerCompany}`
+            : null,
+        ].filter(Boolean) as string[];
 
-    // Recent activity from notes
-    const recentActivity = listing.opportunity?.notes
-      ?.slice(0, 5)
-      .map(
-        (n) =>
-          `[${new Date(n.createdAt).toLocaleDateString()}] ${n.content?.slice(0, 200)}`
-      )
-      .join("\n");
+        // Recent activity from notes
+        const recentActivity = listing.opportunity?.notes
+          ?.slice(0, 5)
+          .map(
+            (n) =>
+              `[${new Date(n.createdAt).toLocaleDateString()}] ${n.content?.slice(0, 200)}`
+          )
+          .join("\n");
 
-    // Fetch full notes context via shared helper
-    let notesContext = "";
-    if (listing.opportunity?.id) {
-      notesContext = await getOpportunityNotesContext(listing.opportunity.id);
-    }
+        // Fetch full notes context via shared helper
+        let notesContext = "";
+        if (listing.opportunity?.id) {
+          notesContext = await getOpportunityNotesContext(listing.opportunity.id);
+        }
 
-    // Run the deep dive
-    const { result, inputTokens, outputTokens } = await runDeepDive({
-      companyName: listing.businessName || listing.title,
-      companyData: dataLines.join("\n") + notesContext,
-      recentActivity: recentActivity || undefined,
-    });
+        // Run the deep dive
+        const { result, inputTokens, outputTokens } = await runDeepDive({
+          companyName: listing.businessName || listing.title,
+          companyData: dataLines.join("\n") + notesContext,
+          recentActivity: recentActivity || undefined,
+        });
 
-    // Cache the result
-    await prisma.aIAnalysisResult.create({
-      data: {
-        listingId,
-        analysisType: "DEEP_DIVE",
-        resultData: result as object,
-        modelUsed: "claude-sonnet-4-20250514",
-        inputTokens,
-        outputTokens,
-      },
-    });
+        // Update listing enrichment status
+        await prisma.listing.update({
+          where: { id: listingId },
+          data: {
+            enrichmentStatus: "complete",
+            enrichmentDate: new Date(),
+          },
+        });
 
-    // Update listing enrichment status
-    await prisma.listing.update({
-      where: { id: listingId },
-      data: {
-        enrichmentStatus: "complete",
-        enrichmentDate: new Date(),
-      },
-    });
+        // Log the agent run
+        await prisma.aIAgentRun.create({
+          data: {
+            agentName: "deep_dive",
+            status: "success",
+            itemsProcessed: 1,
+            apiCallsMade: 1,
+            totalTokens: inputTokens + outputTokens,
+            totalCost:
+              (inputTokens / 1_000_000) * 3.0 +
+              (outputTokens / 1_000_000) * 15.0,
+            summary: `Deep dive analysis for ${listing.businessName || listing.title}`,
+            completedAt: new Date(),
+          },
+        });
 
-    // Log the agent run
-    await prisma.aIAgentRun.create({
-      data: {
-        agentName: "deep_dive",
-        status: "success",
-        itemsProcessed: 1,
-        apiCallsMade: 1,
-        totalTokens: inputTokens + outputTokens,
-        totalCost:
-          (inputTokens / 1_000_000) * 3.0 +
-          (outputTokens / 1_000_000) * 15.0,
-        summary: `Deep dive analysis for ${listing.businessName || listing.title}`,
-        completedAt: new Date(),
+        return {
+          resultData: result,
+          inputTokens,
+          outputTokens,
+          modelUsed: "claude-sonnet-4-20250514",
+        };
       },
     });
 
     return NextResponse.json({
-      analysis: result,
-      inputTokens,
-      outputTokens,
-      cached: false,
+      analysisId: analysis.id,
+      analysis: analysis.resultData,
+      inputTokens: analysis.inputTokens,
+      outputTokens: analysis.outputTokens,
+      cached,
     });
   } catch (error) {
     console.error("Deep dive error:", error);
@@ -237,9 +242,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cached = await prisma.aIAnalysisResult.findFirst({
-      where: { listingId, analysisType: "DEEP_DIVE" },
-      orderBy: { createdAt: "desc" },
+    const cached = await getLatestAnalysis({
+      listingId,
+      analysisType: "DEEP_DIVE",
     });
 
     if (!cached) {
@@ -247,6 +252,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
+      analysisId: cached.id,
       analysis: cached.resultData,
       createdAt: cached.createdAt,
       inputTokens: cached.inputTokens,
@@ -257,6 +263,116 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching cached deep dive:", error);
     return NextResponse.json(
       { error: "Failed to fetch deep dive" },
+      { status: 500 }
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// PATCH /api/ai/deep-dive
+//
+// Updates an existing deep dive's resultData.
+// ─────────────────────────────────────────────
+
+const patchSchema = z.object({
+  analysisId: z.string(),
+  listingId: z.string(),
+  resultData: z.record(z.string(), z.unknown()),
+});
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const parsed = patchSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { analysisId, listingId, resultData } = parsed.data;
+
+    // Verify the analysis belongs to this listing
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        listingId,
+        analysisType: "DEEP_DIVE",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Deep dive analysis not found" },
+        { status: 404 }
+      );
+    }
+
+    const updated = await editAnalysis(analysisId, resultData);
+
+    return NextResponse.json({
+      analysisId: updated.id,
+      result: updated.resultData,
+    });
+  } catch (err) {
+    console.error("[deep-dive] PATCH error:", err);
+    return NextResponse.json(
+      { error: "Failed to update deep dive analysis" },
+      { status: 500 }
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// DELETE /api/ai/deep-dive
+//
+// Deletes a specific deep dive analysis by analysisId.
+// ─────────────────────────────────────────────
+
+const deleteSchema = z.object({
+  analysisId: z.string(),
+  listingId: z.string(),
+});
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const parsed = deleteSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const { analysisId, listingId } = parsed.data;
+
+    // Verify the analysis belongs to this listing
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        listingId,
+        analysisType: "DEEP_DIVE",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Deep dive analysis not found" },
+        { status: 404 }
+      );
+    }
+
+    await deleteAnalysis(analysisId);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[deep-dive] DELETE error:", err);
+    return NextResponse.json(
+      { error: "Failed to delete deep dive analysis" },
       { status: 500 }
     );
   }

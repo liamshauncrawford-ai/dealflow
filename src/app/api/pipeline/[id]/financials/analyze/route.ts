@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { callClaudeStructured } from "@/lib/ai/claude-client";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
+import { generateAnalysis, getLatestAnalysis, editAnalysis, deleteAnalysis } from "@/lib/ai/analysis-manager";
+import { z } from "zod";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -57,15 +59,50 @@ Be specific. Reference actual numbers. Point out things a buyer would want to ne
 Keep each field concise: summary (2-3 sentences), insights/redFlags/recommendations (3-5 bullet points each, 1-2 sentences per bullet), growthAnalysis and marginAnalysis (1 short paragraph each).`;
 
 // ─────────────────────────────────────────────
-// Route handler
+// GET /api/pipeline/[id]/financials/analyze
+//
+// Returns the latest cached financial analysis for an opportunity.
 // ─────────────────────────────────────────────
 
-/**
- * POST /api/pipeline/[id]/financials/analyze
- *
- * Runs AI analysis on the latest saved financial data for an opportunity.
- * Stores result in AIAnalysisResult for the Overview tab to reference.
- */
+export async function GET(
+  _request: NextRequest,
+  { params }: RouteParams,
+) {
+  try {
+    const { id: opportunityId } = await params;
+
+    const latest = await getLatestAnalysis({
+      opportunityId,
+      analysisType: "FINANCIAL_ANALYSIS",
+    });
+
+    if (!latest) {
+      return NextResponse.json({ result: null });
+    }
+
+    return NextResponse.json({
+      id: latest.id,
+      analysis: latest.resultData,
+      inputTokens: latest.inputTokens,
+      outputTokens: latest.outputTokens,
+      createdAt: latest.createdAt,
+    });
+  } catch (err) {
+    console.error("[financials/analyze] GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch financial analysis" },
+      { status: 500 },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// POST /api/pipeline/[id]/financials/analyze
+//
+// Runs AI analysis on the latest saved financial data for an opportunity.
+// Stores result in AIAnalysisResult for the Overview tab to reference.
+// ─────────────────────────────────────────────
+
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
@@ -90,68 +127,187 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       select: { title: true },
     });
 
-    // Build a structured prompt with actual P&L data
-    const periodsText = periods.map((period) => {
-      const label = period.label || `${period.periodType} ${period.year}${period.quarter ? ` Q${period.quarter}` : ""}`;
+    const { result: analysis, cached } = await generateAnalysis({
+      opportunityId: id,
+      analysisType: "FINANCIAL_ANALYSIS",
+      cacheHours: 24,
+      generateFn: async () => {
+        // Build a structured prompt with actual P&L data
+        const periodsText = periods.map((period) => {
+          const label = period.label || `${period.periodType} ${period.year}${period.quarter ? ` Q${period.quarter}` : ""}`;
 
-      const lineItemsText = period.lineItems.map((li) =>
-        `  ${li.category}: ${li.rawLabel} = $${Number(li.amount).toLocaleString()}`
-      ).join("\n");
+          const lineItemsText = period.lineItems.map((li) =>
+            `  ${li.category}: ${li.rawLabel} = $${Number(li.amount).toLocaleString()}`
+          ).join("\n");
 
-      const addBacksText = period.addBacks.length > 0
-        ? period.addBacks.map((ab) =>
-            `  ${ab.category}: ${ab.description} = $${Number(ab.amount).toLocaleString()}`
-          ).join("\n")
-        : "  (none)";
+          const addBacksText = period.addBacks.length > 0
+            ? period.addBacks.map((ab) =>
+                `  ${ab.category}: ${ab.description} = $${Number(ab.amount).toLocaleString()}`
+              ).join("\n")
+            : "  (none)";
 
-      const metrics = [
-        `Revenue: $${period.totalRevenue ? Number(period.totalRevenue).toLocaleString() : "N/A"}`,
-        `Gross Profit: $${period.grossProfit ? Number(period.grossProfit).toLocaleString() : "N/A"}`,
-        `Gross Margin: ${period.grossMargin ? (Number(period.grossMargin) * 100).toFixed(1) + "%" : "N/A"}`,
-        `EBITDA: $${period.ebitda ? Number(period.ebitda).toLocaleString() : "N/A"}`,
-        `EBITDA Margin: ${period.ebitdaMargin ? (Number(period.ebitdaMargin) * 100).toFixed(1) + "%" : "N/A"}`,
-        `Net Income: $${period.netIncome ? Number(period.netIncome).toLocaleString() : "N/A"}`,
-        `Total Add-Backs: $${period.totalAddBacks ? Number(period.totalAddBacks).toLocaleString() : "0"}`,
-        `Adj. EBITDA: $${period.adjustedEbitda ? Number(period.adjustedEbitda).toLocaleString() : "N/A"}`,
-        `Adj. EBITDA Margin: ${period.adjustedEbitdaMargin ? (Number(period.adjustedEbitdaMargin) * 100).toFixed(1) + "%" : "N/A"}`,
-        `SDE: $${period.sde ? Number(period.sde).toLocaleString() : "N/A"}`,
-      ].join("\n");
+          const metrics = [
+            `Revenue: $${period.totalRevenue ? Number(period.totalRevenue).toLocaleString() : "N/A"}`,
+            `Gross Profit: $${period.grossProfit ? Number(period.grossProfit).toLocaleString() : "N/A"}`,
+            `Gross Margin: ${period.grossMargin ? (Number(period.grossMargin) * 100).toFixed(1) + "%" : "N/A"}`,
+            `EBITDA: $${period.ebitda ? Number(period.ebitda).toLocaleString() : "N/A"}`,
+            `EBITDA Margin: ${period.ebitdaMargin ? (Number(period.ebitdaMargin) * 100).toFixed(1) + "%" : "N/A"}`,
+            `Net Income: $${period.netIncome ? Number(period.netIncome).toLocaleString() : "N/A"}`,
+            `Total Add-Backs: $${period.totalAddBacks ? Number(period.totalAddBacks).toLocaleString() : "0"}`,
+            `Adj. EBITDA: $${period.adjustedEbitda ? Number(period.adjustedEbitda).toLocaleString() : "N/A"}`,
+            `Adj. EBITDA Margin: ${period.adjustedEbitdaMargin ? (Number(period.adjustedEbitdaMargin) * 100).toFixed(1) + "%" : "N/A"}`,
+            `SDE: $${period.sde ? Number(period.sde).toLocaleString() : "N/A"}`,
+          ].join("\n");
 
-      return `=== ${label} ===\nLINE ITEMS:\n${lineItemsText}\n\nADD-BACKS:\n${addBacksText}\n\nSUMMARY METRICS:\n${metrics}`;
-    }).join("\n\n");
+          return `=== ${label} ===\nLINE ITEMS:\n${lineItemsText}\n\nADD-BACKS:\n${addBacksText}\n\nSUMMARY METRICS:\n${metrics}`;
+        }).join("\n\n");
 
-    const userPrompt = `Analyze the financial data for "${opportunity?.title ?? "Target Company"}":\n\n${periodsText}\n\nProvide your analysis.`;
+        const userPrompt = `Analyze the financial data for "${opportunity?.title ?? "Target Company"}":\n\n${periodsText}\n\nProvide your analysis.`;
 
-    const response = await callClaudeStructured<FinancialAnalysisResult>({
-      model: "sonnet",
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-      maxTokens: 4096,
-      outputFormat: ANALYSIS_OUTPUT_FORMAT,
-    });
+        const response = await callClaudeStructured<FinancialAnalysisResult>({
+          model: "sonnet",
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: userPrompt }],
+          maxTokens: 4096,
+          outputFormat: ANALYSIS_OUTPUT_FORMAT,
+        });
 
-    // Store the result in AIAnalysisResult
-    const analysisRecord = await prisma.aIAnalysisResult.create({
-      data: {
-        opportunityId: id,
-        analysisType: "FINANCIAL_ANALYSIS",
-        modelUsed: "claude-sonnet-4-5",
-        resultData: response.parsed as object,
-        inputTokens: response.inputTokens,
-        outputTokens: response.outputTokens,
+        return {
+          resultData: response.parsed,
+          inputTokens: response.inputTokens,
+          outputTokens: response.outputTokens,
+          modelUsed: "claude-sonnet-4-5",
+        };
       },
     });
 
     return NextResponse.json({
-      id: analysisRecord.id,
-      analysis: response.parsed,
-      inputTokens: response.inputTokens,
-      outputTokens: response.outputTokens,
+      id: analysis.id,
+      analysis: analysis.resultData,
+      inputTokens: analysis.inputTokens,
+      outputTokens: analysis.outputTokens,
+      cached,
     });
   } catch (error) {
     console.error("Failed to analyze financials:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to analyze financials" },
+      { status: 500 },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// PATCH /api/pipeline/[id]/financials/analyze
+//
+// Updates an existing financial analysis's resultData.
+// ─────────────────────────────────────────────
+
+const patchSchema = z.object({
+  analysisId: z.string(),
+  resultData: z.record(z.string(), z.unknown()),
+});
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: RouteParams,
+) {
+  try {
+    const { id: opportunityId } = await params;
+    const body = await request.json();
+    const parsed = patchSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { analysisId, resultData } = parsed.data;
+
+    // Verify the analysis belongs to this opportunity
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        opportunityId,
+        analysisType: "FINANCIAL_ANALYSIS",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Financial analysis not found" },
+        { status: 404 },
+      );
+    }
+
+    const updated = await editAnalysis(analysisId, resultData);
+
+    return NextResponse.json({
+      analysisId: updated.id,
+      result: updated.resultData,
+    });
+  } catch (err) {
+    console.error("[financials/analyze] PATCH error:", err);
+    return NextResponse.json(
+      { error: "Failed to update financial analysis" },
+      { status: 500 },
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// DELETE /api/pipeline/[id]/financials/analyze
+//
+// Deletes a specific financial analysis by analysisId.
+// ─────────────────────────────────────────────
+
+const deleteSchema = z.object({
+  analysisId: z.string(),
+});
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams,
+) {
+  try {
+    const { id: opportunityId } = await params;
+    const body = await request.json();
+    const parsed = deleteSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 },
+      );
+    }
+
+    const { analysisId } = parsed.data;
+
+    // Verify the analysis belongs to this opportunity
+    const existing = await prisma.aIAnalysisResult.findFirst({
+      where: {
+        id: analysisId,
+        opportunityId,
+        analysisType: "FINANCIAL_ANALYSIS",
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "Financial analysis not found" },
+        { status: 404 },
+      );
+    }
+
+    await deleteAnalysis(analysisId);
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[financials/analyze] DELETE error:", err);
+    return NextResponse.json(
+      { error: "Failed to delete financial analysis" },
       { status: 500 },
     );
   }

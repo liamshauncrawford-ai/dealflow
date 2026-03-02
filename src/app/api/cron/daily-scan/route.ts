@@ -3,8 +3,49 @@ import { prisma } from "@/lib/db";
 import { evaluateTargets, type ScanTarget } from "@/lib/ai/daily-scan";
 import { computeFitScore, type FitScoreInput } from "@/lib/scoring/fit-score-engine";
 import { requireCronOrAuth } from "@/lib/auth-helpers";
+import { generateAnalysis, getLatestAnalysis } from "@/lib/ai/analysis-manager";
 
 const BATCH_SIZE = 10;
+
+/**
+ * GET /api/cron/daily-scan?listingId=xxx
+ * Returns the latest cached daily scan result for a listing.
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const listingId = searchParams.get("listingId");
+
+    if (!listingId) {
+      return NextResponse.json(
+        { error: "listingId query param is required" },
+        { status: 400 },
+      );
+    }
+
+    const latest = await getLatestAnalysis({
+      listingId,
+      analysisType: "DAILY_SCAN",
+    });
+
+    if (!latest) {
+      return NextResponse.json({ result: null });
+    }
+
+    return NextResponse.json({
+      analysisId: latest.id,
+      result: latest.resultData,
+      modelUsed: latest.modelUsed,
+      createdAt: latest.createdAt,
+    });
+  } catch (err) {
+    console.error("[daily-scan] GET error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch daily scan result" },
+      { status: 500 },
+    );
+  }
+}
 
 /**
  * POST /api/cron/daily-scan
@@ -148,16 +189,17 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Store the full AI analysis
-        await prisma.aIAnalysisResult.create({
-          data: {
-            listingId: evaluation.id,
-            analysisType: "DAILY_SCAN",
-            resultData: evaluation as object,
-            modelUsed: "claude-sonnet-4-20250514",
+        // Store the full AI analysis via generateAnalysis (keep-latest-only)
+        await generateAnalysis({
+          listingId: evaluation.id,
+          analysisType: "DAILY_SCAN",
+          cacheHours: 0, // Always generate fresh during a scan
+          generateFn: async () => ({
+            resultData: evaluation,
             inputTokens,
             outputTokens,
-          },
+            modelUsed: "claude-sonnet-4-20250514",
+          }),
         });
 
         totalScored++;
