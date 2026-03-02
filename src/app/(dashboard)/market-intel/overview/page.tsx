@@ -25,6 +25,7 @@ import { PRIMARY_TRADES, type PrimaryTradeKey } from "@/lib/constants";
 import { TRADE_COLORS } from "@/lib/chart-colors";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { MarketMetricsChart } from "@/components/charts/market-metrics-chart";
+import { ThesisCoverage } from "@/components/market-intel/thesis-coverage";
 
 /* ─── Types ─── */
 
@@ -70,6 +71,12 @@ interface MarketOverview {
     primaryTrade: string | null;
     location: string;
     createdAt: string;
+  }>;
+  thesisCoverage: Array<{
+    trade: string;
+    label: string;
+    pipelineCount: number;
+    targetCount: number;
   }>;
 }
 
@@ -316,6 +323,9 @@ export default function MarketOverviewPage() {
           )}
         </div>
       </div>
+
+      {/* Thesis Coverage */}
+      <ThesisCoverage data={data?.thesisCoverage ?? []} />
 
       {/* Bottom two-column: Top Targets + Recent */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

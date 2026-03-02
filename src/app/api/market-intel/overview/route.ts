@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { PRIMARY_TRADES, type PrimaryTradeKey } from "@/lib/constants";
 
 /**
  * GET /api/market-intel/overview
@@ -23,6 +24,7 @@ export async function GET() {
       averageScore,
       topTargets,
       recentListings,
+      pipelineOpps,
     ] = await Promise.all([
       // Latest weekly brief
       prisma.weeklyBrief.findFirst({
@@ -89,7 +91,29 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
+
+      // Pipeline coverage by trade — active opportunities with their listing's primaryTrade
+      prisma.opportunity.findMany({
+        where: { stage: { notIn: ["CLOSED_LOST", "CLOSED_WON"] } },
+        include: { listing: { select: { primaryTrade: true } } },
+      }),
     ]);
+
+    // Build thesis coverage data
+    const tradeKeys = Object.keys(PRIMARY_TRADES);
+    const thesisCoverage = tradeKeys.map((trade) => {
+      const pipelineCount = pipelineOpps.filter(
+        (o) => o.listing?.primaryTrade === trade,
+      ).length;
+      const targetCount =
+        tradeDistribution.find((t) => t.primaryTrade === trade)?._count.id ?? 0;
+      return {
+        trade,
+        label: PRIMARY_TRADES[trade as PrimaryTradeKey].label,
+        pipelineCount,
+        targetCount,
+      };
+    });
 
     return NextResponse.json({
       brief: latestBrief
@@ -148,6 +172,8 @@ export async function GET() {
         location: [l.city, l.state].filter(Boolean).join(", "),
         createdAt: l.createdAt.toISOString(),
       })),
+
+      thesisCoverage,
     });
   } catch (error) {
     console.error("Market overview error:", error);
