@@ -13,6 +13,7 @@ import {
 import type { LatLngExpression } from "leaflet";
 import { STAGE_COLORS, TRADE_COLORS } from "@/lib/chart-colors";
 import type { MapData } from "@/components/market-intel/deal-map";
+import { cn } from "@/lib/utils";
 
 const COLORADO_CENTER: LatLngExpression = [39.55, -105.78];
 const DEFAULT_ZOOM = 7;
@@ -64,9 +65,10 @@ function MapResizer() {
 interface DealMapInnerProps {
   data: MapData | null;
   isLoading: boolean;
+  compact?: boolean;
 }
 
-export default function DealMapInner({ data, isLoading }: DealMapInnerProps) {
+export default function DealMapInner({ data, isLoading, compact = false }: DealMapInnerProps) {
   const [showListings, setShowListings] = useState(true);
   const [showPipeline, setShowPipeline] = useState(true);
 
@@ -108,7 +110,7 @@ export default function DealMapInner({ data, isLoading }: DealMapInnerProps) {
         center={COLORADO_CENTER}
         zoom={DEFAULT_ZOOM}
         className="h-full w-full rounded-lg"
-        scrollWheelZoom={true}
+        scrollWheelZoom={!compact}
       >
         <MapResizer />
         <TileLayer
@@ -122,7 +124,7 @@ export default function DealMapInner({ data, isLoading }: DealMapInnerProps) {
             <CircleMarker
               key={`listing-${listing.id}`}
               center={[listing.latitude, listing.longitude]}
-              radius={5}
+              radius={compact ? 4 : 5}
               pathOptions={{
                 color:
                   TRADE_COLORS[listing.primaryTrade ?? ""] ?? "#6b7280",
@@ -169,7 +171,7 @@ export default function DealMapInner({ data, isLoading }: DealMapInnerProps) {
             <CircleMarker
               key={`deal-${deal.id}`}
               center={[deal.latitude, deal.longitude]}
-              radius={10}
+              radius={compact ? 7 : 10}
               pathOptions={{
                 color: STAGE_COLORS[deal.stage] ?? "#6b7280",
                 fillColor: STAGE_COLORS[deal.stage] ?? "#6b7280",
@@ -213,7 +215,10 @@ export default function DealMapInner({ data, isLoading }: DealMapInnerProps) {
       </MapContainer>
 
       {/* Legend and layer toggles */}
-      <div className="absolute right-3 top-3 z-[1000] max-h-[70vh] overflow-y-auto rounded-lg border bg-card/95 p-3 shadow-lg backdrop-blur-sm">
+      <div className={cn(
+        "absolute right-3 top-3 z-[1000] overflow-y-auto rounded-lg border bg-card/95 shadow-lg backdrop-blur-sm",
+        compact ? "max-h-[50vh] p-2" : "max-h-[70vh] p-3"
+      )}>
         {/* Layer toggles */}
         <div className="mb-3 space-y-1.5">
           <p className="text-xs font-semibold text-foreground">Layers</p>
