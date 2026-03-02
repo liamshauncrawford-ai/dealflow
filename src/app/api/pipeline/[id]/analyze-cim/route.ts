@@ -5,6 +5,7 @@ import { parseBody } from "@/lib/validations/common";
 import { extractPdfText } from "@/lib/import/pdf-parser";
 import { parseCIMWithAI } from "@/lib/ai/cim-parser";
 import { isAIEnabled } from "@/lib/ai/claude-client";
+import { getOpportunityNotesContext } from "@/lib/ai/note-context";
 
 // ─────────────────────────────────────────────
 // Validation
@@ -117,9 +118,13 @@ export async function POST(
       );
     }
 
+    // Fetch notes context for additional analysis context
+    const notesContext = await getOpportunityNotesContext(opportunityId);
+    const fullText = pdfText + (notesContext ? `\n\n---\n\nADDITIONAL CONTEXT FROM RESEARCH NOTES:\n${notesContext}` : "");
+
     // Send to Claude for analysis
     const { result, inputTokens, outputTokens, modelUsed } =
-      await parseCIMWithAI(pdfText);
+      await parseCIMWithAI(fullText);
 
     // Cache the result
     const analysis = await prisma.aIAnalysisResult.create({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { callClaude, isAIEnabled } from "@/lib/ai/claude-client";
+import { getOpportunityNotesContext } from "@/lib/ai/note-context";
 
 // ─────────────────────────────────────────────
 // POST /api/pipeline/[id]/summarize
@@ -101,6 +102,8 @@ export async function POST(
     if (listing.reasonForSale) details.push(`Reason for sale: ${listing.reasonForSale}`);
     if (listing.certifications?.length) details.push(`Certifications: ${listing.certifications.join(", ")}`);
 
+    const notesContext = await getOpportunityNotesContext(opportunityId);
+
     const response = await callClaude({
       model: "haiku",
       system:
@@ -112,7 +115,7 @@ export async function POST(
       messages: [
         {
           role: "user",
-          content: `Generate a concise CRM pipeline description for this acquisition opportunity:\n\n${details.join("\n")}`,
+          content: `Generate a concise CRM pipeline description for this acquisition opportunity:\n\n${details.join("\n")}${notesContext ? `\n\nAdditional context from research notes:\n${notesContext}` : ""}`,
         },
       ],
       maxTokens: 256,
