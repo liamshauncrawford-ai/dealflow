@@ -51,6 +51,7 @@ import { DealVelocityWrapper } from "@/components/charts/deal-velocity-wrapper";
 import { PipelineValueChart } from "@/components/charts/pipeline-value-chart";
 import { IntelligenceFeed } from "@/components/ai/intelligence-feed";
 import { WinLossIndicator } from "@/components/charts/win-loss-indicator";
+import { DashboardMapCard } from "@/components/dashboard/dashboard-map-card";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface DashboardCardProps {
@@ -78,6 +79,10 @@ export default function DashboardPage() {
   > = {
     "intelligence-feed": {
       render: () => <IntelligenceFeed />,
+      isVisible: () => true,
+    },
+    "market-map": {
+      render: () => <DashboardMapCard />,
       isVisible: () => true,
     },
     "recent-listings": {
