@@ -340,7 +340,7 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
                     <div key={m.label} className="inline-flex items-center gap-1">
                       {m.icon}
                       <span className="text-[10px] text-muted-foreground">{m.label}:</span>
-                      <span className="text-xs font-medium">{m.value}</span>
+                      <span className="text-xs font-medium tabular-nums">{m.value}</span>
                     </div>
                   ))}
                 </div>
@@ -368,7 +368,7 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
                       <span className="text-[10px] text-muted-foreground">Revenue</span>
                       <span className={cn("rounded px-1 py-0.5 text-[8px] font-medium", badgeStyle)}>{badgeLabel}</span>
                     </div>
-                    <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.totalRevenue))}</div>
+                    <div className="text-sm font-semibold tabular-nums">{formatCurrency(Number(opportunity.latestFinancials.totalRevenue))}</div>
                   </div>
                 )}
                 {opportunity.latestFinancials.adjustedEbitda && (
@@ -377,7 +377,7 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
                       <span className="text-[10px] text-muted-foreground">Adj. EBITDA</span>
                       <span className={cn("rounded px-1 py-0.5 text-[8px] font-medium", badgeStyle)}>{badgeLabel}</span>
                     </div>
-                    <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.adjustedEbitda))}</div>
+                    <div className="text-sm font-semibold tabular-nums">{formatCurrency(Number(opportunity.latestFinancials.adjustedEbitda))}</div>
                   </div>
                 )}
                 {opportunity.latestFinancials.sde && (
@@ -386,7 +386,7 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
                       <span className="text-[10px] text-muted-foreground">SDE</span>
                       <span className={cn("rounded px-1 py-0.5 text-[8px] font-medium", badgeStyle)}>{badgeLabel}</span>
                     </div>
-                    <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.latestFinancials.sde))}</div>
+                    <div className="text-sm font-semibold tabular-nums">{formatCurrency(Number(opportunity.latestFinancials.sde))}</div>
                   </div>
                 )}
               </div>
@@ -438,7 +438,7 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
               {opportunity.actualRevenue && (
                 <div className="rounded-md border bg-muted/20 p-2">
                   <div className="text-[10px] text-muted-foreground">Actual Revenue</div>
-                  <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.actualRevenue))}</div>
+                  <div className="text-sm font-semibold tabular-nums">{formatCurrency(Number(opportunity.actualRevenue))}</div>
                   {opportunity.revenueTrend && (
                     <span className={cn("text-[10px] font-medium", REVENUE_TREND_LABELS[opportunity.revenueTrend]?.color)}>
                       {REVENUE_TREND_LABELS[opportunity.revenueTrend]?.label}
@@ -449,7 +449,7 @@ export function DealAnalysisPanel({ opportunity }: DealAnalysisPanelProps) {
               {opportunity.actualEbitda && (
                 <div className="rounded-md border bg-muted/20 p-2">
                   <div className="text-[10px] text-muted-foreground">Actual EBITDA</div>
-                  <div className="text-sm font-semibold">{formatCurrency(Number(opportunity.actualEbitda))}</div>
+                  <div className="text-sm font-semibold tabular-nums">{formatCurrency(Number(opportunity.actualEbitda))}</div>
                   {opportunity.actualEbitdaMargin !== null && opportunity.actualEbitdaMargin !== undefined && (
                     <span className="text-[10px] text-muted-foreground">
                       {(Number(opportunity.actualEbitdaMargin) * 100).toFixed(0)}% margin

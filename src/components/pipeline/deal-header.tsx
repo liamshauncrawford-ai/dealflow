@@ -150,7 +150,7 @@ export function DealHeader({ opportunity }: DealHeaderProps) {
             ) : (
               <>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-2xl font-bold">{opportunity.title}</h1>
+                  <h1 className="text-2xl font-semibold tracking-tight">{opportunity.title}</h1>
                   {opportunity.listing?.tier && (
                     <TierBadge tier={opportunity.listing.tier} size="sm" />
                   )}

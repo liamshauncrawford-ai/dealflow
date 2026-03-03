@@ -290,7 +290,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                         </span>
                       )}
                     </div>
-                    <div className="mt-0.5 text-sm font-semibold">
+                    <div className="mt-0.5 text-sm font-semibold tabular-nums">
                       {displayValue ? formatCurrency(Number(displayValue)) : "N/A"}
                     </div>
                   </div>
@@ -318,7 +318,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                 ].map((item) => (
                   <div key={item.label} className="rounded-md border bg-muted/10 p-2.5">
                     <div className="text-xs text-muted-foreground">{item.label}</div>
-                    <div className="mt-0.5 text-sm font-semibold">
+                    <div className="mt-0.5 text-sm font-semibold tabular-nums">
                       {item.value
                         ? item.format === "multiple"
                           ? `${item.value.toFixed(1)}x`
@@ -390,7 +390,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                     {dealEbitdaMultiple && benchmarks.ebitdaMedian && (
                       <div>
                         <div className="text-[10px] uppercase text-blue-600">EV/EBITDA</div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 tabular-nums">
                           <span className="text-sm font-bold">{dealEbitdaMultiple.toFixed(1)}x</span>
                           <span className="text-xs text-muted-foreground">vs</span>
                           <span className="text-xs text-blue-700">
@@ -403,7 +403,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                           )}
                         </div>
                         {benchmarks.ebitdaLow != null && benchmarks.ebitdaHigh != null && (
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-[10px] text-muted-foreground tabular-nums">
                             Range: {Number(benchmarks.ebitdaLow).toFixed(1)}x - {Number(benchmarks.ebitdaHigh).toFixed(1)}x
                           </div>
                         )}
@@ -412,7 +412,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                     {dealSdeMultiple && benchmarks.sdeMedian && (
                       <div>
                         <div className="text-[10px] uppercase text-blue-600">Price/SDE</div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 tabular-nums">
                           <span className="text-sm font-bold">{dealSdeMultiple.toFixed(1)}x</span>
                           <span className="text-xs text-muted-foreground">vs</span>
                           <span className="text-xs text-blue-700">
@@ -425,7 +425,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                           )}
                         </div>
                         {benchmarks.sdeLow != null && benchmarks.sdeHigh != null && (
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="text-[10px] text-muted-foreground tabular-nums">
                             Range: {Number(benchmarks.sdeLow).toFixed(1)}x - {Number(benchmarks.sdeHigh).toFixed(1)}x
                           </div>
                         )}
@@ -434,7 +434,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                     {benchmarks.ebitdaMarginMedian != null && (
                       <div>
                         <div className="text-[10px] uppercase text-blue-600">Ind. EBITDA Margin</div>
-                        <span className="text-sm font-bold">
+                        <span className="text-sm font-bold tabular-nums">
                           {(Number(benchmarks.ebitdaMarginMedian) * 100).toFixed(0)}%
                         </span>
                       </div>
@@ -451,13 +451,13 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div>
                     <div className="text-[10px] text-muted-foreground uppercase">Asking Price (Seller)</div>
-                    <div className="text-sm font-semibold">
+                    <div className="text-sm font-semibold tabular-nums">
                       {listing.askingPrice ? formatCurrency(Number(listing.askingPrice)) : "N/A"}
                     </div>
                   </div>
                   <div>
                     <div className="text-[10px] text-primary uppercase font-medium">Your Offer (Buyer)</div>
-                    <div className="text-sm font-bold text-primary">
+                    <div className="text-sm font-bold text-primary tabular-nums">
                       {formatCurrency(Number(offerPrice))}
                     </div>
                   </div>
@@ -470,7 +470,7 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
                         const discountPct = ask > 0 ? ((ask - offer) / ask) * 100 : 0;
                         const discountAmt = ask - offer;
                         return (
-                          <div className={`text-sm font-semibold ${discountPct > 0 ? "text-green-600" : discountPct < 0 ? "text-red-500" : ""}`}>
+                          <div className={`text-sm font-semibold tabular-nums ${discountPct > 0 ? "text-green-600" : discountPct < 0 ? "text-red-500" : ""}`}>
                             {discountPct > 0 ? "-" : discountPct < 0 ? "+" : ""}{formatCurrency(Math.abs(discountAmt))} ({Math.abs(discountPct).toFixed(0)}%)
                           </div>
                         );
@@ -670,10 +670,10 @@ export function LinkedListingCard({ listing, offerPrice, offerTerms, industryMul
               return (
                 <div className="mt-3 rounded-md border bg-gradient-to-r from-emerald-50/50 to-blue-50/50 dark:from-emerald-900/10 dark:to-blue-900/10 p-3">
                   <div className="text-xs font-medium text-muted-foreground mb-1">Implied Enterprise Value</div>
-                  <div className="text-lg font-bold text-foreground">
+                  <div className="text-lg font-bold text-foreground tabular-nums">
                     {formatCurrency(evLow)} — {formatCurrency(evHigh)}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-[10px] text-muted-foreground tabular-nums">
                     EBITDA ({formatCurrency(ebitdaVal)}) × {multLow.toFixed(1)}x – {multHigh.toFixed(1)}x target
                   </div>
                 </div>

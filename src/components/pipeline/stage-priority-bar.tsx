@@ -265,7 +265,7 @@ export function StagePriorityBar({ opportunity }: StagePriorityBarProps) {
                 setDealValueInput(opportunity.dealValue != null ? String(opportunity.dealValue) : "");
                 setEditingDealValue(true);
               }}
-              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted/50"
+              className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted/50 tabular-nums"
               title="Deal value"
             >
               <DollarSign className="h-3 w-3 text-muted-foreground" />
