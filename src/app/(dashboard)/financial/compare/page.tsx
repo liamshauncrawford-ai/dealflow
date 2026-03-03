@@ -299,7 +299,7 @@ function CompareRow({
       {values.map((v, i) => (
         <td
           key={i}
-          className={`text-center py-2.5 px-4 ${
+          className={`text-center py-2.5 px-4 tabular-nums ${
             highlight?.includes(i)
               ? "font-bold text-emerald-600 dark:text-emerald-400"
               : ""

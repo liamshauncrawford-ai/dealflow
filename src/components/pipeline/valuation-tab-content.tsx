@@ -897,7 +897,39 @@ export function ValuationTabContent({
                 <TrendingUp className="h-4 w-4" /> Year 1 Cash Flow
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* EBITDA Normalization Bridge */}
+              {(inputs.existing_owner_excess_comp !== 0 || inputs.one_time_adjustments !== 0 || inputs.owner_salary !== 0) && (
+                <div className="rounded-md border bg-muted/30 px-3 py-2.5 text-xs tabular-nums">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Reported EBITDA / SDE</span>
+                    <span>{fmtK(inputs.target_ebitda)}</span>
+                  </div>
+                  {inputs.existing_owner_excess_comp > 0 && (
+                    <div className="flex justify-between mt-1">
+                      <span className="text-muted-foreground">+ Owner Excess Comp</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">+{fmtK(inputs.existing_owner_excess_comp)}</span>
+                    </div>
+                  )}
+                  {inputs.one_time_adjustments > 0 && (
+                    <div className="flex justify-between mt-1">
+                      <span className="text-muted-foreground">+ One-time Adjustments</span>
+                      <span className="text-emerald-600 dark:text-emerald-400">+{fmtK(inputs.one_time_adjustments)}</span>
+                    </div>
+                  )}
+                  {inputs.owner_salary > 0 && (
+                    <div className="flex justify-between mt-1">
+                      <span className="text-muted-foreground">− New Owner Salary</span>
+                      <span className="text-red-600 dark:text-red-400">−{fmtK(inputs.owner_salary)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between mt-1.5 pt-1.5 border-t font-medium">
+                    <span>Adjusted EBITDA</span>
+                    <span>{fmtK(outputs.cashFlow.adjusted_ebitda)}</span>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <StatBox label="Adj. EBITDA" value={fmtK(outputs.cashFlow.adjusted_ebitda)} />
                 <StatBox label="Pre-Tax CF" value={fmtK(outputs.cashFlow.pre_tax_cash_flow)} />
@@ -926,7 +958,7 @@ export function ValuationTabContent({
                 <StatBox label="Equity to Buyer" value={fmtK(outputs.exit.equity_to_buyer)} />
                 <StatBox label="+ Cumulative FCF" value={fmtK(outputs.exit.cumulative_fcf)} />
               </div>
-              <div className="mt-4 flex items-center gap-4 rounded-md bg-muted/50 px-4 py-3">
+              <div className="mt-4 flex items-center gap-4 rounded-md bg-muted/50 px-4 py-3 tabular-nums">
                 <div>
                   <div className="text-xs text-muted-foreground">Total Return</div>
                   <div className="text-lg font-bold">{fmtK(outputs.exit.total_return)}</div>
@@ -972,7 +1004,7 @@ export function ValuationTabContent({
                       {outputs.projection
                         .filter((p) => p.year <= Math.max(inputs.exit_year, 7))
                         .map((p) => (
-                          <tr key={p.year} className={`border-b border-border/50 ${p.year === inputs.exit_year ? "bg-primary/5 font-medium" : ""}`}>
+                          <tr key={p.year} className={`border-b border-border/50 tabular-nums ${p.year === inputs.exit_year ? "bg-primary/5 font-medium" : ""}`}>
                             <td className="py-1.5 pr-3">{p.year}</td>
                             <td className="text-right py-1.5 px-2">{fmtK(p.revenue)}</td>
                             <td className="text-right py-1.5 px-2">{fmtK(p.ebitda)}</td>
@@ -1140,7 +1172,7 @@ function SensitivitySection({ inputs, outputs, show, onToggle }: { inputs: Valua
                   </thead>
                   <tbody>
                     {entryVsExit.data.map((row, ri) => (
-                      <tr key={ri} className="border-b border-border/50">
+                      <tr key={ri} className="border-b border-border/50 tabular-nums">
                         <td className="py-1.5 pr-3 font-medium">{fmtX(parseFloat(entryVsExit.rows[ri]))}</td>
                         {row.map((val, ci) => (
                           <td key={ci} className={`py-1.5 px-2 text-right ${val >= 3 ? "text-emerald-600 dark:text-emerald-400" : val >= 2 ? "text-blue-600 dark:text-blue-400" : "text-amber-600 dark:text-amber-400"} ${entryVsExit.rows[ri] === String(inputs.entry_multiple) && entryVsExit.cols[ci] === String(inputs.exit_multiple) ? "font-bold bg-primary/10 rounded" : ""}`}>
@@ -1167,7 +1199,7 @@ function SensitivitySection({ inputs, outputs, show, onToggle }: { inputs: Valua
                   </thead>
                   <tbody>
                     {marginVsGrowth.data.map((row, ri) => (
-                      <tr key={ri} className="border-b border-border/50">
+                      <tr key={ri} className="border-b border-border/50 tabular-nums">
                         <td className="py-1.5 pr-3 font-medium">{fmtPct(parseFloat(marginVsGrowth.rows[ri]))}</td>
                         {row.map((val, ci) => (<td key={ci} className="py-1.5 px-2 text-right">{fmtK(val)}</td>))}
                       </tr>
@@ -1193,7 +1225,7 @@ function NumberField({ label, value, onChange, prefix }: { label: string; value:
       <label className="text-xs text-muted-foreground">{label}</label>
       <div className="relative">
         {prefix && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{prefix}</span>}
-        <Input type="number" value={value || ""} onChange={(e) => onChange(parseFloat(e.target.value) || 0)} className={`h-8 text-sm ${prefix ? "pl-6" : ""}`} />
+        <Input type="number" value={value || ""} onChange={(e) => onChange(parseFloat(e.target.value) || 0)} className={`h-8 text-sm tabular-nums ${prefix ? "pl-6" : ""}`} />
       </div>
     </div>
   );
@@ -1204,7 +1236,7 @@ function SliderField({ label, value, onChange, min, max, step, format }: { label
     <div>
       <div className="flex items-center justify-between mb-1">
         <label className="text-xs text-muted-foreground">{label}</label>
-        <span className="text-xs font-medium">{format(value)}</span>
+        <span className="text-xs font-medium tabular-nums">{format(value)}</span>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={(e) => onChange(parseFloat(e.target.value))} className="w-full h-1.5 rounded-full appearance-none bg-muted cursor-pointer accent-primary" />
     </div>
@@ -1215,7 +1247,7 @@ function Row({ label, value, bold, badge }: { label: string; value: string; bold
   return (
     <div className={`flex justify-between ${bold ? "font-medium" : ""}`}>
       <span className="text-muted-foreground">{label}</span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center gap-1.5 tabular-nums">
         {value}
         {badge === "good" && <CheckCircle className="h-3 w-3 text-emerald-500" />}
         {badge === "warn" && <AlertTriangle className="h-3 w-3 text-amber-500" />}
@@ -1229,7 +1261,7 @@ function StatBox({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md bg-muted/50 px-3 py-2">
       <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-      <div className="text-sm font-medium mt-0.5">{value}</div>
+      <div className="text-sm font-medium mt-0.5 tabular-nums">{value}</div>
     </div>
   );
 }
@@ -1240,8 +1272,8 @@ function KPICard({ label, value, subtext, color }: { label: string; value: strin
     <Card className={`border-l-4 ${borderColor}`}>
       <CardContent className="py-3 px-4">
         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-        <div className="text-xl font-bold mt-1">{value}</div>
-        <div className="text-[10px] text-muted-foreground">{subtext}</div>
+        <div className="text-xl font-bold mt-1 tabular-nums">{value}</div>
+        <div className="text-[10px] text-muted-foreground tabular-nums">{subtext}</div>
       </CardContent>
     </Card>
   );

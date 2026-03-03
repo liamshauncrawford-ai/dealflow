@@ -224,7 +224,7 @@ export default function RollUpModelPage() {
                 step={0.25}
                 format={fmtX}
               />
-              <div className="rounded-md bg-muted/50 px-3 py-2 text-sm">
+              <div className="rounded-md bg-muted/50 px-3 py-2 text-sm tabular-nums">
                 EV: {fmt(inputs.platform.ebitda * inputs.platform.entry_multiple)}
               </div>
             </CardContent>
@@ -469,7 +469,7 @@ export default function RollUpModelPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center justify-between text-sm tabular-nums">
                 <div className="text-center">
                   <div className="text-xs text-muted-foreground">Wtd. Entry Multiple</div>
                   <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -566,7 +566,7 @@ export default function RollUpModelPage() {
                     </thead>
                     <tbody>
                       {outputs.acquisitions.map((a, i) => (
-                        <tr key={i} className="border-b border-border/50">
+                        <tr key={i} className="border-b border-border/50 tabular-nums">
                           <td className="py-1.5 pr-3 font-medium">{a.company}</td>
                           <td className="text-right py-1.5 px-2">{fmtK(a.revenue)}</td>
                           <td className="text-right py-1.5 px-2">{fmtK(a.ebitda)}</td>
@@ -575,7 +575,7 @@ export default function RollUpModelPage() {
                           <td className="text-right py-1.5 px-2">{fmtK(a.equity)}</td>
                         </tr>
                       ))}
-                      <tr className="font-medium">
+                      <tr className="font-medium tabular-nums">
                         <td className="py-1.5 pr-3">Total</td>
                         <td className="text-right py-1.5 px-2">
                           {fmtK(outputs.acquisitions.reduce((s, a) => s + a.revenue, 0))}
@@ -633,7 +633,7 @@ export default function RollUpModelPage() {
                         .map((p) => (
                           <tr
                             key={p.year}
-                            className={`border-b border-border/50 ${p.year === inputs.exit.exit_year ? "bg-primary/5 font-medium" : ""}`}
+                            className={`border-b border-border/50 tabular-nums ${p.year === inputs.exit.exit_year ? "bg-primary/5 font-medium" : ""}`}
                           >
                             <td className="py-1.5 pr-3">{p.year}</td>
                             <td className="text-right py-1.5 px-2">{p.companies_count}</td>
@@ -655,7 +655,7 @@ export default function RollUpModelPage() {
           {/* Exit Summary */}
           <Card>
             <CardContent className="py-4">
-              <div className="flex items-center gap-6 flex-wrap">
+              <div className="flex items-center gap-6 flex-wrap tabular-nums">
                 <div>
                   <div className="text-xs text-muted-foreground">Exit EV</div>
                   <div className="text-lg font-bold">{fmtK(outputs.exit_ev)}</div>
@@ -721,7 +721,7 @@ function FieldInput({
           type={type}
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          className={`h-8 text-sm ${prefix ? "pl-6" : ""}`}
+          className={`h-8 text-sm tabular-nums ${prefix ? "pl-6" : ""}`}
         />
       </div>
     </div>
@@ -749,7 +749,7 @@ function SliderInput({
     <div>
       <div className="flex items-center justify-between mb-1">
         <label className="text-xs text-muted-foreground">{label}</label>
-        <span className="text-xs font-medium">{format(value)}</span>
+        <span className="text-xs font-medium tabular-nums">{format(value)}</span>
       </div>
       <input
         type="range"
@@ -791,7 +791,7 @@ function BridgeBar({
           className={`h-5 rounded ${color} transition-all`}
           style={{ width: `${width}%` }}
         />
-        <span className={`text-xs shrink-0 ${bold ? "font-bold" : ""}`}>{display}</span>
+        <span className={`text-xs shrink-0 tabular-nums ${bold ? "font-bold" : ""}`}>{display}</span>
       </div>
     </div>
   );
@@ -816,7 +816,7 @@ function MiniKPI({
     <Card className={`border-l-4 ${borderColor}`}>
       <CardContent className="py-3 px-4">
         <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</div>
-        <div className="text-xl font-bold mt-1">{value}</div>
+        <div className="text-xl font-bold mt-1 tabular-nums">{value}</div>
       </CardContent>
     </Card>
   );

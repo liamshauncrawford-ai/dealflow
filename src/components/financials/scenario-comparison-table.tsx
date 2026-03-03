@@ -323,7 +323,7 @@ function CategorySection({
               return (
                 <td
                   key={scenarios[i].id}
-                  className={`text-right py-2 px-4 font-medium ${
+                  className={`text-right py-2 px-4 font-medium tabular-nums ${
                     isBest
                       ? "bg-emerald-50 dark:bg-emerald-950/20"
                       : isWorst
@@ -343,7 +343,7 @@ function CategorySection({
               );
             })}
             {showDelta && (
-              <td className="text-right py-2 px-4 text-muted-foreground text-xs">
+              <td className="text-right py-2 px-4 text-muted-foreground text-xs tabular-nums">
                 {formatDelta(values[0], values[1], metric.format)}
               </td>
             )}

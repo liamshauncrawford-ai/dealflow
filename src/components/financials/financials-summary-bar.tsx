@@ -33,7 +33,7 @@ function MetricCard({
   return (
     <div className="flex flex-col">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className={`text-lg font-semibold ${colorClass}`}>{value}</span>
+      <span className={`text-lg font-semibold tabular-nums ${colorClass}`}>{value}</span>
       {subtext && <span className="text-xs text-muted-foreground">{subtext}</span>}
     </div>
   );
