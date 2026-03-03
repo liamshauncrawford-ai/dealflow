@@ -33,6 +33,52 @@ export async function GET() {
 }
 
 /**
+ * POST /api/admin/users
+ * Pre-provision a user (admin only).
+ * Creates a User record so that when they first sign in via OAuth,
+ * NextAuth links their account to this pre-approved record.
+ */
+export async function POST(request: NextRequest) {
+  const { error } = await requireAdmin();
+  if (error) return error;
+
+  const json = await request.json();
+  const { name, email, role, isApproved } = json;
+
+  if (!email || typeof email !== "string") {
+    return NextResponse.json({ error: "email is required" }, { status: 400 });
+  }
+
+  // Check if user already exists
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    return NextResponse.json(
+      { error: "User with this email already exists", user: existing },
+      { status: 409 }
+    );
+  }
+
+  const user = await prisma.user.create({
+    data: {
+      name: name || null,
+      email,
+      role: role === "ADMIN" ? "ADMIN" : "USER",
+      isApproved: isApproved !== false, // default true for pre-provisioned users
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isApproved: true,
+      createdAt: true,
+    },
+  });
+
+  return NextResponse.json(user, { status: 201 });
+}
+
+/**
  * PATCH /api/admin/users
  * Update user role or approval status (admin only).
  */
