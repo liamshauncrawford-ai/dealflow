@@ -7,20 +7,17 @@ import type { DragEndEvent } from "@dnd-kit/core";
 const STORAGE_KEY = "dealflow-dashboard-card-order";
 
 export const DEFAULT_ORDER = [
-  "intelligence-feed",
-  "market-map",
-  "recent-listings",
-  "pipeline-funnel-chart",
-  "pipeline-summary",
-  "source-distribution-chart",
-  "tier-distribution-chart",
-  "deal-velocity-chart",
-  "pipeline-value-chart",
-  "win-loss-indicator",
   "upcoming-follow-ups",
   "stale-contacts",
-  "listings-by-platform",
-  "scraper-health",
+  "intelligence-feed",
+  "recent-listings",
+  "pipeline-funnel-chart",
+  "pipeline-value-chart",
+  "market-map",
+  "deal-velocity-chart",
+  "tier-distribution-chart",
+  "source-distribution-chart",
+  "win-loss-indicator",
 ] as const;
 
 export type DashboardCardId = (typeof DEFAULT_ORDER)[number];

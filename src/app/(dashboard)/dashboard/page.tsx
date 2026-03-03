@@ -6,15 +6,10 @@ import {
   BarChart3,
   TrendingUp,
   ArrowRight,
-  Activity,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Loader2,
-  Target,
   AlertTriangle,
   CalendarClock,
   Wallet,
+  Target,
   RotateCcw,
   LayoutDashboard,
 } from "lucide-react";
@@ -34,9 +29,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 import { useStats } from "@/hooks/use-pipeline";
-import { useScrapingStatus } from "@/hooks/use-scraping";
-import { cn, formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
-import { PIPELINE_STAGES, PLATFORMS, type PlatformKey } from "@/lib/constants";
+import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
 import { SortableDashboardCard } from "@/components/dashboard/sortable-card";
 import {
@@ -98,10 +91,6 @@ export default function DashboardPage() {
       ),
       isVisible: () => true,
     },
-    "pipeline-summary": {
-      render: () => <PipelineSummaryCard stats={stats} isLoading={isLoading} />,
-      isVisible: () => true,
-    },
     "source-distribution-chart": {
       render: () => (
         <SourceDistributionChart
@@ -152,14 +141,6 @@ export default function DashboardPage() {
       render: () => <StaleContactsCard stats={stats} isLoading={isLoading} />,
       isVisible: () => !isLoading && (stats?.staleT1Contacts?.length ?? 0) > 0,
     },
-    "listings-by-platform": {
-      render: () => <ListingsByPlatformCard stats={stats} isLoading={isLoading} />,
-      isVisible: () => true,
-    },
-    "scraper-health": {
-      render: () => <ScraperHealthCard />,
-      isVisible: () => true,
-    },
   };
 
   const visibleCardIds = order.filter((id) => cardRegistry[id]?.isVisible());
@@ -170,7 +151,7 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         icon={LayoutDashboard}
-        description="Welcome to DealFlow — your acquisition deal sourcing hub"
+        description="Pipeline overview and actionable intelligence"
       />
 
       {/* Stats Cards */}
@@ -220,7 +201,7 @@ export default function DashboardPage() {
                 <Wallet className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Capital Deployed</p>
               </div>
-              <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.capitalDeployed)}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{formatCurrency(stats.capitalDeployed)}</p>
             </div>
           )}
           {stats.platformRevenue !== null && stats.platformRevenue !== undefined && (
@@ -229,7 +210,7 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Platform Revenue</p>
               </div>
-              <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.platformRevenue)}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{formatCurrency(stats.platformRevenue)}</p>
             </div>
           )}
           {stats.platformEbitda !== null && stats.platformEbitda !== undefined && (
@@ -238,9 +219,9 @@ export default function DashboardPage() {
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Platform EBITDA</p>
               </div>
-              <p className="mt-1 text-xl font-semibold">{formatCurrency(stats.platformEbitda)}</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{formatCurrency(stats.platformEbitda)}</p>
               {stats.platformValuationLow > 0 && (
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5 tabular-nums">
                   Valuation: {formatCurrency(stats.platformValuationLow)} ({stats.exitMultipleLow}x)
                   {stats.exitMultipleHigh !== stats.exitMultipleLow && (
                     <> – {formatCurrency(stats.platformValuationHigh)} ({stats.exitMultipleHigh}x)</>
@@ -257,7 +238,7 @@ export default function DashboardPage() {
                   Target MOIC ({stats.exitMultipleLow ?? 7}x exit)
                 </p>
               </div>
-              <p className="mt-1 text-xl font-semibold">{stats.targetMoic.toFixed(1)}x</p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">{stats.targetMoic.toFixed(1)}x</p>
             </div>
           )}
         </div>
@@ -314,7 +295,7 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
   return (
     <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
-        <h2 className="font-medium">Recent Target Businesses</h2>
+        <h2 className="text-sm font-semibold">Recent Target Businesses</h2>
         <Link
           href="/listings"
           className="flex items-center gap-1 text-sm text-primary hover:underline"
@@ -339,7 +320,7 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
             <Link
               key={listing.id}
               href={`/listings/${listing.id}`}
-              className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
+              className="flex items-center justify-between px-5 py-3 hover:bg-muted/40 transition-colors"
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{truncate(listing.title, 40)}</p>
@@ -351,7 +332,7 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
               <div className="flex items-center gap-3">
                 <ListingSourceBadges sources={listing.sources} />
                 <div className="text-right">
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-medium tabular-nums">
                     {listing.askingPrice
                       ? formatCurrency(Number(listing.askingPrice))
                       : "Price N/A"}
@@ -379,59 +360,13 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
   );
 }
 
-function PipelineSummaryCard({ stats, isLoading }: DashboardCardProps) {
-  return (
-    <div className="rounded-xl border bg-card">
-      <div className="flex items-center justify-between border-b px-5 py-3">
-        <h2 className="font-medium">Pipeline Summary</h2>
-        <Link
-          href="/pipeline"
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          View pipeline <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-      <div className="p-5">
-        {isLoading ? (
-          <p className="text-center text-sm text-muted-foreground">Loading...</p>
-        ) : stats?.pipelineByStage?.length > 0 ? (
-          <div className="space-y-2">
-            {Object.entries(PIPELINE_STAGES)
-              .filter(([key]) => !["CLOSED_WON", "CLOSED_LOST", "ON_HOLD"].includes(key))
-              .map(([key, stage]) => {
-                const stageData = stats.pipelineByStage.find(
-                  (s: { stage: string }) => s.stage === key
-                );
-                const count = stageData?.count ?? 0;
-                return (
-                  <div key={key} className="flex items-center gap-3">
-                    <div className={`h-2 w-2 rounded-full ${stage.color}`} />
-                    <span className="flex-1 text-sm">{stage.label}</span>
-                    <span className="text-sm font-medium">{count}</span>
-                  </div>
-                );
-              })}
-          </div>
-        ) : (
-          <div className="py-4 text-center">
-            <p className="text-sm text-muted-foreground">No opportunities in pipeline</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Add listings to your pipeline to track them here
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function UpcomingFollowUpsCard({ stats, isLoading }: DashboardCardProps) {
   return (
     <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
         <div className="flex items-center gap-2">
           <CalendarClock className="h-4 w-4 text-muted-foreground" />
-          <h2 className="font-medium">Upcoming Follow-Ups</h2>
+          <h2 className="text-sm font-semibold">Upcoming Follow-Ups</h2>
         </div>
       </div>
       <div className="p-5">
@@ -487,7 +422,7 @@ function StaleContactsCard({ stats }: DashboardCardProps) {
       <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 px-5 py-3">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-          <h2 className="font-medium text-amber-900 dark:text-amber-100">Stale Tier 1 Contacts</h2>
+          <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-100">Stale Tier 1 Contacts</h2>
         </div>
         <span className="text-xs text-amber-700 dark:text-amber-400">
           {stats.staleT1Contacts.length} contact{stats.staleT1Contacts.length > 1 ? 's' : ''}
@@ -530,158 +465,6 @@ function StaleContactsCard({ stats }: DashboardCardProps) {
           })}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ListingsByPlatformCard({ stats, isLoading }: DashboardCardProps) {
-  return (
-    <div className="rounded-xl border bg-card">
-      <div className="border-b px-5 py-3">
-        <h2 className="font-medium">Sources by Platform</h2>
-      </div>
-      <div className="p-5">
-        {isLoading ? (
-          <p className="text-center text-sm text-muted-foreground">Loading...</p>
-        ) : stats?.platformCounts?.length > 0 ? (
-          <div className="space-y-2">
-            {stats.platformCounts.map((p: { platform: string; count: number }) => {
-              const platform = PLATFORMS[p.platform as PlatformKey];
-              if (!platform) return null;
-              return (
-                <div key={p.platform} className="flex items-center gap-3">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: platform.color }}
-                  />
-                  <span className="flex-1 text-sm">{platform.label}</span>
-                  <span className="text-sm font-medium">{p.count}</span>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            No scraped leads yet. Set up your scrapers in Settings.
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ScraperHealthCard() {
-  const { data: status, isLoading: statusLoading } = useScrapingStatus();
-
-  // Build per-platform last-run info
-  const platformHealth = Object.entries(PLATFORMS)
-    .filter(([key]) => key !== "MANUAL")
-    .map(([key, platform]) => {
-      const latestRun = status?.recentRuns?.find(
-        (r) => r.platform === key && r.status === "COMPLETED"
-      );
-      const isRunning = status?.runningRuns?.some((r) => r.platform === key);
-      const schedule = status?.schedules?.find((s) => s.platform === key);
-
-      let freshness: "fresh" | "stale" | "old" | "never" = "never";
-      if (latestRun?.completedAt) {
-        const hoursAgo =
-          (Date.now() - new Date(latestRun.completedAt).getTime()) /
-          (1000 * 60 * 60);
-        if (hoursAgo < 24) freshness = "fresh";
-        else if (hoursAgo < 72) freshness = "stale";
-        else freshness = "old";
-      }
-
-      return {
-        key,
-        label: platform.label,
-        color: platform.color,
-        latestRun,
-        isRunning,
-        schedule,
-        freshness,
-      };
-    });
-
-  return (
-    <div className="rounded-xl border bg-card">
-      <div className="flex items-center justify-between border-b px-5 py-3">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-muted-foreground" />
-          <h2 className="font-medium">Scraper Health</h2>
-        </div>
-        <Link
-          href="/settings/scraping"
-          className="flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          Settings <ArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
-      <div className="divide-y">
-        {statusLoading ? (
-          <div className="p-5 text-center text-sm text-muted-foreground">
-            Loading scraper status...
-          </div>
-        ) : (
-          platformHealth.map((p) => (
-            <div
-              key={p.key}
-              className="flex items-center gap-3 px-5 py-2.5"
-            >
-              <div
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: p.color }}
-              />
-              <span className="flex-1 text-sm">{p.label}</span>
-              <div className="flex items-center gap-2">
-                {p.isRunning ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-primary">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Running
-                  </span>
-                ) : p.freshness === "fresh" ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                    <CheckCircle2 className="h-3 w-3" />
-                    {p.latestRun?.completedAt
-                      ? formatRelativeDate(p.latestRun.completedAt)
-                      : "Fresh"}
-                  </span>
-                ) : p.freshness === "stale" ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-amber-600">
-                    <Clock className="h-3 w-3" />
-                    {p.latestRun?.completedAt
-                      ? formatRelativeDate(p.latestRun.completedAt)
-                      : "Stale"}
-                  </span>
-                ) : p.freshness === "old" ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-destructive">
-                    <AlertCircle className="h-3 w-3" />
-                    {p.latestRun?.completedAt
-                      ? formatRelativeDate(p.latestRun.completedAt)
-                      : "Old"}
-                  </span>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    Never scraped
-                  </span>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="rounded-md bg-muted/50 p-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold tabular-nums ${accent ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
-        {value}
-      </p>
     </div>
   );
 }
