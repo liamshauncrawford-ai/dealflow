@@ -101,10 +101,38 @@ export async function POST(request: NextRequest) {
       totalTokens += inputTokens + outputTokens;
       totalCost += (inputTokens / 1_000_000) * 3.0 + (outputTokens / 1_000_000) * 15.0;
 
-      // Step 5: Update each NewsItem with classification
+      // Step 5: Update each NewsItem with classification.
+      // Build a lookup from AI-returned URL → authoritative batch URL,
+      // because Claude may not echo URLs back exactly as given.
+      const batchUrlSet = new Set(batch.map((a) => a.url));
+
       for (const c of classifications) {
+        // Use the authoritative URL from the batch if it matches;
+        // otherwise try to find the batch article by headline fallback.
+        let authorativeUrl: string | null = null;
+
+        if (batchUrlSet.has(c.url)) {
+          // Exact match — Claude echoed the URL correctly
+          authorativeUrl = c.url;
+        } else {
+          // URL mismatch — find the batch article by headline
+          const matchByHeadline = batch.find(
+            (a) => a.headline === c.headline && batchUrlSet.has(a.url),
+          );
+          if (matchByHeadline) {
+            authorativeUrl = matchByHeadline.url;
+          }
+        }
+
+        if (!authorativeUrl) {
+          console.warn(
+            `[NewsMonitor] Skipping classification — no matching DB record for URL: ${c.url.slice(0, 100)}`,
+          );
+          continue;
+        }
+
         await prisma.newsItem.update({
-          where: { url: c.url },
+          where: { url: authorativeUrl },
           data: {
             category: c.category,
             urgency: c.urgency,
@@ -118,6 +146,8 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Remove from set so each batch URL is only used once
+        batchUrlSet.delete(authorativeUrl);
         classified++;
 
         // Step 6: Create notifications for important articles
