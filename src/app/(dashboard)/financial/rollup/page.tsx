@@ -25,6 +25,7 @@ import {
   formatOpportunityOption,
 } from "@/lib/financial/listing-mapper";
 import { usePipelineCompanies } from "@/hooks/use-pipeline-companies";
+import { PageHeader } from "@/components/ui/page-header";
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -155,25 +156,20 @@ export default function RollUpModelPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Layers className="h-6 w-6" />
-            Roll-Up Model
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Portfolio-level model: platform + bolt-on acquisitions
-          </p>
-        </div>
-        <button
-          onClick={reset}
-          className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Reset
-        </button>
-      </div>
+      <PageHeader
+        title="Roll-Up Model"
+        icon={Layers}
+        description="Portfolio-level model: platform + bolt-on acquisitions"
+        actions={
+          <button
+            onClick={reset}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-muted transition-colors"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset
+          </button>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Inputs */}

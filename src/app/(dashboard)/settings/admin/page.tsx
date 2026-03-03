@@ -14,6 +14,7 @@ import {
   UserX,
   Loader2,
 } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn, formatRelativeDate } from "@/lib/utils";
 
 type Tab = "users" | "requests" | "history";
@@ -74,12 +75,11 @@ export default function AdminPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Users & Access</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage user accounts, approve access requests, and view login history.
-        </p>
-      </div>
+      <PageHeader
+        title="Users & Access"
+        icon={Users}
+        description="Manage user accounts, approve access requests, and view login history."
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg bg-muted p-1">

@@ -18,6 +18,7 @@ import {
   useUpdateThesisSettings,
   useListingsForPlatform,
 } from "@/hooks/use-thesis-settings";
+import { PageHeader } from "@/components/ui/page-header";
 import { PIPELINE_STAGES } from "@/lib/constants";
 import {
   SELECTABLE_PIPELINE_STAGES,
@@ -100,13 +101,11 @@ function Header() {
         <ArrowLeft className="h-4 w-4" />
         Back to Settings
       </Link>
-      <h1 className="text-2xl font-bold text-foreground">
-        Thesis Configuration
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Configure acquisition thesis parameters that drive dashboard KPIs and
-        analytics.
-      </p>
+      <PageHeader
+        title="Thesis Configuration"
+        icon={Target}
+        description="Configure acquisition thesis parameters that drive dashboard KPIs and analytics."
+      />
     </div>
   );
 }

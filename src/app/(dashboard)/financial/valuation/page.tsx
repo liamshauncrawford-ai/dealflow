@@ -17,6 +17,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import {
   calculateValuation,
@@ -150,39 +151,34 @@ export default function ValuationCalculatorPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Calculator className="h-6 w-6" />
-            Valuation Calculator
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Interactive financial model for acquisition targets
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => aiCommentary.mutate()}
-            disabled={aiCommentary.isPending || inputs.target_ebitda === 0}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {aiCommentary.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="h-3.5 w-3.5" />
-            )}
-            AI Commentary
+      <PageHeader
+        title="Valuation Calculator"
+        icon={Calculator}
+        description="Interactive financial model for acquisition targets"
+        actions={
+          <>
+            <button
+              onClick={() => aiCommentary.mutate()}
+              disabled={aiCommentary.isPending || inputs.target_ebitda === 0}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {aiCommentary.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              AI Commentary
+            </button>
+            <button
+              onClick={resetInputs}
+              className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm hover:bg-muted transition-colors"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset
           </button>
-          <button
-            onClick={resetInputs}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Pre-fill from Pipeline */}
       {pipelineCompanies && pipelineCompanies.length > 0 && (

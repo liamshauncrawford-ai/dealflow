@@ -65,7 +65,7 @@ function EffectiveEbitda({ listing }: { listing: ListingWithSources }) {
   if (display == null) return <span className="text-muted-foreground">-</span>;
 
   return (
-    <span className={cn("flex items-center gap-1", isInferred && "text-muted-foreground")}>
+    <span className={cn("flex items-center gap-1 tabular-nums", isInferred && "text-muted-foreground")}>
       {isInferred && <Calculator className="h-3 w-3" />}
       <span className={cn(isInferred && "border-b border-dashed border-muted-foreground/40")}>
         {formatCurrency(display)}
@@ -83,7 +83,7 @@ function EffectiveSde({ listing }: { listing: ListingWithSources }) {
   if (display == null) return <span className="text-muted-foreground">-</span>;
 
   return (
-    <span className={cn("flex items-center gap-1", isInferred && "text-muted-foreground")}>
+    <span className={cn("flex items-center gap-1 tabular-nums", isInferred && "text-muted-foreground")}>
       {isInferred && <Calculator className="h-3 w-3" />}
       <span className={cn(isInferred && "border-b border-dashed border-muted-foreground/40")}>
         {formatCurrency(display)}
@@ -222,7 +222,7 @@ export function ListingsTable({
       cell: ({ row }) => {
         const val = toNum(row.original.askingPrice);
         if (val == null) return <span className="text-muted-foreground">-</span>;
-        return <span className="font-medium">{formatCurrency(val)}</span>;
+        return <span className="font-medium tabular-nums">{formatCurrency(val)}</span>;
       },
     }) as ColumnDef<ListingWithSources, unknown>,
     columnHelper.accessor("revenue", {
@@ -231,7 +231,7 @@ export function ListingsTable({
       cell: ({ row }) => {
         const val = toNum(row.original.revenue);
         if (val == null) return <span className="text-muted-foreground">-</span>;
-        return formatCurrency(val);
+        return <span className="tabular-nums">{formatCurrency(val)}</span>;
       },
     }) as ColumnDef<ListingWithSources, unknown>,
     columnHelper.display({
@@ -363,7 +363,7 @@ export function ListingsTable({
       <table className="w-full text-sm">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-b bg-muted/50">
+            <tr key={headerGroup.id} className="border-b bg-muted/40">
               {headerGroup.headers.map((header) => {
                 const canSort = header.column.getCanSort();
                 const sorted = sorting.find((s) => s.id === header.column.id);
@@ -412,7 +412,7 @@ export function ListingsTable({
               <tr
                 key={row.id}
                 className={cn(
-                  "border-b transition-colors hover:bg-muted/30",
+                  "border-b transition-colors hover:bg-muted/40",
                   row.original.isHidden && "opacity-50"
                 )}
               >

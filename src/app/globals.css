@@ -137,30 +137,24 @@
   background: var(--color-sidebar-active);
 }
 
-/* Stat card gradient accents */
-.stat-gradient-primary {
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(99, 102, 241, 0.02) 100%);
+/* Financial typography — tabular numbers for alignment */
+.financial-value {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" on;
 }
-.dark .stat-gradient-primary {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.1) 0%, rgba(99, 102, 241, 0.02) 100%);
+
+/* Data table standardized tokens */
+.table-header-row {
+  @apply border-b bg-muted/40;
 }
-.stat-gradient-success {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%);
+.table-header-cell {
+  @apply h-10 px-3 text-left text-xs font-medium text-muted-foreground;
 }
-.dark .stat-gradient-success {
-  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1) 0%, rgba(52, 211, 153, 0.02) 100%);
+.table-body-row {
+  @apply border-b transition-colors hover:bg-muted/40;
 }
-.stat-gradient-info {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0.02) 100%);
-}
-.dark .stat-gradient-info {
-  background: linear-gradient(135deg, rgba(129, 140, 248, 0.1) 0%, rgba(129, 140, 248, 0.02) 100%);
-}
-.stat-gradient-warning {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%);
-}
-.dark .stat-gradient-warning {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(251, 191, 36, 0.02) 100%);
+.table-body-cell {
+  @apply px-3 py-2.5;
 }
 
 /* Premium scrollbar */

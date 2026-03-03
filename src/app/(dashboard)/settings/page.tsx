@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users, Activity, ScrollText, EyeOff } from "lucide-react";
+import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users, Activity, ScrollText, EyeOff, Settings as SettingsIcon } from "lucide-react";
 import { SeedDataCard } from "@/components/settings/seed-data-card";
+import { PageHeader } from "@/components/ui/page-header";
 
 const settingsSections = [
   {
@@ -98,12 +99,11 @@ const settingsSections = [
 export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Configure your deal sourcing preferences and platform settings.
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        icon={SettingsIcon}
+        description="Configure your deal sourcing preferences and platform settings."
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {settingsSections.map((section) => {

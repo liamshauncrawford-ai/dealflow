@@ -8,6 +8,7 @@ import {
   CheckCircle,
   AlertTriangle,
 } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   calculateValuation,
@@ -102,15 +103,11 @@ export default function DealComparisonPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <GitCompare className="h-6 w-6" />
-          Deal Comparison Matrix
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Compare 2-4 targets side-by-side across all dimensions
-        </p>
-      </div>
+      <PageHeader
+        title="Deal Comparison Matrix"
+        icon={GitCompare}
+        description="Compare 2-4 targets side-by-side across all dimensions"
+      />
 
       {/* Target Selector */}
       <Card>

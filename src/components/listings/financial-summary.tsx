@@ -64,6 +64,7 @@ function FinancialValue({
         <p
           className={cn(
             compact ? "text-sm font-medium" : "text-lg font-semibold",
+            "tabular-nums",
             isInferred && "border-b border-dashed border-muted-foreground/50"
           )}
           title={

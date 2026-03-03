@@ -29,6 +29,7 @@ import {
   getActivityGroup,
   getActivityDescription,
 } from "@/lib/activity-utils";
+import { PageHeader } from "@/components/ui/page-header";
 
 // Pipeline stages split into two rows — mature deals on top for quick access
 const KANBAN_ROW_1: PipelineStageKey[] = [
@@ -397,7 +398,7 @@ function KanbanColumn({
         <span className="text-sm font-medium">{stage.label}</span>
         <div className="ml-auto flex items-center gap-2">
           {columnValue !== null && (
-            <span className="text-[10px] font-medium text-muted-foreground" title="Column total implied EV">
+            <span className="text-[10px] font-medium tabular-nums text-muted-foreground" title="Column total implied EV">
               {formatCurrency(columnValue)}
             </span>
           )}
@@ -581,52 +582,47 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-4 w-full max-w-full min-w-0">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Pipeline</h1>
-          <p className="text-sm text-muted-foreground">
-            {opportunities.length} opportunities in pipeline
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* View toggle */}
-          <div className="inline-flex rounded-md border bg-muted/30">
-            <button
-              onClick={() => setViewMode("stage")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-l-md px-3 py-1.5 text-xs font-medium transition-colors",
-                viewMode === "stage"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+      <PageHeader
+        title="Pipeline"
+        description={`${opportunities.length} opportunities in pipeline`}
+        actions={
+          <>
+            <div className="inline-flex rounded-md border bg-muted/30">
+              <button
+                onClick={() => setViewMode("stage")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-l-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  viewMode === "stage"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                By Stage
+              </button>
+              <button
+                onClick={() => setViewMode("activity")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-r-md px-3 py-1.5 text-xs font-medium transition-colors",
+                  viewMode === "activity"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                By Activity
+              </button>
+            </div>
+            <Link
+              href="/pipeline/add"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
-              By Stage
-            </button>
-            <button
-              onClick={() => setViewMode("activity")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-r-md px-3 py-1.5 text-xs font-medium transition-colors",
-                viewMode === "activity"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <List className="h-3.5 w-3.5" />
-              By Activity
-            </button>
-          </div>
-
-          <Link
-            href="/pipeline/add"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Add Opportunity
-          </Link>
-        </div>
-      </div>
+              <Plus className="h-4 w-4" />
+              Add Opportunity
+            </Link>
+          </>
+        }
+      />
 
       {/* Pipeline Quick Stats Bar */}
       {!isLoading && viewMode === "stage" && (
@@ -637,7 +633,7 @@ export default function PipelinePage() {
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Pipeline Value</div>
-            <div className="text-sm font-semibold text-foreground">
+            <div className="text-sm font-semibold tabular-nums text-foreground">
               {pipelineStats.totalValueLow !== null
                 ? `${formatCurrency(pipelineStats.totalValueLow)} – ${formatCurrency(pipelineStats.totalValueHigh!)}`
                 : "N/A"}
@@ -645,7 +641,7 @@ export default function PipelinePage() {
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Weighted Value</div>
-            <div className="text-sm font-semibold text-foreground">
+            <div className="text-sm font-semibold tabular-nums text-foreground">
               {pipelineStats.weightedValue !== null
                 ? formatCurrency(pipelineStats.weightedValue)
                 : "N/A"}
@@ -653,7 +649,7 @@ export default function PipelinePage() {
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Avg Days</div>
-            <div className="text-lg font-semibold text-foreground">{pipelineStats.avgDays}d</div>
+            <div className="text-lg font-semibold tabular-nums text-foreground">{pipelineStats.avgDays}d</div>
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Overdue Follow-ups</div>

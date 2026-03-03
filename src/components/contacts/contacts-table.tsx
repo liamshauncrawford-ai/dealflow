@@ -311,7 +311,7 @@ export function ContactsTable({
       <table className="w-full text-left">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id} className="border-b bg-muted/30">
+            <tr key={headerGroup.id} className="border-b bg-muted/40">
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
@@ -344,7 +344,7 @@ export function ContactsTable({
             table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                className="border-b transition-colors hover:bg-muted/40 cursor-pointer"
                 onClick={() => onContactClick(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (

@@ -16,6 +16,7 @@ import {
   useRunDedup,
   useResolveDedupCandidate,
 } from "@/hooks/use-dedup";
+import { PageHeader } from "@/components/ui/page-header";
 import { PLATFORMS, type PlatformKey } from "@/lib/constants";
 import { cn, formatCurrency, formatRelativeDate } from "@/lib/utils";
 
@@ -60,27 +61,25 @@ export default function DedupSettingsPage() {
         <span className="font-medium text-foreground">Deduplication</span>
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Deduplication</h1>
-          <p className="text-sm text-muted-foreground">
-            Find and merge duplicate listings across platforms
-          </p>
-        </div>
-        <button
-          onClick={() => runDedup.mutate()}
-          disabled={runDedup.isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
-        >
-          {runDedup.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Layers className="h-4 w-4" />
-          )}
-          Run Deduplication
-        </button>
-      </div>
+      <PageHeader
+        title="Deduplication"
+        icon={Layers}
+        description="Find and merge duplicate listings across platforms"
+        actions={
+          <button
+            onClick={() => runDedup.mutate()}
+            disabled={runDedup.isPending}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+          >
+            {runDedup.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Layers className="h-4 w-4" />
+            )}
+            Run Deduplication
+          </button>
+        }
+      />
 
       {/* Run result banner */}
       {runDedup.isSuccess && (

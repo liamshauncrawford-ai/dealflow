@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useAuditLog } from "@/hooks/use-audit-log";
 import { cn, formatRelativeDate } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   OPPORTUNITY: "Opportunity",
@@ -97,16 +98,11 @@ export default function AuditLogPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <ScrollText className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-2xl font-bold tracking-tight">Audit Log</h1>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track every change across deals, contacts, tasks, documents, and emails.
-        </p>
-      </div>
+      <PageHeader
+        title="Audit Log"
+        icon={ScrollText}
+        description="Track every change across deals, contacts, tasks, documents, and emails."
+      />
 
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-2">

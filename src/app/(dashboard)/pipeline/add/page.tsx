@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Link2,
 } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { useCreateOpportunity } from "@/hooks/use-pipeline";
 import {
   PIPELINE_STAGES,
@@ -220,7 +221,6 @@ export default function AddOpportunityPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      {/* Header */}
       <div>
         <Link
           href="/pipeline"
@@ -229,10 +229,11 @@ export default function AddOpportunityPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Pipeline
         </Link>
-        <h1 className="text-2xl font-bold">Add Opportunity</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Create a new pipeline opportunity. Link to an existing listing or import from a URL.
-        </p>
+        <PageHeader
+          title="Add Opportunity"
+          icon={Plus}
+          description="Create a new pipeline opportunity. Link to an existing listing or import from a URL."
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

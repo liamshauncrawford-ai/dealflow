@@ -22,6 +22,7 @@ import {
   Copy,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn, formatRelativeDate } from "@/lib/utils";
 import { useAnthropicUsage } from "@/hooks/use-anthropic-usage";
 
@@ -176,25 +177,20 @@ export default function AgentDashboardPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-muted-foreground" />
-            <h1 className="text-2xl font-bold tracking-tight">AI Agent Dashboard</h1>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Monitor background agents, costs, and execution history.
-          </p>
-        </div>
-        <button
-          onClick={() => refetch()}
-          className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </button>
-      </div>
+      <PageHeader
+        title="AI Agent Dashboard"
+        icon={Bot}
+        description="Monitor background agents, costs, and execution history."
+        actions={
+          <button
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm hover:bg-muted"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+        }
+      />
 
       {/* Agent Cards — one per agent with trigger button */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

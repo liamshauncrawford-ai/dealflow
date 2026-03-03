@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Plus, Download, EyeOff, X } from "lucide-react";
+import { Plus, Download, EyeOff, X, Target } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import type { SortingState, RowSelectionState } from "@tanstack/react-table";
 import { useListings, useToggleHidden, usePromoteToPipeline } from "@/hooks/use-listings";
 import { ListingsTable } from "@/components/listings/listings-table";
@@ -111,33 +112,33 @@ export default function ListingsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Target Businesses</h1>
-          <p className="text-sm text-muted-foreground">
-            {data
-              ? `${data.total} ${activeTab === "targets" ? "target business" : "scraped lead"}${data.total !== 1 ? (activeTab === "targets" ? "es" : "s") : ""}`
-              : "Loading..."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
-          >
-            <Download className="h-4 w-4" />
-            Export
-          </button>
-          <Link
-            href="/listings/add"
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Add Target Business
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Target Businesses"
+        icon={Target}
+        description={
+          data
+            ? `${data.total} ${activeTab === "targets" ? "target business" : "scraped lead"}${data.total !== 1 ? (activeTab === "targets" ? "es" : "s") : ""}`
+            : "Loading..."
+        }
+        actions={
+          <>
+            <button
+              onClick={handleExport}
+              className="inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </button>
+            <Link
+              href="/listings/add"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Add Target Business
+            </Link>
+          </>
+        }
+      />
 
       {/* Tab Bar */}
       <div className="flex gap-1 rounded-lg border bg-muted/50 p-1">

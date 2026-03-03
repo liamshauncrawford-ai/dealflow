@@ -9,6 +9,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useListings, useToggleHidden } from "@/hooks/use-listings";
+import { PageHeader } from "@/components/ui/page-header";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 
 export default function HiddenListingsPage() {
@@ -43,13 +44,11 @@ export default function HiddenListingsPage() {
         <span className="font-medium text-foreground">Hidden Target Businesses</span>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-bold">Hidden Target Businesses</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {hiddenListings.length} target business{hiddenListings.length !== 1 ? "es" : ""}{" "}
-          hidden from your main view
-        </p>
-      </div>
+      <PageHeader
+        title="Hidden Target Businesses"
+        icon={EyeOff}
+        description={`${hiddenListings.length} target business${hiddenListings.length !== 1 ? "es" : ""} hidden from your main view`}
+      />
 
       {hiddenListings.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { Users } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import type { SortingState } from "@tanstack/react-table";
 import { useAllContacts } from "@/hooks/use-all-contacts";
 import { ContactsTable } from "@/components/contacts/contacts-table";
@@ -78,18 +79,11 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-4">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <Users className="h-6 w-6 text-muted-foreground" />
-            <h1 className="text-2xl font-semibold text-foreground">Contacts</h1>
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {data ? `${data.total} contacts across all deals` : "Loading..."}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Contacts"
+        icon={Users}
+        description={data ? `${data.total} contacts across all deals` : "Loading..."}
+      />
 
       {/* Filters */}
       <ContactFiltersPanel filters={filters} onFiltersChange={handleFiltersChange} />

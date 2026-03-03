@@ -17,6 +17,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useScrapingStatus } from "@/hooks/use-scraping";
+import { PageHeader } from "@/components/ui/page-header";
 import { PLATFORMS, type PlatformKey } from "@/lib/constants";
 import { cn, formatRelativeDate } from "@/lib/utils";
 
@@ -142,40 +143,38 @@ export default function ScrapingSettingsPage() {
         <span className="font-medium text-foreground">Listing Sources</span>
       </div>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Listing Sources</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage how listings are discovered from each platform
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleSyncAndParse}
-            disabled={syncing || scrapingAll}
-            className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
-          >
-            {syncing ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Mail className="h-4 w-4" />
-            )}
-            Sync Gmail
-          </button>
-          <button
-            onClick={handleScrapeAll}
-            disabled={scrapingAll || syncing}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {scrapingAll ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Zap className="h-4 w-4" />
-            )}
-            Scrape All Sources
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Listing Sources"
+        description="Manage how listings are discovered from each platform"
+        actions={
+          <>
+            <button
+              onClick={handleSyncAndParse}
+              disabled={syncing || scrapingAll}
+              className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
+            >
+              {syncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4" />
+              )}
+              Sync Gmail
+            </button>
+            <button
+              onClick={handleScrapeAll}
+              disabled={scrapingAll || syncing}
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {scrapingAll ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Zap className="h-4 w-4" />
+              )}
+              Scrape All Sources
+            </button>
+          </>
+        }
+      />
 
       {/* Sync result toast */}
       {syncResult && (

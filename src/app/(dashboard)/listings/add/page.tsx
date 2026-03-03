@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Save, Globe, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { useCreateListing } from "@/hooks/use-listings";
 
 type ScrapeStatus = "idle" | "scraping" | "success" | "error";
@@ -183,10 +184,10 @@ export default function AddListingPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to target businesses
         </Link>
-        <h1 className="text-2xl font-semibold text-foreground">Add Target Business</h1>
-        <p className="text-sm text-muted-foreground">
-          Paste a listing URL to auto-fill, or enter details manually
-        </p>
+        <PageHeader
+          title="Add Target Business"
+          description="Paste a listing URL to auto-fill, or enter details manually"
+        />
       </div>
 
       {/* URL Import Section */}

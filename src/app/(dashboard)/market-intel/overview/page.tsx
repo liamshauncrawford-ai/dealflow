@@ -26,6 +26,7 @@ import { TRADE_COLORS } from "@/lib/chart-colors";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 import { MarketMetricsChart } from "@/components/charts/market-metrics-chart";
 import { ThesisCoverage } from "@/components/market-intel/thesis-coverage";
+import { PageHeader } from "@/components/ui/page-header";
 
 /* ─── Types ─── */
 
@@ -119,13 +120,11 @@ export default function MarketOverviewPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Market Overview</h1>
-        <p className="text-sm text-muted-foreground">
-          Intelligence snapshot of your acquisition pipeline and market landscape
-        </p>
-      </div>
+      <PageHeader
+        title="Market Overview"
+        icon={BarChart3}
+        description="Intelligence snapshot of your acquisition pipeline and market landscape"
+      />
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

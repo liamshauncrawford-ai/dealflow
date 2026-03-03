@@ -21,6 +21,7 @@ import {
   useDisconnectEmail,
   useEmailConfig,
 } from "@/hooks/use-email";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn, formatRelativeDate } from "@/lib/utils";
 
 export default function EmailSettingsPage() {
@@ -81,13 +82,11 @@ function EmailSettingsContent() {
         <span className="font-medium text-foreground">Email Integration</span>
       </div>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Email Integration</h1>
-        <p className="text-sm text-muted-foreground">
-          Connect your email accounts to sync and track emails
-        </p>
-      </div>
+      <PageHeader
+        title="Email Integration"
+        icon={Mail}
+        description="Connect your email accounts to sync and track emails"
+      />
 
       {/* Error banner from OAuth redirect */}
       {errorParam && (

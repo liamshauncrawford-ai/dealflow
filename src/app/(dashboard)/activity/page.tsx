@@ -14,7 +14,9 @@ import {
   Circle,
   PenLine,
   X,
+  Activity as ActivityIcon,
 } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 import { usePipeline } from "@/hooks/use-pipeline";
 import { useTasks, useUpdateTask } from "@/hooks/use-tasks";
 import { PIPELINE_STAGES, PRIORITY_LEVELS, type PipelineStageKey } from "@/lib/constants";
@@ -103,13 +105,11 @@ export default function ActivityPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground">Activity</h1>
-        <p className="text-sm text-muted-foreground">
-          Track deal activity and follow-ups across your pipeline
-        </p>
-      </div>
+      <PageHeader
+        title="Activity"
+        icon={ActivityIcon}
+        description="Track deal activity and follow-ups across your pipeline"
+      />
 
       {/* Upcoming Tasks */}
       {tasksData?.tasks && tasksData.tasks.length > 0 && (

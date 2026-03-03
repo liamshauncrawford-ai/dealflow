@@ -17,6 +17,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useImportPreview, useImportDeals } from "@/hooks/use-import";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────
@@ -112,15 +113,11 @@ export default function ImportSettingsPage() {
         <span className="font-medium text-foreground">Historical Deal Import</span>
       </div>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          Historical Deal Import
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Import deal data from your iCloud Drive Acquisition Targets folder
-        </p>
-      </div>
+      <PageHeader
+        title="Historical Deal Import"
+        icon={FolderOpen}
+        description="Import deal data from your iCloud Drive Acquisition Targets folder"
+      />
 
       {/* Loading state */}
       {isLoading && (
