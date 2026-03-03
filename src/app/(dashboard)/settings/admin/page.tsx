@@ -166,7 +166,7 @@ function UsersTab() {
           </thead>
           <tbody className="divide-y">
             {users.map((user) => (
-              <tr key={user.id} className="hover:bg-muted/50">
+              <tr key={user.id} className="hover:bg-muted/40">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     {user.image ? (
@@ -464,7 +464,7 @@ function LoginHistoryTab() {
           </thead>
           <tbody className="divide-y">
             {history.map((entry) => (
-              <tr key={entry.id} className="hover:bg-muted/50">
+              <tr key={entry.id} className="hover:bg-muted/40">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     {entry.user.image ? (

@@ -305,7 +305,9 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
       </div>
       <div className="divide-y">
         {isLoading ? (
-          <div className="p-5 text-center text-sm text-muted-foreground">Loading...</div>
+          <div className="flex items-center justify-center py-6">
+            <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+          </div>
         ) : stats?.recentListings?.length > 0 ? (
           stats.recentListings.slice(0, 5).map((listing: {
             id: string;

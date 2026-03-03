@@ -205,7 +205,7 @@ export default function AgentDashboardPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Icon className={cn("h-5 w-5", config.color)} />
-                    <CardTitle className="text-base">{config.label}</CardTitle>
+                    <CardTitle className="text-sm">{config.label}</CardTitle>
                   </div>
                   <button
                     onClick={() => triggerAgent.mutate(config.endpoint)}
@@ -323,7 +323,7 @@ export default function AgentDashboardPage() {
                 const config = AGENT_CONFIG[run.agentName];
                 const Icon = config?.icon ?? Bot;
                 return (
-                  <tr key={run.id} className="border-b last:border-0 hover:bg-muted/30">
+                  <tr key={run.id} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Icon className={cn("h-4 w-4", config?.color ?? "text-muted-foreground")} />
