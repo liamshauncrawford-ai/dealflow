@@ -24,7 +24,7 @@ export function ChartCard({
   children,
 }: ChartCardProps) {
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-muted-foreground" />

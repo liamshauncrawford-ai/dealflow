@@ -88,7 +88,7 @@ export function Sidebar() {
       {/* Mobile Hamburger Button */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white shadow-lg md:hidden"
+        className="fixed left-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar text-white shadow-lg md:hidden"
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5" />
@@ -97,7 +97,7 @@ export function Sidebar() {
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -105,7 +105,7 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-50 flex h-screen flex-col bg-slate-900 text-slate-300 transition-all duration-300",
+          "fixed left-0 top-0 z-50 flex h-screen flex-col sidebar-gradient transition-all duration-300",
           // Desktop: always visible, respects collapsed state
           "hidden md:flex",
           collapsed ? "md:w-16" : "md:w-60",
@@ -114,9 +114,9 @@ export function Sidebar() {
         )}
       >
         {/* Logo + Mobile Close */}
-        <div className="flex h-16 items-center justify-between border-b border-slate-700/50 px-4">
+        <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
           <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary font-bold text-white">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 font-bold text-white shadow-lg shadow-indigo-500/20">
               D
             </div>
             {!collapsed && (
@@ -128,7 +128,7 @@ export function Sidebar() {
           {/* Close button on mobile */}
           <button
             onClick={() => setMobileOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-sidebar-text hover:bg-sidebar-hover hover:text-white md:hidden"
             aria-label="Close navigation"
           >
             <X className="h-5 w-5" />
@@ -136,7 +136,7 @@ export function Sidebar() {
         </div>
 
         {/* Main Navigation */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
           {mainNavItems.map((item) => (
             <NavLink
               key={item.href}
@@ -147,12 +147,7 @@ export function Sidebar() {
           ))}
 
           {/* Market Intel Section */}
-          <div className="my-3 border-t border-slate-700/50" />
-          {!collapsed && (
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Market Intel
-            </p>
-          )}
+          <SectionLabel collapsed={collapsed} label="Market Intel" />
           {marketIntelItems.map((item) => (
             <NavLink
               key={item.href}
@@ -163,12 +158,7 @@ export function Sidebar() {
           ))}
 
           {/* Financial Analysis Section */}
-          <div className="my-3 border-t border-slate-700/50" />
-          {!collapsed && (
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Financial Analysis
-            </p>
-          )}
+          <SectionLabel collapsed={collapsed} label="Financial Analysis" />
           {financialItems.map((item) => (
             <NavLink
               key={item.href}
@@ -179,12 +169,7 @@ export function Sidebar() {
           ))}
 
           {/* AI Agents Section */}
-          <div className="my-3 border-t border-slate-700/50" />
-          {!collapsed && (
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              AI Agents
-            </p>
-          )}
+          <SectionLabel collapsed={collapsed} label="AI Agents" />
           {aiAgentItems.map((item) => (
             <NavLink
               key={item.href}
@@ -195,7 +180,7 @@ export function Sidebar() {
           ))}
 
           {/* Separator */}
-          <div className="my-3 border-t border-slate-700/50" />
+          <div className="my-3 border-t border-sidebar-border" />
 
           {bottomNavItems.map((item) => (
             <NavLink
@@ -208,20 +193,20 @@ export function Sidebar() {
         </nav>
 
         {/* Theme Toggle + Collapse — desktop only */}
-        <div className="hidden border-t border-slate-700/50 p-3 md:block space-y-1">
+        <div className="hidden border-t border-sidebar-border p-3 md:block space-y-0.5">
           <div className={cn("flex items-center", collapsed ? "justify-center" : "gap-3 px-3")}>
             <ThemeToggle
               className={cn(
-                "flex items-center gap-3 rounded-lg py-2 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white",
+                "flex items-center gap-3 rounded-lg py-2 text-sm text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-white",
                 collapsed ? "justify-center p-2" : "px-0"
               )}
             />
-            {!collapsed && <span className="text-sm text-slate-400">Theme</span>}
+            {!collapsed && <span className="text-sm text-sidebar-text">Theme</span>}
           </div>
           <button
             onClick={() => setCollapsed(!collapsed)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-slate-800 hover:text-white",
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-white",
               collapsed && "justify-center px-0"
             )}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -241,6 +226,19 @@ export function Sidebar() {
   );
 }
 
+function SectionLabel({ collapsed, label }: { collapsed: boolean; label: string }) {
+  return (
+    <>
+      <div className="my-3 border-t border-sidebar-border" />
+      {!collapsed && (
+        <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-text/50">
+          {label}
+        </p>
+      )}
+    </>
+  );
+}
+
 function NavLink({
   item,
   active,
@@ -256,18 +254,18 @@ function NavLink({
     <Link
       href={item.href}
       className={cn(
-        "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
         active
-          ? "bg-primary/10 text-primary"
-          : "text-slate-400 hover:bg-slate-800 hover:text-white",
+          ? "nav-active-glow text-white"
+          : "text-sidebar-text hover:bg-sidebar-hover hover:text-white",
         collapsed && "justify-center px-0"
       )}
       title={collapsed ? item.label : undefined}
     >
       <Icon
         className={cn(
-          "h-5 w-5 shrink-0",
-          active ? "text-primary" : "text-slate-400 group-hover:text-white"
+          "h-[18px] w-[18px] shrink-0 transition-colors",
+          active ? "text-primary" : "text-sidebar-text group-hover:text-white"
         )}
       />
       {!collapsed && (

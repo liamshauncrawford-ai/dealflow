@@ -5,8 +5,6 @@ import Link from "next/link";
 import {
   BarChart3,
   TrendingUp,
-  Briefcase,
-  DollarSign,
   ArrowRight,
   Activity,
   CheckCircle2,
@@ -35,7 +33,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useStats } from "@/hooks/use-pipeline";
 import { useScrapingStatus } from "@/hooks/use-scraping";
-import { formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
+import { cn, formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
 import { PIPELINE_STAGES, PLATFORMS, type PlatformKey } from "@/lib/constants";
 import { ListingSourceBadges } from "@/components/listings/listing-source-badges";
 import { SortableDashboardCard } from "@/components/dashboard/sortable-card";
@@ -177,28 +175,21 @@ export default function DashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          icon={BarChart3}
           label="Active Targets"
           value={isLoading ? "..." : String(stats?.totalActive ?? 0)}
           description="Meeting your criteria"
-          color="text-primary"
         />
         <StatCard
-          icon={TrendingUp}
           label="New This Week"
           value={isLoading ? "..." : String(stats?.newThisWeek ?? 0)}
           description="Newly discovered"
-          color="text-success"
         />
         <StatCard
-          icon={Briefcase}
           label="Pipeline Active"
           value={isLoading ? "..." : String(stats?.pipelineActive ?? 0)}
           description="Opportunities in progress"
-          color="text-info"
         />
         <StatCard
-          icon={DollarSign}
           label="Pipeline Value"
           value={
             isLoading
@@ -216,7 +207,6 @@ export default function DashboardPage() {
               ? `${stats.pipelineValuedCount} of ${stats.pipelineOppCount} opps valued`
               : "No valued opportunities"
           }
-          color="text-warning"
         />
       </div>
 
@@ -224,7 +214,7 @@ export default function DashboardPage() {
       {!isLoading && (stats?.capitalDeployed || stats?.platformRevenue || stats?.platformEbitda || stats?.targetMoic) && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.capitalDeployed !== null && stats.capitalDeployed !== undefined && (
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-xl border bg-card p-4">
               <div className="flex items-center gap-2">
                 <Wallet className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Capital Deployed</p>
@@ -233,7 +223,7 @@ export default function DashboardPage() {
             </div>
           )}
           {stats.platformRevenue !== null && stats.platformRevenue !== undefined && (
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-xl border bg-card p-4">
               <div className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Platform Revenue</p>
@@ -242,7 +232,7 @@ export default function DashboardPage() {
             </div>
           )}
           {stats.platformEbitda !== null && stats.platformEbitda !== undefined && (
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-xl border bg-card p-4">
               <div className="flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">Platform EBITDA</p>
@@ -259,7 +249,7 @@ export default function DashboardPage() {
             </div>
           )}
           {stats.targetMoic !== null && stats.targetMoic !== undefined && (
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-xl border bg-card p-4">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground">
@@ -307,7 +297,7 @@ export default function DashboardPage() {
         </SortableContext>
         <DragOverlay>
           {activeId && cardRegistry[activeId as DashboardCardId] ? (
-            <div className="rounded-lg border bg-card shadow-lg opacity-90 pointer-events-none">
+            <div className="rounded-xl border bg-card shadow-lg opacity-90 pointer-events-none">
               {cardRegistry[activeId as DashboardCardId].render()}
             </div>
           ) : null}
@@ -321,7 +311,7 @@ export default function DashboardPage() {
 
 function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
         <h2 className="font-medium">Recent Target Businesses</h2>
         <Link
@@ -390,7 +380,7 @@ function RecentListingsCard({ stats, isLoading }: DashboardCardProps) {
 
 function PipelineSummaryCard({ stats, isLoading }: DashboardCardProps) {
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
         <h2 className="font-medium">Pipeline Summary</h2>
         <Link
@@ -436,7 +426,7 @@ function PipelineSummaryCard({ stats, isLoading }: DashboardCardProps) {
 
 function UpcomingFollowUpsCard({ stats, isLoading }: DashboardCardProps) {
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
         <div className="flex items-center gap-2">
           <CalendarClock className="h-4 w-4 text-muted-foreground" />
@@ -492,7 +482,7 @@ function UpcomingFollowUpsCard({ stats, isLoading }: DashboardCardProps) {
 
 function StaleContactsCard({ stats }: DashboardCardProps) {
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
+    <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20">
       <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-900/50 px-5 py-3">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
@@ -545,7 +535,7 @@ function StaleContactsCard({ stats }: DashboardCardProps) {
 
 function ListingsByPlatformCard({ stats, isLoading }: DashboardCardProps) {
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="border-b px-5 py-3">
         <h2 className="font-medium">Sources by Platform</h2>
       </div>
@@ -614,7 +604,7 @@ function ScraperHealthCard() {
     });
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border bg-card">
       <div className="flex items-center justify-between border-b px-5 py-3">
         <div className="flex items-center gap-2">
           <Activity className="h-4 w-4 text-muted-foreground" />
@@ -696,30 +686,19 @@ function MiniStat({ label, value, accent }: { label: string; value: string; acce
 }
 
 function StatCard({
-  icon: Icon,
   label,
   value,
   description,
-  color,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   description: string;
-  color: string;
 }) {
   return (
-    <div className="rounded-lg border bg-card p-5">
-      <div className="flex items-center gap-3">
-        <div className={`rounded-md bg-muted p-2 ${color}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-2xl font-semibold">{value}</p>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
+    <div className="rounded-xl border bg-card p-5">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{value}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }

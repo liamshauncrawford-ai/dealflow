@@ -1,72 +1,72 @@
 /**
  * Centralized hex color config for all dashboard charts.
  *
- * Stage colors match globals.css CSS vars.
- * Platform/tier/trade colors match constants.ts.
+ * Refined premium palette — coordinated indigo/violet tones
+ * with warm accents for progression stages.
  */
 
-// ── Pipeline Stage Colors (from globals.css) ──
+// ── Pipeline Stage Colors ──
 
 export const STAGE_COLORS: Record<string, string> = {
-  CONTACTING: "#3b82f6",
-  REQUESTED_CIM: "#8b5cf6",
-  SIGNED_NDA: "#d946ef",
-  DUE_DILIGENCE: "#f59e0b",
-  OFFER_SENT: "#f97316",
-  COUNTER_OFFER_RECEIVED: "#ef4444",
-  UNDER_CONTRACT: "#16a34a",
-  CLOSED_WON: "#059669",
-  CLOSED_LOST: "#6b7280",
-  ON_HOLD: "#9ca3af",
+  CONTACTING: "#6366f1",           // Indigo
+  REQUESTED_CIM: "#8b5cf6",       // Violet
+  SIGNED_NDA: "#a78bfa",          // Light violet
+  DUE_DILIGENCE: "#f59e0b",       // Amber
+  OFFER_SENT: "#f97316",          // Orange
+  COUNTER_OFFER_RECEIVED: "#ef4444", // Red
+  UNDER_CONTRACT: "#10b981",      // Emerald
+  CLOSED_WON: "#059669",          // Green
+  CLOSED_LOST: "#64748b",         // Slate
+  ON_HOLD: "#94a3b8",             // Slate (lighter)
 };
 
-// ── Platform Colors (from constants.ts) ──
+// ── Platform Colors ──
 
 export const PLATFORM_COLORS: Record<string, string> = {
-  BIZBUYSELL: "#2563eb",
-  BIZQUEST: "#7c3aed",
-  DEALSTREAM: "#059669",
-  TRANSWORLD: "#dc2626",
-  LOOPNET: "#d97706",
-  BUSINESSBROKER: "#0891b2",
-  MANUAL: "#6b7280",
+  BIZBUYSELL: "#6366f1",           // Indigo (primary)
+  BIZQUEST: "#8b5cf6",             // Violet
+  DEALSTREAM: "#10b981",           // Emerald
+  TRANSWORLD: "#ef4444",           // Red
+  LOOPNET: "#f59e0b",             // Amber
+  BUSINESSBROKER: "#06b6d4",       // Cyan
+  MANUAL: "#64748b",               // Slate
 };
 
 // ── Tier Colors ──
 
 export const TIER_COLORS: Record<string, string> = {
-  TIER_1_ACTIVE: "#22c55e",
-  TIER_2_WATCH: "#3b82f6",
-  TIER_3_DISQUALIFIED: "#ef4444",
-  OWNED: "#a855f7",
+  TIER_1_ACTIVE: "#10b981",        // Emerald
+  TIER_2_WATCH: "#6366f1",         // Indigo
+  TIER_3_DISQUALIFIED: "#ef4444",  // Red
+  OWNED: "#a855f7",                // Purple
 };
 
-// ── Trade Colors (from constants.ts) ──
+// ── Trade Colors ──
 
 export const TRADE_COLORS: Record<string, string> = {
   ELECTRICAL: "#eab308",
   STRUCTURED_CABLING: "#f97316",
   SECURITY_FIRE_ALARM: "#ef4444",
-  FRAMING_DRYWALL: "#a3a3a3",
-  HVAC_MECHANICAL: "#22c55e",
-  PLUMBING: "#3b82f6",
+  FRAMING_DRYWALL: "#94a3b8",
+  HVAC_MECHANICAL: "#10b981",
+  PLUMBING: "#6366f1",
   PAINTING_FINISHING: "#8b5cf6",
   CONCRETE_MASONRY: "#78716c",
   ROOFING: "#64748b",
   SITE_WORK: "#854d0e",
-  GENERAL_COMMERCIAL: "#6b7280",
+  GENERAL_COMMERCIAL: "#475569",
 };
 
 // ── Theme-Aware Colors for Axes, Grid, Tooltips ──
 
 export function getThemeColors(isDark: boolean) {
   return {
-    axis: isDark ? "#a1a1aa" : "#71717a",
-    grid: isDark ? "#27272a" : "#e4e4e7",
-    text: isDark ? "#d4d4d8" : "#3f3f46",
-    tooltipBg: isDark ? "#18181b" : "#ffffff",
-    tooltipBorder: isDark ? "#3f3f46" : "#e4e4e7",
-    tooltipText: isDark ? "#fafafa" : "#09090b",
-    muted: isDark ? "#71717a" : "#a1a1aa",
+    axis: isDark ? "#7c85a3" : "#64748b",
+    grid: isDark ? "#1e2235" : "#e2e8f0",
+    text: isDark ? "#c8cee0" : "#334155",
+    tooltipBg: isDark ? "#111427" : "#ffffff",
+    tooltipBorder: isDark ? "#1e2235" : "#e2e8f0",
+    tooltipText: isDark ? "#f1f5f9" : "#0f172a",
+    muted: isDark ? "#4a5068" : "#94a3b8",
   };
 }

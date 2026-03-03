@@ -10,28 +10,39 @@ function LoginContent() {
   const callbackUrl = searchParams.get("callbackUrl") || "/pipeline";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <div className="w-full max-w-sm space-y-6">
+    <div className="relative flex min-h-screen items-center justify-center px-4 overflow-hidden">
+      {/* Gradient background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-950 via-indigo-950/50 to-slate-950" />
+      {/* Subtle grid pattern */}
+      <div className="fixed inset-0 opacity-[0.03]" style={{
+        backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
+        backgroundSize: "32px 32px",
+      }} />
+      {/* Glow orbs */}
+      <div className="fixed left-1/4 top-1/4 h-96 w-96 rounded-full bg-indigo-600/10 blur-3xl" />
+      <div className="fixed right-1/4 bottom-1/4 h-96 w-96 rounded-full bg-violet-600/10 blur-3xl" />
+
+      <div className="relative z-10 w-full max-w-sm space-y-8">
         {/* Logo / Brand */}
         <div className="text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-white text-xl font-bold">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 text-2xl font-bold text-white shadow-xl shadow-indigo-500/25">
             DF
           </div>
-          <h1 className="mt-4 text-2xl font-bold text-foreground">DealFlow</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Acquisition Deal Sourcing & Pipeline
+          <h1 className="mt-5 text-3xl font-bold text-white tracking-tight">DealFlow</h1>
+          <p className="mt-2 text-sm text-slate-400">
+            Acquisition Deal Sourcing & Pipeline Management
           </p>
         </div>
 
         {/* Sign-in Card */}
-        <div className="rounded-lg border bg-card p-6 shadow-sm">
-          <h2 className="text-center text-lg font-semibold">Sign In</h2>
-          <p className="mt-1 text-center text-sm text-muted-foreground">
-            Use your company account to continue
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
+          <h2 className="text-center text-lg font-semibold text-white">Welcome Back</h2>
+          <p className="mt-1 text-center text-sm text-slate-400">
+            Sign in to continue to your dashboard
           </p>
 
           {error && (
-            <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="mt-4 rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-300">
               {error === "AccessDenied"
                 ? "Access denied. Your account may not be approved yet."
                 : error === "OAuthSignin"
@@ -45,7 +56,7 @@ function LoginContent() {
           <div className="mt-6 space-y-3">
             <button
               onClick={() => signIn("google", { callbackUrl })}
-              className="flex w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-white/10 hover:border-white/20"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24">
                 <path
@@ -70,7 +81,7 @@ function LoginContent() {
 
             <button
               onClick={() => signIn("microsoft-entra-id", { callbackUrl })}
-              className="flex w-full items-center justify-center gap-3 rounded-lg border bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-white/10 hover:border-white/20"
             >
               <svg className="h-5 w-5" viewBox="0 0 23 23">
                 <path fill="#f35325" d="M1 1h10v10H1z" />
@@ -84,7 +95,7 @@ function LoginContent() {
         </div>
 
         {/* Footer note */}
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-slate-500">
           Access is by invitation only. After signing in for the first time,
           an admin will review and approve your account.
         </p>
@@ -97,8 +108,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary" />
+        <div className="flex min-h-screen items-center justify-center bg-slate-950">
+          <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-slate-700 border-t-indigo-500" />
         </div>
       }
     >

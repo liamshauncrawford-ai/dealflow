@@ -14,13 +14,13 @@ export const PIPELINE_STAGES = {
 export type PipelineStageKey = keyof typeof PIPELINE_STAGES;
 
 export const PLATFORMS = {
-  BIZBUYSELL: { label: "BizBuySell", shortLabel: "BBS", color: "#2563eb" },
-  BIZQUEST: { label: "BizQuest", shortLabel: "BQ", color: "#7c3aed" },
-  DEALSTREAM: { label: "DealStream", shortLabel: "DS", color: "#059669" },
-  TRANSWORLD: { label: "Transworld", shortLabel: "TW", color: "#dc2626" },
-  LOOPNET: { label: "LoopNet", shortLabel: "LN", color: "#d97706" },
-  BUSINESSBROKER: { label: "BusinessBroker.net", shortLabel: "BB", color: "#0891b2" },
-  MANUAL: { label: "Manual Entry", shortLabel: "ME", color: "#6b7280" },
+  BIZBUYSELL: { label: "BizBuySell", shortLabel: "BBS", color: "#6366f1" },
+  BIZQUEST: { label: "BizQuest", shortLabel: "BQ", color: "#8b5cf6" },
+  DEALSTREAM: { label: "DealStream", shortLabel: "DS", color: "#10b981" },
+  TRANSWORLD: { label: "Transworld", shortLabel: "TW", color: "#ef4444" },
+  LOOPNET: { label: "LoopNet", shortLabel: "LN", color: "#f59e0b" },
+  BUSINESSBROKER: { label: "BusinessBroker.net", shortLabel: "BB", color: "#06b6d4" },
+  MANUAL: { label: "Manual Entry", shortLabel: "ME", color: "#64748b" },
 } as const;
 
 export type PlatformKey = keyof typeof PLATFORMS;
@@ -109,14 +109,14 @@ export const PRIMARY_TRADES = {
   ELECTRICAL: { label: "Electrical", color: "#eab308" },
   STRUCTURED_CABLING: { label: "Structured Cabling / Low-Voltage", color: "#f97316" },
   SECURITY_FIRE_ALARM: { label: "Security / Fire Alarm", color: "#ef4444" },
-  FRAMING_DRYWALL: { label: "Framing / Drywall", color: "#a3a3a3" },
-  HVAC_MECHANICAL: { label: "HVAC / Mechanical", color: "#22c55e" },
-  PLUMBING: { label: "Plumbing", color: "#3b82f6" },
+  FRAMING_DRYWALL: { label: "Framing / Drywall", color: "#94a3b8" },
+  HVAC_MECHANICAL: { label: "HVAC / Mechanical", color: "#10b981" },
+  PLUMBING: { label: "Plumbing", color: "#6366f1" },
   PAINTING_FINISHING: { label: "Painting / Finishing", color: "#8b5cf6" },
   CONCRETE_MASONRY: { label: "Concrete / Masonry", color: "#78716c" },
   ROOFING: { label: "Roofing", color: "#64748b" },
   SITE_WORK: { label: "Site Work / Excavation", color: "#854d0e" },
-  GENERAL_COMMERCIAL: { label: "General / Other", color: "#6b7280" },
+  GENERAL_COMMERCIAL: { label: "General / Other", color: "#475569" },
 } as const;
 
 export type PrimaryTradeKey = keyof typeof PRIMARY_TRADES;

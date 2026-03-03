@@ -138,7 +138,7 @@ export function Header() {
   }, [showResults]);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background px-4 pl-14 md:px-6 md:pl-6">
+    <header className="glass sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 pl-14 md:px-6 md:pl-6">
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1.5 text-sm">
         {breadcrumbs.map((crumb, index) => (
@@ -168,7 +168,7 @@ export function Header() {
             value={searchQuery ?? ""}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => { if (searchQuery && searchQuery.length >= 2) setShowResults(true); }}
-            className="h-9 w-48 rounded-lg border border-input bg-muted/50 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary lg:w-64"
+            className="glow-ring h-9 w-48 rounded-lg border border-input bg-muted/50 pl-9 pr-3 text-sm outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:bg-background lg:w-64"
           />
           {showResults && (searchResults.length > 0 || isSearching) && (
             <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border bg-card shadow-lg">
