@@ -1,5 +1,7 @@
+"use client";
+
 import Link from "next/link";
-import { Bot, Layers, Mail, Bell, Database, Shield, FolderOpen, Target, Users, Activity, ScrollText, EyeOff, Settings as SettingsIcon } from "lucide-react";
+import { Bot, Layers, Mail, Bell, Database, FolderOpen, Target, Users, Activity, ScrollText, EyeOff, Settings as SettingsIcon } from "lucide-react";
 import { SeedDataCard } from "@/components/settings/seed-data-card";
 import { PageHeader } from "@/components/ui/page-header";
 
