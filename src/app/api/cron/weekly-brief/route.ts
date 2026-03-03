@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         type: "WEEKLY_BRIEF",
         title: `Weekly Brief: Thesis ${result.thesisHealth.charAt(0).toUpperCase() + result.thesisHealth.slice(1)}`,
         message: `Market momentum: ${result.marketMomentum}. ${result.keyDevelopments[0] ?? ""}`,
-        priority: result.thesisHealth === "weak" ? "high" : "normal",
+        priority: result.thesisHealth === "at_risk" || result.thesisHealth === "caution" ? "high" : "normal",
         entityType: "brief",
         actionUrl: "/market-intel/overview",
       },

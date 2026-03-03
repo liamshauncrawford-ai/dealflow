@@ -36,7 +36,7 @@ export interface WeeklyBriefResult {
 const SYSTEM_PROMPT = `You are a strategic M&A intelligence analyst producing a weekly market briefing for Crawford Holdings — a PE-backed acquisition platform targeting commercial service contractors across Colorado's Front Range in 11 trade categories.
 
 Generate a comprehensive weekly intelligence brief covering:
-1. THESIS HEALTH: Overall assessment (strong/moderate/weak) with reasoning
+1. THESIS HEALTH: Overall assessment (strong/stable/caution/at_risk) with reasoning
 2. MARKET MOMENTUM: Direction (accelerating/stable/decelerating) based on deal flow
 3. KEY DEVELOPMENTS: 3-5 bullets on notable market events, new targets, or pipeline changes
 4. RECOMMENDED ACTIONS: 3-5 prioritized action items for the coming week
@@ -45,7 +45,7 @@ Generate a comprehensive weekly intelligence brief covering:
 
 Return valid JSON with this structure:
 {
-  "thesisHealth": "strong" | "moderate" | "weak",
+  "thesisHealth": "strong" | "stable" | "caution" | "at_risk",
   "marketMomentum": "accelerating" | "stable" | "decelerating",
   "keyDevelopments": ["string"],
   "recommendedActions": ["string"],
