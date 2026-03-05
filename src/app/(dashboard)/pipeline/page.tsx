@@ -33,6 +33,7 @@ import { PageHeader } from "@/components/ui/page-header";
 
 // Pipeline stages split into two rows — mature deals on top for quick access
 const KANBAN_ROW_1: PipelineStageKey[] = [
+  "SCHEDULING_FIRST_MEETING",
   "OFFER_SENT",
   "COUNTER_OFFER_RECEIVED",
   "DUE_DILIGENCE",
@@ -43,7 +44,6 @@ const KANBAN_ROW_2: PipelineStageKey[] = [
   "CONTACTING",
   "REQUESTED_CIM",
   "SIGNED_NDA",
-  "SCHEDULING_FIRST_MEETING",
 ];
 
 // Combined for drag-and-drop lookups
