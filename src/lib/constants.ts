@@ -2,7 +2,7 @@ export const PIPELINE_STAGES = {
   CONTACTING: { label: "Contacting", color: "bg-stage-contacting", order: 1 },
   REQUESTED_CIM: { label: "Requested CIM", color: "bg-stage-cim", order: 2 },
   SIGNED_NDA: { label: "Signed NDA", color: "bg-stage-nda", order: 3 },
-  SCHEDULING_FIRST_MEETING: { label: "Scheduling 1st Meeting", color: "bg-stage-meeting", order: 4 },
+  SCHEDULING_FIRST_MEETING: { label: "Initial Owner Meeting", color: "bg-stage-meeting", order: 4 },
   OFFER_SENT: { label: "LOI & Offer Sent", color: "bg-stage-offer", order: 5 },
   COUNTER_OFFER_RECEIVED: { label: "Counter Offer", color: "bg-stage-counter", order: 6 },
   DUE_DILIGENCE: { label: "Due Diligence", color: "bg-stage-diligence", order: 7 },
