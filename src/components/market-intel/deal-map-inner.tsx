@@ -23,9 +23,10 @@ const STAGE_LABELS: Record<string, string> = {
   CONTACTING: "Contacting",
   REQUESTED_CIM: "Requested CIM",
   SIGNED_NDA: "Signed NDA",
-  DUE_DILIGENCE: "Due Diligence",
-  OFFER_SENT: "Offer Sent",
+  SCHEDULING_FIRST_MEETING: "1st Meeting",
+  OFFER_SENT: "LOI & Offer Sent",
   COUNTER_OFFER_RECEIVED: "Counter Offer",
+  DUE_DILIGENCE: "Due Diligence",
   UNDER_CONTRACT: "Under Contract",
   ON_HOLD: "On Hold",
 };

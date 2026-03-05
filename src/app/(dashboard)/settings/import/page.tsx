@@ -28,8 +28,9 @@ const STAGE_CONFIG: Record<string, { label: string; color: string }> = {
   CONTACTING: { label: "Contacting", color: "bg-gray-100 text-gray-700" },
   REQUESTED_CIM: { label: "CIM Requested", color: "bg-indigo-100 text-indigo-700" },
   SIGNED_NDA: { label: "NDA Signed", color: "bg-purple-100 text-purple-700" },
+  SCHEDULING_FIRST_MEETING: { label: "1st Meeting", color: "bg-pink-100 text-pink-700" },
+  OFFER_SENT: { label: "LOI & Offer Sent", color: "bg-orange-100 text-orange-700" },
   DUE_DILIGENCE: { label: "Due Diligence", color: "bg-amber-100 text-amber-700" },
-  OFFER_SENT: { label: "Offer Sent", color: "bg-orange-100 text-orange-700" },
 };
 
 const CATEGORY_ICONS: Record<string, typeof FileText> = {

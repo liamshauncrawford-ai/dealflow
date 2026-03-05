@@ -33,9 +33,9 @@ import { PageHeader } from "@/components/ui/page-header";
 
 // Pipeline stages split into two rows — mature deals on top for quick access
 const KANBAN_ROW_1: PipelineStageKey[] = [
-  "DUE_DILIGENCE",
   "OFFER_SENT",
   "COUNTER_OFFER_RECEIVED",
+  "DUE_DILIGENCE",
   "UNDER_CONTRACT",
 ];
 
@@ -43,6 +43,7 @@ const KANBAN_ROW_2: PipelineStageKey[] = [
   "CONTACTING",
   "REQUESTED_CIM",
   "SIGNED_NDA",
+  "SCHEDULING_FIRST_MEETING",
 ];
 
 // Combined for drag-and-drop lookups
@@ -55,13 +56,14 @@ const ALL_KANBAN_STAGES = [...KANBAN_ROW_1, ...KANBAN_ROW_2];
 // ─────────────────────────────────────────────
 
 const AGING_THRESHOLDS: Record<string, [number, number, number]> = {
-  CONTACTING:             [7,  14, 30],
-  REQUESTED_CIM:          [7,  14, 30],
-  SIGNED_NDA:             [7,  14, 21],
-  DUE_DILIGENCE:          [14, 30, 60],
-  OFFER_SENT:             [5,  10, 21],
-  COUNTER_OFFER_RECEIVED: [3,  7,  14],
-  UNDER_CONTRACT:         [7,  14, 30],
+  CONTACTING:               [7,  14, 30],
+  REQUESTED_CIM:            [7,  14, 30],
+  SIGNED_NDA:               [7,  14, 21],
+  SCHEDULING_FIRST_MEETING: [7,  14, 21],
+  OFFER_SENT:               [5,  10, 21],
+  COUNTER_OFFER_RECEIVED:   [3,  7,  14],
+  DUE_DILIGENCE:            [14, 30, 60],
+  UNDER_CONTRACT:           [7,  14, 30],
 };
 const DEFAULT_AGING: [number, number, number] = [7, 14, 30];
 
@@ -98,8 +100,11 @@ const STAGE_GATE_RULES: Record<string, { check: (opp: any) => boolean; message: 
   SIGNED_NDA: [
     { check: (opp) => !!opp.contactedAt, message: "Contacted date not set — stage may be premature" },
   ],
-  DUE_DILIGENCE: [
+  SCHEDULING_FIRST_MEETING: [
     { check: (opp) => !!opp.ndaSignedAt, message: "NDA signed date not set — confirm NDA is in place" },
+  ],
+  DUE_DILIGENCE: [
+    { check: (opp) => !!opp.offerSentAt, message: "Offer sent date not set — confirm LOI/offer was sent before due diligence" },
   ],
   OFFER_SENT: [
     { check: (opp) => !!opp.offerPrice, message: "Offer price not set — add an offer price before sending" },

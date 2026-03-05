@@ -236,13 +236,13 @@ async function importOneDeal(
         stage,
         priority: "MEDIUM",
         // Set key dates based on detected stage
-        ...(["SIGNED_NDA", "DUE_DILIGENCE", "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "UNDER_CONTRACT", "CLOSED_WON"].includes(stage)
+        ...(["SIGNED_NDA", "SCHEDULING_FIRST_MEETING", "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "DUE_DILIGENCE", "UNDER_CONTRACT", "CLOSED_WON"].includes(stage)
           ? { ndaSignedAt: new Date() }
           : {}),
-        ...(["REQUESTED_CIM", "SIGNED_NDA", "DUE_DILIGENCE", "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "UNDER_CONTRACT", "CLOSED_WON"].includes(stage)
+        ...(["REQUESTED_CIM", "SIGNED_NDA", "SCHEDULING_FIRST_MEETING", "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "DUE_DILIGENCE", "UNDER_CONTRACT", "CLOSED_WON"].includes(stage)
           ? { cimRequestedAt: new Date() }
           : {}),
-        ...(["OFFER_SENT", "COUNTER_OFFER_RECEIVED", "UNDER_CONTRACT", "CLOSED_WON"].includes(stage)
+        ...(["OFFER_SENT", "COUNTER_OFFER_RECEIVED", "DUE_DILIGENCE", "UNDER_CONTRACT", "CLOSED_WON"].includes(stage)
           ? { offerSentAt: new Date() }
           : {}),
       },

@@ -63,12 +63,22 @@ export const STAGE_TRIGGER_CONFIG: Record<PipelineStage, StageTransitionConfig> 
   },
   SIGNED_NDA: {
     task: {
-      title: "Begin due diligence review",
+      title: "Review CIM and prepare questions",
       description: "Review CIM, prepare initial financial analysis and questions list",
       dueDaysFromNow: 2,
       priority: "HIGH",
     },
     contactUpdate: { outreachStatus: "DUE_DILIGENCE" },
+    followUpDaysFromNow: 5,
+  },
+  SCHEDULING_FIRST_MEETING: {
+    task: {
+      title: "Schedule initial meeting with seller/broker",
+      description: "Reach out to schedule the first face-to-face or video meeting to discuss the opportunity",
+      dueDaysFromNow: 3,
+      priority: "HIGH",
+    },
+    contactUpdate: null,
     followUpDaysFromNow: 5,
   },
   DUE_DILIGENCE: {
@@ -151,7 +161,10 @@ export const FOLLOW_UP_CHAIN_CONFIG: Record<PipelineStage, FollowUpChainConfig> 
     nextTask: { title: "Follow up on CIM status", dueDaysFromNow: 3, priority: "MEDIUM" },
   },
   SIGNED_NDA: {
-    nextTask: null, // DD review is a one-off
+    nextTask: null, // CIM review is a one-off
+  },
+  SCHEDULING_FIRST_MEETING: {
+    nextTask: { title: "Follow up on meeting scheduling", dueDaysFromNow: 3, priority: "MEDIUM" },
   },
   DUE_DILIGENCE: {
     nextTask: { title: "Check in on due diligence progress", dueDaysFromNow: 5, priority: "MEDIUM" },

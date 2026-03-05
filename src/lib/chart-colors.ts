@@ -11,6 +11,7 @@ export const STAGE_COLORS: Record<string, string> = {
   CONTACTING: "#6366f1",           // Indigo
   REQUESTED_CIM: "#8b5cf6",       // Violet
   SIGNED_NDA: "#a78bfa",          // Light violet
+  SCHEDULING_FIRST_MEETING: "#ec4899", // Rose
   DUE_DILIGENCE: "#f59e0b",       // Amber
   OFFER_SENT: "#f97316",          // Orange
   COUNTER_OFFER_RECEIVED: "#ef4444", // Red

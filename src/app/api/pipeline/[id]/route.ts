@@ -203,6 +203,7 @@ export async function PATCH(
           REQUESTED_CIM: "cimRequestedAt",
           SIGNED_NDA: "ndaSignedAt",
           OFFER_SENT: "offerSentAt",
+          DUE_DILIGENCE: "dueDiligenceStart",
           UNDER_CONTRACT: "underContractAt",
           CLOSED_WON: "closedAt",
           CLOSED_LOST: "closedAt",

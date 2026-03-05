@@ -41,9 +41,10 @@ export interface ThesisConfig {
 export const THESIS_DEFAULTS: ThesisConfig = {
   pipelineValueStages: [
     "SIGNED_NDA",
-    "DUE_DILIGENCE",
+    "SCHEDULING_FIRST_MEETING",
     "OFFER_SENT",
     "COUNTER_OFFER_RECEIVED",
+    "DUE_DILIGENCE",
     "UNDER_CONTRACT",
   ],
   platformListingId: null,
