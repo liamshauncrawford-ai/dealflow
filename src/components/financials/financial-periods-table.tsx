@@ -92,6 +92,10 @@ export function FinancialPeriodsTable({
   const updateOverride = useUpdateOverride(opportunityId);
   const [editingCell, setEditingCell] = useState<{ periodId: string; key: string } | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editingPeriodHeader, setEditingPeriodHeader] = useState<string | null>(null);
+  const [headerYear, setHeaderYear] = useState<number>(0);
+  const [headerPeriodType, setHeaderPeriodType] = useState<string>("");
+  const [headerQuarter, setHeaderQuarter] = useState<number | null>(null);
 
   // Sort periods by year desc
   const sorted = [...periods].sort((a, b) => b.year - a.year || a.periodType.localeCompare(b.periodType));
@@ -198,6 +202,25 @@ export function FinancialPeriodsTable({
     });
   }
 
+  function startEditingPeriodHeader(period: any) {
+    setEditingPeriodHeader(period.id);
+    setHeaderYear(period.year);
+    setHeaderPeriodType(period.periodType);
+    setHeaderQuarter(period.quarter ?? null);
+  }
+
+  function savePeriodHeader(period: any) {
+    const changes: Record<string, unknown> = {};
+    if (headerYear !== period.year) changes.year = headerYear;
+    if (headerPeriodType !== period.periodType) changes.periodType = headerPeriodType;
+    if (headerQuarter !== (period.quarter ?? null)) changes.quarter = headerQuarter;
+
+    if (Object.keys(changes).length > 0) {
+      updatePeriod.mutate({ periodId: period.id, data: changes });
+    }
+    setEditingPeriodHeader(null);
+  }
+
   const filteredRows = ROW_CONFIG.filter((row) => {
     if (viewMode === "ebitda" && row.key === "sde") return false;
     if (viewMode === "sde" && (row.key === "adjustedEbitda" || row.key === "adjustedEbitdaMargin")) return false;
@@ -215,46 +238,115 @@ export function FinancialPeriodsTable({
             {sorted.map((period, idx) => (
               <Fragment key={period.id}>
                 <th className="min-w-[120px] px-3 py-2 text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    <button
-                      onClick={() => onSelectPeriod(period.id)}
-                      className={`text-xs font-medium hover:underline ${
-                        selectedPeriodId === period.id ? "text-primary" : "text-foreground"
-                      }`}
-                    >
-                      {periodLabel(period)}
-                    </button>
-                    {selectedPeriodId === period.id && (
-                      <ChevronRight className="h-3 w-3 text-primary" />
-                    )}
-                  </div>
-                  <div className="mt-0.5 flex items-center justify-end gap-1">
-                    <button
-                      onClick={() =>
-                        updatePeriod.mutate({
-                          periodId: period.id,
-                          data: { isLocked: !period.isLocked },
-                        })
-                      }
-                      className="text-muted-foreground hover:text-foreground"
-                      title={period.isLocked ? "Unlock period" : "Lock period"}
-                    >
-                      {period.isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
-                    </button>
-                    {!period.isLocked && (
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete ${periodLabel(period)}?`)) {
-                            deletePeriod.mutate(period.id);
+                  {editingPeriodHeader === period.id ? (
+                    <div className="flex flex-col items-end gap-1">
+                      <div className="flex items-center gap-1">
+                        <select
+                          value={headerPeriodType}
+                          onChange={(e) => setHeaderPeriodType(e.target.value)}
+                          className="rounded border bg-background px-1 py-0.5 text-xs"
+                        >
+                          <option value="ANNUAL">Annual</option>
+                          <option value="QUARTERLY">Quarterly</option>
+                          <option value="LTM">LTM</option>
+                          <option value="YTD">YTD</option>
+                          <option value="PROJECTED">Projected</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={headerYear}
+                          onChange={(e) => setHeaderYear(parseInt(e.target.value) || 0)}
+                          className="w-16 rounded border bg-background px-1 py-0.5 text-right text-xs"
+                          min={1990}
+                          max={2100}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") savePeriodHeader(period);
+                            if (e.key === "Escape") setEditingPeriodHeader(null);
+                          }}
+                        />
+                      </div>
+                      {headerPeriodType === "QUARTERLY" && (
+                        <select
+                          value={headerQuarter ?? ""}
+                          onChange={(e) => setHeaderQuarter(e.target.value ? parseInt(e.target.value) : null)}
+                          className="rounded border bg-background px-1 py-0.5 text-xs"
+                        >
+                          <option value="">No quarter</option>
+                          <option value="1">Q1</option>
+                          <option value="2">Q2</option>
+                          <option value="3">Q3</option>
+                          <option value="4">Q4</option>
+                        </select>
+                      )}
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => savePeriodHeader(period)}
+                          className="rounded bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground hover:bg-primary/90"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingPeriodHeader(null)}
+                          className="rounded bg-muted px-1.5 py-0.5 text-[10px] hover:bg-muted/80"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => onSelectPeriod(period.id)}
+                          className={`text-xs font-medium hover:underline ${
+                            selectedPeriodId === period.id ? "text-primary" : "text-foreground"
+                          }`}
+                        >
+                          {periodLabel(period)}
+                        </button>
+                        {selectedPeriodId === period.id && (
+                          <ChevronRight className="h-3 w-3 text-primary" />
+                        )}
+                      </div>
+                      <div className="mt-0.5 flex items-center justify-end gap-1">
+                        {!period.isLocked && (
+                          <button
+                            onClick={() => startEditingPeriodHeader(period)}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="Edit period year/type"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() =>
+                            updatePeriod.mutate({
+                              periodId: period.id,
+                              data: { isLocked: !period.isLocked },
+                            })
                           }
-                        }}
-                        className="text-muted-foreground hover:text-destructive"
-                        title="Delete period"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
+                          className="text-muted-foreground hover:text-foreground"
+                          title={period.isLocked ? "Unlock period" : "Lock period"}
+                        >
+                          {period.isLocked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+                        </button>
+                        {!period.isLocked && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Delete ${periodLabel(period)}?`)) {
+                                deletePeriod.mutate(period.id);
+                              }
+                            }}
+                            className="text-muted-foreground hover:text-destructive"
+                            title="Delete period"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </th>
                 {idx < sorted.length - 1 && (
                   <th className="min-w-[60px] px-2 py-2 text-right text-xs text-muted-foreground">

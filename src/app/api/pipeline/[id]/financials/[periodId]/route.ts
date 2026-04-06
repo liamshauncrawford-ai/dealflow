@@ -53,6 +53,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // If changing year/periodType/quarter, check for unique constraint conflicts
+    const newYear = body.data.year ?? existing.year;
+    const newPeriodType = body.data.periodType ?? existing.periodType;
+    const newQuarter = body.data.quarter !== undefined ? body.data.quarter : existing.quarter;
+
+    if (
+      body.data.year !== undefined ||
+      body.data.periodType !== undefined ||
+      body.data.quarter !== undefined
+    ) {
+      const conflict = await prisma.financialPeriod.findFirst({
+        where: {
+          opportunityId: existing.opportunityId,
+          periodType: newPeriodType,
+          year: newYear,
+          quarter: newQuarter,
+          id: { not: periodId },
+        },
+      });
+      if (conflict) {
+        return NextResponse.json(
+          { error: `A ${newPeriodType} period for ${newYear}${newQuarter ? ` Q${newQuarter}` : ""} already exists` },
+          { status: 409 }
+        );
+      }
+    }
+
     const updated = await prisma.financialPeriod.update({
       where: { id: periodId },
       data: body.data,

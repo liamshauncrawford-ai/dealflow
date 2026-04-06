@@ -200,6 +200,8 @@ This tool is used by a buyer evaluating small-to-mid-market businesses ($1M-$10M
 - Commercial service contractors (electrical, HVAC, plumbing, roofing, etc.)
 - B2B service companies with trades labor
 
+Today's date: ${new Date().toISOString().slice(0, 10)}
+
 IMPORTANT extraction rules:
 1. Extract line items, preserving the original label as "rawLabel"
 2. CRITICAL — LEAF ITEMS ONLY: When a P&L has both summary/total rows AND individual
@@ -229,7 +231,19 @@ IMPORTANT extraction rules:
 9. When the P&L directly states computed subtotals (Gross Profit, Total Revenue,
    Total COGS, Total Expenses, Net Income, EBITDA, Net Ordinary Income, etc.),
    extract them into the "pnlSubtotals" object for the period. These are used
-   as override values when the line-item sum doesn't match the P&L's own math.`;
+   as override values when the line-item sum doesn't match the P&L's own math.
+10. CRITICAL — YEAR DETECTION: Pay very careful attention to the year of the financial
+    data. Look for dates in headers, titles, column labels, footers, and period
+    descriptions. Common patterns include:
+    - "Profit & Loss January through December 2025"
+    - "For the Year Ended December 31, 2025"
+    - Column headers like "Jan - Dec 2025" or "FY2025"
+    - "YTD 2025" or "2025 Budget"
+    If the document was clearly generated recently and references a period like
+    "January through December" without an explicit year, assume the current year
+    or the most recent complete calendar year. NEVER confuse decades — e.g., do not
+    assign year 2015 when the document context clearly indicates 2025. When in doubt,
+    use the most recent plausible year given today's date.`;
 
 // ─────────────────────────────────────────────
 // Context limit — prevents overflowing Claude's context window

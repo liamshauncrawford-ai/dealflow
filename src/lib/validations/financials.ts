@@ -50,6 +50,9 @@ export const createFinancialPeriodSchema = z.object({
 });
 
 export const updateFinancialPeriodSchema = z.object({
+  periodType: z.enum(financialPeriodTypes).optional(),
+  year: z.number().int().min(1990).max(2100).optional(),
+  quarter: z.number().int().min(1).max(4).nullable().optional(),
   label: z.string().max(100).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
   isLocked: z.boolean().optional(),
