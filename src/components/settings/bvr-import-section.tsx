@@ -10,7 +10,11 @@ import {
   Database,
   FileSpreadsheet,
   X,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import { RANK_QUERY_GUIDES } from "@/lib/bvr/sic-naics-descriptions";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -101,6 +105,10 @@ function formatMultiple(value: number | null | undefined): string {
 
 export function BvrImportSection() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Guide panel state
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [activeGuideRank, setActiveGuideRank] = useState(1);
 
   // State
   const [file, setFile] = useState<File | null>(null);
@@ -226,6 +234,152 @@ export function BvrImportSection() {
       </div>
 
       <div className="space-y-6 p-6">
+        {/* BVR Query Guide */}
+        {(() => {
+          const activeGuide = RANK_QUERY_GUIDES.find(
+            (g) => g.rank === activeGuideRank,
+          );
+          const colorMap: Record<string, { tab: string; activeBg: string; activeText: string }> = {
+            blue: { tab: "bg-blue-100 text-blue-700", activeBg: "bg-blue-600", activeText: "text-white" },
+            purple: { tab: "bg-purple-100 text-purple-700", activeBg: "bg-purple-600", activeText: "text-white" },
+            amber: { tab: "bg-amber-100 text-amber-700", activeBg: "bg-amber-600", activeText: "text-white" },
+            emerald: { tab: "bg-emerald-100 text-emerald-700", activeBg: "bg-emerald-600", activeText: "text-white" },
+          };
+          return (
+            <div className="rounded-lg border border-dashed border-blue-300 bg-blue-50/50 p-4">
+              <button
+                type="button"
+                onClick={() => setGuideOpen((prev) => !prev)}
+                className="flex w-full items-center gap-2 text-sm font-semibold text-blue-800"
+              >
+                <BookOpen className="h-4 w-4" />
+                BVR Query Guide
+                {guideOpen ? (
+                  <ChevronDown className="ml-auto h-4 w-4" />
+                ) : (
+                  <ChevronRight className="ml-auto h-4 w-4" />
+                )}
+              </button>
+
+              {guideOpen && (
+                <div className="mt-4 space-y-4">
+                  {/* Rank tabs */}
+                  <div className="flex flex-wrap gap-2">
+                    {RANK_QUERY_GUIDES.map((guide) => {
+                      const isActive = guide.rank === activeGuideRank;
+                      const colors = colorMap[guide.color] ?? colorMap.blue;
+                      return (
+                        <button
+                          key={guide.rank}
+                          type="button"
+                          onClick={() => setActiveGuideRank(guide.rank)}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                            isActive
+                              ? `${colors.activeBg} ${colors.activeText}`
+                              : `${colors.tab} hover:opacity-80`
+                          }`}
+                        >
+                          Rank {guide.rank} &mdash; {guide.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {activeGuide && (
+                    <div className="space-y-4">
+                      {/* SIC Codes */}
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          SIC Codes
+                        </h4>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                              <th className="pb-1 pr-4 font-medium">Code</th>
+                              <th className="pb-1 font-medium">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activeGuide.sicCodes.map((sic) => (
+                              <tr key={sic.code} className="border-b border-muted last:border-0">
+                                <td className="py-1 pr-4 font-mono text-xs">
+                                  {sic.code}
+                                </td>
+                                <td className="py-1">{sic.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* NAICS Codes */}
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          NAICS Codes
+                        </h4>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                              <th className="pb-1 pr-4 font-medium">Code</th>
+                              <th className="pb-1 font-medium">Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {activeGuide.naicsCodes.map((naics) => (
+                              <tr key={naics.code} className="border-b border-muted last:border-0">
+                                <td className="py-1 pr-4 font-mono text-xs">
+                                  {naics.code}
+                                </td>
+                                <td className="py-1">{naics.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Date range advice */}
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          Date Range:
+                        </span>{" "}
+                        {activeGuide.dateRangeAdvice}
+                      </p>
+
+                      {/* Search tips */}
+                      <div>
+                        <h4 className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Search Tips
+                        </h4>
+                        <ul className="list-disc space-y-1 pl-4 text-sm text-muted-foreground">
+                          {activeGuide.searchTips.map((tip, i) => (
+                            <li key={i}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Step-by-step instructions (always visible) */}
+                  <div className="border-t border-blue-200 pt-3">
+                    <h4 className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      Step-by-Step
+                    </h4>
+                    <ol className="list-decimal space-y-1 pl-4 text-sm text-muted-foreground">
+                      <li>Log into DealStats (or BizComps)</li>
+                      <li>Navigate to Search &rarr; SIC Code</li>
+                      <li>Enter the codes listed above for your target type</li>
+                      <li>Set Revenue filter to recommended range</li>
+                      <li>Set Date Range to last 3&ndash;5 years</li>
+                      <li>Export to Excel (.xlsx)</li>
+                      <li>Upload using the form below</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* File input */}
         <div className="space-y-3">
           <input
