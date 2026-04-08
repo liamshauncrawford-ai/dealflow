@@ -447,51 +447,32 @@ export default function ListingDetailPage({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div>
-              <span className="text-xs font-medium uppercase text-muted-foreground">Composite Score</span>
+              <span className="text-xs font-medium uppercase text-muted-foreground">Acquisition Score</span>
               <div className="mt-1">
-                <FitScoreGauge score={listing.compositeScore ?? listing.fitScore} size="lg" />
+                <FitScoreGauge score={listing.acquisitionScore ?? listing.compositeScore ?? listing.fitScore} size="lg" />
               </div>
             </div>
-            {listing.deterministicScore != null && listing.aiScore != null && (
-              <div className="text-xs text-muted-foreground">
-                <div>Deterministic: {listing.deterministicScore}</div>
-                <div>AI Score: {listing.aiScore}</div>
-              </div>
-            )}
-            {listing.thesisAlignment && (
+            {listing.acquisitionTier && (
               <div>
-                <span className="text-xs font-medium uppercase text-muted-foreground">Thesis Fit</span>
+                <span className="text-xs font-medium uppercase text-muted-foreground">Tier</span>
                 <div className="mt-1">
                   <span className={cn(
                     "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                    listing.thesisAlignment === "strong" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-                    listing.thesisAlignment === "moderate" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-                    listing.thesisAlignment === "weak" && "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-                    listing.thesisAlignment === "disqualified" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                    listing.acquisitionTier === "A" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+                    listing.acquisitionTier === "B" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                    listing.acquisitionTier === "C" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                    listing.acquisitionTier === "Inactive" && "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
                   )}>
-                    {listing.thesisAlignment === "strong" ? "Strong Fit" :
-                     listing.thesisAlignment === "moderate" ? "Moderate Fit" :
-                     listing.thesisAlignment === "weak" ? "Weak Fit" : "Disqualified"}
+                    Tier {listing.acquisitionTier}
                   </span>
                 </div>
               </div>
             )}
-            {listing.recommendedAction && (
-              <div>
-                <span className="text-xs font-medium uppercase text-muted-foreground">Recommendation</span>
-                <div className="mt-1">
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                    listing.recommendedAction === "pursue_immediately" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-                    listing.recommendedAction === "research_further" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-                    listing.recommendedAction === "monitor" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-                    listing.recommendedAction === "pass" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-                  )}>
-                    {listing.recommendedAction === "pursue_immediately" ? "Pursue Immediately" :
-                     listing.recommendedAction === "research_further" ? "Research Further" :
-                     listing.recommendedAction === "monitor" ? "Monitor" : "Pass"}
-                  </span>
-                </div>
+            {listing.acquisitionScore != null && (
+              <div className="text-xs text-muted-foreground">
+                <div>Financial: {listing.financialScore ?? "—"}/40</div>
+                <div>Strategic: {listing.strategicScore ?? "—"}/35</div>
+                <div>Operator: {listing.operatorScore ?? "—"}/25</div>
               </div>
             )}
             {isEditing && (

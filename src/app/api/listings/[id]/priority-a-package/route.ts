@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { generateAcquisitionThesis } from "@/lib/ai/acquisition-thesis-generator";
-
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
-
-function percentile(sorted: number[], p: number): number {
-  if (sorted.length === 0) return 0;
-  const idx = (p / 100) * (sorted.length - 1);
-  const lower = Math.floor(idx);
-  const upper = Math.ceil(idx);
-  if (lower === upper) return sorted[lower];
-  return sorted[lower] + (sorted[upper] - sorted[lower]) * (idx - lower);
-}
+import { percentile } from "@/lib/math-utils";
 
 // ─────────────────────────────────────────────
 // GET — Retrieve existing Priority A package
@@ -108,7 +96,12 @@ export async function POST(
     const medianEbitdaMultiple =
       sorted.length > 0 ? percentile(sorted, 50) : null;
 
-    // 4. Call AI thesis generator
+    // 4. Compute EBITDA — use reported, fall back to inferred (same logic as scoring)
+    const rawEbitda = listing.ebitda ? Number(listing.ebitda)
+      : listing.inferredEbitda ? Number(listing.inferredEbitda)
+      : null;
+
+    // 5. Call AI thesis generator
     const yearsInBusiness = listing.established
       ? new Date().getFullYear() - listing.established
       : null;
@@ -119,7 +112,7 @@ export async function POST(
       state: listing.state,
       targetRankLabel: listing.targetRankLabel,
       revenue: listing.revenue ? Number(listing.revenue) : null,
-      ebitda: listing.ebitda ? Number(listing.ebitda) : null,
+      ebitda: rawEbitda,
       askingPrice: listing.askingPrice ? Number(listing.askingPrice) : null,
       employees: listing.employees,
       yearsInBusiness,
@@ -145,8 +138,8 @@ export async function POST(
       listing.revenue
         ? `Revenue: $${Number(listing.revenue).toLocaleString()}`
         : null,
-      listing.ebitda
-        ? `EBITDA: $${Number(listing.ebitda).toLocaleString()}`
+      listing.ebitda || listing.inferredEbitda
+        ? `EBITDA: $${Number(listing.ebitda ?? listing.inferredEbitda).toLocaleString()}${!listing.ebitda && listing.inferredEbitda ? " (inferred)" : ""}`
         : null,
       listing.askingPrice
         ? `Asking Price: $${Number(listing.askingPrice).toLocaleString()}`
@@ -162,13 +155,12 @@ export async function POST(
       .filter(Boolean)
       .join("\n");
 
-    // 6. Build valuation snapshot from BVR percentiles
-    const adjustedEbitda = listing.ebitda ? Number(listing.ebitda) : null;
+    // 7. Build valuation snapshot from BVR percentiles
     // If earningsType is SDE, the reported figure includes owner comp — deduct $95K for EBITDA equivalent
     const normalizedEbitda =
-      listing.earningsType === "SDE" && adjustedEbitda
-        ? adjustedEbitda - 95000
-        : adjustedEbitda;
+      listing.earningsType === "SDE" && rawEbitda
+        ? rawEbitda - 95000
+        : rawEbitda;
 
     const p25 = sorted.length > 0 ? percentile(sorted, 25) : null;
     const median = sorted.length > 0 ? percentile(sorted, 50) : null;

@@ -13,7 +13,7 @@ const ALLOWED_ENDPOINTS = [
   "/api/cron/csos-scan",
   "/api/cron/dora-scan",
   "/api/cron/dedup-scan",
-  "/api/cron/market-metrics",
+  "/api/cron/weekly-brief",
 ];
 
 /**

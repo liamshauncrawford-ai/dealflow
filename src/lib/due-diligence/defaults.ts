@@ -4,7 +4,7 @@
  * Stage gating maps to PipelineStage enum:
  *   PRE_NDA  → visible when any opportunity exists
  *   POST_NDA → unlocks at SIGNED_NDA or later
- *   LOI_DD   → unlocks at OFFER_SENT or later
+ *   LOI_DD   → unlocks at DUE_DILIGENCE or later
  */
 
 export interface DefaultDDItem {
@@ -46,7 +46,7 @@ export const DEFAULT_DD_ITEMS: DefaultDDItem[] = [
 ];
 
 const LATE_STAGES = new Set([
-  "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "UNDER_CONTRACT", "CLOSED_WON",
+  "DUE_DILIGENCE", "OFFER_SENT", "COUNTER_OFFER_RECEIVED", "UNDER_CONTRACT", "CLOSED_WON",
 ]);
 
 const NDA_AND_LATER = new Set([
