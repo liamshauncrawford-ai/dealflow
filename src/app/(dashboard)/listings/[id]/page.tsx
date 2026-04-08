@@ -187,6 +187,7 @@ export default function ListingDetailPage({
       insured: listing.insured,
       disqualificationReason: listing.disqualificationReason || "",
       synergyNotes: listing.synergyNotes || "",
+      earningsType: listing.earningsType || "Unknown",
     });
     // Initialize source URL editing
     const sourceEdits: Record<string, string> = {};
@@ -215,7 +216,7 @@ export default function ListingDetailPage({
       "website", "phone", "disqualificationReason", "synergyNotes",
     ];
     const booleanFields = ["sellerFinancing", "bonded", "insured"];
-    const enumFields = ["primaryTrade", "tier"];
+    const enumFields = ["primaryTrade", "tier", "earningsType"];
     const arrayFields = ["secondaryTrades", "certifications"];
 
     for (const field of numericFields) {
@@ -756,6 +757,24 @@ export default function ListingDetailPage({
                 </div>
               </div>
             ))}
+          </div>
+          {/* Earnings Type */}
+          <div className="mt-3">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">
+              Earnings Type
+            </label>
+            <select
+              value={String(editData.earningsType ?? "Unknown")}
+              onChange={(e) =>
+                setEditData((prev) => ({ ...prev, earningsType: e.target.value }))
+              }
+              className="w-full rounded-md border bg-background px-3 py-1.5 text-sm"
+            >
+              <option value="Unknown">Unknown</option>
+              <option value="EBITDA">EBITDA</option>
+              <option value="SDE">SDE (Seller&apos;s Discretionary Earnings)</option>
+              <option value="OwnerBenefit">Owner Benefit</option>
+            </select>
           </div>
         </div>
       ) : (
