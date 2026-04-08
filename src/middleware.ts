@@ -23,7 +23,8 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/api/email/auth") || // Email OAuth callback routes
     pathname.startsWith("/api/health") || // Health check for Railway monitoring
     pathname.startsWith("/api/cron/") ||  // Cron routes — protected by CRON_SECRET in each handler
-    pathname.startsWith("/api/admin/seed") // Seed route — protected by CRON_SECRET in handler
+    pathname.startsWith("/api/admin/seed") || // Seed route — protected by CRON_SECRET in handler
+    pathname.startsWith("/api/admin/setup-acquisition") // Acquisition setup — protected by CRON_SECRET in handler
   ) {
     return NextResponse.next();
   }
