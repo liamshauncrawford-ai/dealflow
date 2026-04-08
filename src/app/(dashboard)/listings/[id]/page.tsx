@@ -44,6 +44,7 @@ import { DeepDivePanel } from "@/components/ai/deep-dive-panel";
 import { OutreachDraftPanel } from "@/components/ai/outreach-draft-panel";
 import { AcquisitionScorePanel } from "@/components/listings/acquisition-score-panel";
 import { DealStructurePanel } from "@/components/listings/deal-structure-panel";
+import { MarketCompsPanel } from "@/components/listings/market-comps-panel";
 
 export default function ListingDetailPage({
   params,
@@ -577,6 +578,13 @@ export default function ListingDetailPage({
         }
         earningsType={listing.earningsType}
         revenue={listing.revenue ? Number(listing.revenue) : null}
+      />
+
+      {/* Market Comparables */}
+      <MarketCompsPanel
+        listingId={listing.id}
+        targetRank={listing.targetRank}
+        targetRankLabel={listing.targetRankLabel}
       />
 
       {/* ─── AI Deep Dive Panel ───────────────────────────────── */}
