@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { computeFitScore, type FitScoreInput } from "@/lib/scoring";
+import {
+  scoreAcquisitionTarget,
+  loadScoringConfig,
+  type AcquisitionScoreInput,
+} from "@/lib/scoring/acquisition-scorer";
 
 /**
  * POST /api/listings/[id]/score
- * Manually recompute fit score for a listing
+ * Manually recompute fit score AND acquisition score for a listing
  */
 export async function POST(
   request: NextRequest,
@@ -33,6 +38,7 @@ export async function POST(
 
     const primaryContact = listing.opportunity?.contacts?.[0] ?? null;
 
+    // ── Legacy fit score (backward compat) ──
     const scoreInput: FitScoreInput = {
       primaryTrade: listing.primaryTrade,
       secondaryTrades: listing.secondaryTrades as string[],
@@ -74,31 +80,78 @@ export async function POST(
       recommendedAction = "pass";
     }
 
+    // ── New acquisition score ──
+    const config = await loadScoringConfig();
+
+    const acqInput: AcquisitionScoreInput = {
+      targetRank: listing.targetRank,
+      ebitda: Number(listing.ebitda) || Number(listing.inferredEbitda) || null,
+      revenue: Number(listing.revenue) || null,
+      askingPrice: Number(listing.askingPrice) || null,
+      mrrPctOfRevenue: listing.mrrPctOfRevenue,
+      revenueTrendDetail: listing.revenueTrendDetail,
+      topClientPct: listing.topClientPct,
+      clientIndustryOverlap: listing.clientIndustryOverlap,
+      state: listing.state,
+      city: listing.city,
+      metroArea: listing.metroArea,
+      ownerRetirementSignal: listing.ownerRetirementSignal,
+      ownerIsPrimarySales: listing.ownerIsPrimarySales,
+      technicalStaffCount: listing.technicalStaffCount,
+      sbaEligible: listing.sbaEligible,
+      ownerIsSoleTech: listing.ownerIsSoleTech,
+      clientBaseType: listing.clientBaseType,
+      hasActiveLitigation: listing.hasActiveLitigation,
+      hasKeyManInsurance: listing.hasKeyManInsurance,
+    };
+
+    const acqResult = scoreAcquisitionTarget(acqInput, config);
+
+    // ── Persist both scores ──
     await prisma.listing.update({
       where: { id },
       data: {
+        // Legacy fit score fields
         fitScore: result.fitScore,
-        compositeScore: result.fitScore, // AI score applied when available
+        compositeScore: result.fitScore,
         deterministicScore: result.fitScore,
         thesisAlignment,
         recommendedAction,
         lastScoredAt: new Date(),
         scoreChange,
+        // New acquisition score fields
+        acquisitionScore: acqResult.total,
+        financialScore: acqResult.financialScore,
+        strategicScore: acqResult.strategicScore,
+        operatorScore: acqResult.operatorScore,
+        acquisitionTier: acqResult.tier,
+        acquisitionDisqualifiers: acqResult.disqualifiers,
       },
     });
 
     return NextResponse.json({
+      // Legacy
       fitScore: result.fitScore,
       compositeScore: result.fitScore,
       thesisAlignment,
       recommendedAction,
       scoreChange,
       breakdown: result.breakdown,
+      // Acquisition
+      acquisitionScore: acqResult.total,
+      financialScore: acqResult.financialScore,
+      strategicScore: acqResult.strategicScore,
+      operatorScore: acqResult.operatorScore,
+      acquisitionTier: acqResult.tier,
+      acquisitionDisqualifiers: acqResult.disqualifiers,
+      financialDetails: acqResult.financialDetails,
+      strategicDetails: acqResult.strategicDetails,
+      operatorDetails: acqResult.operatorDetails,
     });
   } catch (error) {
-    console.error("Error computing fit score:", error);
+    console.error("Error computing scores:", error);
     return NextResponse.json(
-      { error: "Failed to compute fit score" },
+      { error: "Failed to compute scores" },
       { status: 500 }
     );
   }
