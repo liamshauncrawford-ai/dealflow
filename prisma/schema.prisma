@@ -172,6 +172,7 @@ model Listing {
   valuationModels ValuationModel[]
   aiAnalyses        AIAnalysisResult[]
   dueDiligenceItems DueDiligenceItem[]
+  priorityAPackage  PriorityAPackage?
 
   @@index([city, state])
   @@index([industry])
@@ -1665,4 +1666,22 @@ model DueDiligenceItem {
 
   @@index([listingId])
   @@index([stage])
+}
+
+// ─────────────────────────────────────────────
+// PRIORITY A FAST-TRACK PACKAGES
+// ─────────────────────────────────────────────
+
+model PriorityAPackage {
+  id        String  @id @default(cuid())
+  listingId String  @unique
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  executiveSummary  String   @db.Text
+  acquisitionThesis String   @db.Text
+  valuationSnapshot Json
+  generatedAt       DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
