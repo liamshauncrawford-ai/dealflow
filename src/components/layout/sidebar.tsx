@@ -15,6 +15,7 @@ import {
   Building2,
   Map,
   BarChart3,
+  TrendingUp,
   Calculator,
   Layers,
   GitCompare,
@@ -40,6 +41,7 @@ const mainNavItems: NavItem[] = [
 const marketIntelItems: NavItem[] = [
   { label: "Market Overview", href: "/market-intel/overview", icon: BarChart3 },
   { label: "Market Map", href: "/market-intel/map", icon: Map },
+  { label: "Comparables", href: "/market-intel/comparables", icon: TrendingUp },
 ];
 
 const financialItems: NavItem[] = [
