@@ -45,6 +45,7 @@ import { OutreachDraftPanel } from "@/components/ai/outreach-draft-panel";
 import { AcquisitionScorePanel } from "@/components/listings/acquisition-score-panel";
 import { DealStructurePanel } from "@/components/listings/deal-structure-panel";
 import { MarketCompsPanel } from "@/components/listings/market-comps-panel";
+import { DueDiligencePanel } from "@/components/listings/due-diligence-panel";
 
 export default function ListingDetailPage({
   params,
@@ -590,6 +591,9 @@ export default function ListingDetailPage({
         targetRank={listing.targetRank}
         targetRankLabel={listing.targetRankLabel}
       />
+
+      {/* Due Diligence Checklist */}
+      <DueDiligencePanel listingId={listing.id} />
 
       {/* ─── AI Deep Dive Panel ───────────────────────────────── */}
       {(deepDiveQuery.data?.analysis || runDeepDive.isPending) && (
