@@ -1016,6 +1016,46 @@ model AppSetting {
 }
 
 // ─────────────────────────────────────────────
+// ACQUISITION THESIS CONFIG
+// ─────────────────────────────────────────────
+
+model AcquisitionThesisConfig {
+  id                 String  @id @default(cuid())
+  targetRank         Int     @unique // 1, 2, 3, 4
+  rankLabel          String // "MSP", "UCaaS", "Security Integration", "Structured Cabling"
+  description        String? @db.Text
+  synergyDescription String? @db.Text
+  isActive           Boolean @default(true)
+
+  // Hard filters (auto-disqualify if not met)
+  hardFilterMinRevenue      Float?
+  hardFilterMinEbitda       Float?
+  hardFilterMinEbitdaMargin Float?
+  hardFilterMinMrrPct       Float?
+  hardFilterMinYears        Int?
+
+  // Soft filter target ranges
+  softFilterRevenueLow  Float?
+  softFilterRevenueHigh Float?
+  softFilterEbitdaLow   Float?
+  softFilterEbitdaHigh  Float?
+
+  // Valuation benchmarks
+  valuationMultipleLow  Float?
+  valuationMultipleMid  Float?
+  valuationMultipleHigh Float?
+  impliedPriceLow       Float?
+  impliedPriceHigh      Float?
+
+  // BVR search codes
+  sicCodes   String[]
+  naicsCodes String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────
 // TASKS / REMINDERS
 // ─────────────────────────────────────────────
 
