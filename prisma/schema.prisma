@@ -13,50 +13,50 @@ datasource db {
 // ─────────────────────────────────────────────
 
 model Listing {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
   // Business identification
-  title           String
-  businessName    String?
-  dbaName         String?
-  description     String?           @db.Text
+  title        String
+  businessName String?
+  dbaName      String?
+  description  String? @db.Text
 
   // Financials (reported)
-  askingPrice     Decimal?          @db.Decimal(14, 2)
-  revenue         Decimal?          @db.Decimal(14, 2)
-  ebitda          Decimal?          @db.Decimal(14, 2)
-  sde             Decimal?          @db.Decimal(14, 2)
-  cashFlow        Decimal?          @db.Decimal(14, 2)
-  inventory       Decimal?          @db.Decimal(14, 2)
-  ffe             Decimal?          @db.Decimal(14, 2)
-  realEstate      Decimal?          @db.Decimal(14, 2)
+  askingPrice Decimal? @db.Decimal(14, 2)
+  revenue     Decimal? @db.Decimal(14, 2)
+  ebitda      Decimal? @db.Decimal(14, 2)
+  sde         Decimal? @db.Decimal(14, 2)
+  cashFlow    Decimal? @db.Decimal(14, 2)
+  inventory   Decimal? @db.Decimal(14, 2)
+  ffe         Decimal? @db.Decimal(14, 2)
+  realEstate  Decimal? @db.Decimal(14, 2)
 
   // Inferred financials
-  inferredEbitda        Decimal?    @db.Decimal(14, 2)
-  inferredSde           Decimal?    @db.Decimal(14, 2)
-  inferenceMethod       String?
-  inferenceConfidence   Float?
+  inferredEbitda      Decimal? @db.Decimal(14, 2)
+  inferredSde         Decimal? @db.Decimal(14, 2)
+  inferenceMethod     String?
+  inferenceConfidence Float?
 
   // Multiples
-  priceToEbitda   Float?
-  priceToSde      Float?
-  priceToRevenue  Float?
+  priceToEbitda  Float?
+  priceToSde     Float?
+  priceToRevenue Float?
 
   // Location
-  city            String?
-  state           String?
-  county          String?
-  zipCode         String?
-  metroArea       String?
-  fullAddress     String?
-  latitude        Float?
-  longitude       Float?
+  city        String?
+  state       String?
+  county      String?
+  zipCode     String?
+  metroArea   String?
+  fullAddress String?
+  latitude    Float?
+  longitude   Float?
 
   // Classification
-  industry        String?
-  category        String?
-  subcategory     String?
-  naicsCode       String?
+  industry    String?
+  category    String?
+  subcategory String?
+  naicsCode   String?
 
   // Broker/Seller
   brokerName      String?
@@ -66,14 +66,14 @@ model Listing {
   sellerFinancing Boolean?
 
   // Operational details
-  employees       Int?
-  established     Int?
-  reasonForSale   String?           @db.Text
-  facilities      String?           @db.Text
+  employees     Int?
+  established   Int?
+  reasonForSale String? @db.Text
+  facilities    String? @db.Text
 
   // ── Thesis-specific fields ──────────────────
-  website         String?
-  phone           String?           // Company phone (not broker phone)
+  website String?
+  phone   String? // Company phone (not broker phone)
 
   // Trade classification
   primaryTrade    PrimaryTrade?
@@ -86,52 +86,77 @@ model Listing {
   employeeSource    String?
 
   // Valuation targets
-  targetMultipleLow   Float?        @default(3.0)
-  targetMultipleHigh  Float?        @default(5.0)
+  targetMultipleLow  Float? @default(3.0)
+  targetMultipleHigh Float? @default(5.0)
 
   // Certifications & licensing
-  certifications  String[]
-  licenseNumbers  String[]
-  licenseState    String?
-  bonded          Boolean?
-  insured         Boolean?
+  certifications String[]
+  licenseNumbers String[]
+  licenseState   String?
+  bonded         Boolean?
+  insured        Boolean?
 
   // Tiering & scoring
-  tier                    Tier?
-  fitScore                Int?      // 0-100 deterministic score
-  compositeScore          Int?      // Combined deterministic + AI score (0-100)
-  deterministicScore      Int?      // Deterministic component (0-60 in hybrid mode)
-  aiScore                 Int?      // AI qualitative component (0-40)
-  thesisAlignment         String?   // "strong" | "moderate" | "weak" | "disqualified"
-  recommendedAction       String?   // "pursue_immediately" | "research_further" | "monitor" | "pass"
-  lastScoredAt            DateTime?
-  scoreChange             Int?      @default(0)  // Delta vs previous score
-  disqualificationReason  String?   @db.Text
-  synergyNotes            String?   @db.Text
+  tier                   Tier?
+  fitScore               Int? // 0-100 deterministic score
+  compositeScore         Int? // Combined deterministic + AI score (0-100)
+  deterministicScore     Int? // Deterministic component (0-60 in hybrid mode)
+  aiScore                Int? // AI qualitative component (0-40)
+  thesisAlignment        String? // "strong" | "moderate" | "weak" | "disqualified"
+  recommendedAction      String? // "pursue_immediately" | "research_further" | "monitor" | "pass"
+  lastScoredAt           DateTime?
+  scoreChange            Int?      @default(0) // Delta vs previous score
+  disqualificationReason String?   @db.Text
+  synergyNotes           String?   @db.Text
+
+  // ── Companion Acquisition Scoring ──────────
+  targetRank               Int? // 1=MSP, 2=UCaaS, 3=Security, 4=Cabling
+  targetRankLabel          String? // Display label (e.g. "MSP")
+  acquisitionScore         Int? // 0-100 total (new rubric)
+  financialScore           Int? // 0-40 sub-score
+  strategicScore           Int? // 0-35 sub-score (capped)
+  operatorScore            Int? // 0-25 sub-score (capped)
+  acquisitionTier          String? // "A" | "B" | "C" | "Inactive"
+  acquisitionDisqualifiers String[] // Triggered disqualifier reason strings
+
+  // ── Target profile fields ──────────────────
+  mrrAmount             Decimal? @db.Decimal(14, 2)
+  mrrPctOfRevenue       Float? // MRR as % of revenue (0.0-1.0)
+  revenueTrendDetail    String? // "Growing >10%", "Growing 0-10%", "Flat", "Declining 0-10%", "Declining >10%"
+  topClientPct          Float? // Largest client as % of revenue (0.0-1.0)
+  ownerIsPrimarySales   Boolean?
+  ownerIsSoleTech       Boolean? // TRUE = disqualifier #1
+  ownerRetirementSignal String? // "Strong", "Moderate", "Weak", "Unknown"
+  clientIndustryOverlap String? // "Direct", "Moderate", "Partial", "None"
+  technicalStaffCount   Int? // Techs excluding owner
+  sbaEligible           Boolean? @default(true)
+  clientBaseType        String? // "Commercial", "Mixed", "Residential" — residential = disqualifier
+  hasActiveLitigation   Boolean? @default(false) // disqualifier #7
+  hasKeyManInsurance    Boolean? @default(true) // lapse = disqualifier #8
 
   // Market intel automation
-  gcRelationshipBoost       Int?      @default(0)
+  gcRelationshipBoost       Int?    @default(0)
   nearestFacilityId         String?
   nearestFacilityDistanceMi Float?
 
   // Enrichment tracking
-  enrichmentStatus        String?   @default("pending") // "pending" | "in_progress" | "complete" | "failed"
-  enrichmentDate          DateTime?
-  source                  String?   // "manual" | "bizbuysell" | "csos" | "referral"
+  enrichmentStatus String?   @default("pending") // "pending" | "in_progress" | "complete" | "failed"
+  enrichmentDate   DateTime?
+  source           String? // "manual" | "bizbuysell" | "csos" | "referral"
 
   // Status and visibility
-  isHidden        Boolean           @default(false)
-  isActive        Boolean           @default(true)
-  isManualEntry   Boolean           @default(false)
+  isHidden      Boolean @default(false)
+  isActive      Boolean @default(true)
+  isManualEntry Boolean @default(false)
 
   // Tracking
-  firstSeenAt     DateTime          @default(now())
-  lastSeenAt      DateTime          @default(now())
-  lastVerifiedAt  DateTime?
-  listingDate     DateTime?
+  firstSeenAt    DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  lastVerifiedAt DateTime?
+  listingDate    DateTime?
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   sources         ListingSource[]
@@ -139,7 +164,7 @@ model Listing {
   notes           Note[]
   tags            ListingTag[]
   dedupGroupId    String?
-  dedupGroup      DedupGroup?       @relation(fields: [dedupGroupId], references: [id])
+  dedupGroup      DedupGroup?        @relation(fields: [dedupGroupId], references: [id])
   notifications   Notification[]
   valuationModels ValuationModel[]
   aiAnalyses      AIAnalysisResult[]
@@ -160,35 +185,38 @@ model Listing {
   @@index([compositeScore])
   @@index([primaryTrade])
   @@index([enrichmentStatus])
+  @@index([targetRank])
+  @@index([acquisitionScore])
+  @@index([acquisitionTier])
 }
 
 model ListingSource {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  listingId       String
-  listing         Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
-  platform        Platform
-  sourceUrl       String   @unique
-  sourceId        String?
+  platform  Platform
+  sourceUrl String   @unique
+  sourceId  String?
 
   // Raw data snapshot
-  rawData         Json?
-  rawTitle        String?
-  rawPrice        Decimal? @db.Decimal(14, 2)
-  rawRevenue      Decimal? @db.Decimal(14, 2)
-  rawCashFlow     Decimal? @db.Decimal(14, 2)
+  rawData     Json?
+  rawTitle    String?
+  rawPrice    Decimal? @db.Decimal(14, 2)
+  rawRevenue  Decimal? @db.Decimal(14, 2)
+  rawCashFlow Decimal? @db.Decimal(14, 2)
 
-  firstScrapedAt  DateTime @default(now())
-  lastScrapedAt   DateTime @default(now())
-  isStale         Boolean  @default(false)
+  firstScrapedAt DateTime @default(now())
+  lastScrapedAt  DateTime @default(now())
+  isStale        Boolean  @default(false)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
+  @@unique([platform, sourceId])
   @@index([platform])
   @@index([listingId])
-  @@unique([platform, sourceId])
 }
 
 enum Platform {
@@ -283,31 +311,31 @@ enum InteractionType {
 // ─────────────────────────────────────────────
 
 model DedupGroup {
-  id              String        @id @default(cuid())
+  id               String    @id @default(cuid())
   primaryListingId String?
-  listings        Listing[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  listings         Listing[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model DedupCandidate {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  listingAId      String
-  listingBId      String
+  listingAId String
+  listingBId String
 
-  overallScore    Float
-  nameScore       Float?
-  locationScore   Float?
-  priceScore      Float?
-  revenueScore    Float?
+  overallScore     Float
+  nameScore        Float?
+  locationScore    Float?
+  priceScore       Float?
+  revenueScore     Float?
   descriptionScore Float?
 
-  status          DedupStatus   @default(PENDING)
-  resolvedBy      String?
-  resolvedAt      DateTime?
+  status     DedupStatus @default(PENDING)
+  resolvedBy String?
+  resolvedAt DateTime?
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([listingAId, listingBId])
   @@index([status])
@@ -325,16 +353,16 @@ enum DedupStatus {
 // ─────────────────────────────────────────────
 
 model Opportunity {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  listingId       String?           @unique
-  listing         Listing?          @relation(fields: [listingId], references: [id])
+  listingId String?  @unique
+  listing   Listing? @relation(fields: [listingId], references: [id])
 
-  title           String
-  description     String?           @db.Text
+  title       String
+  description String? @db.Text
 
-  stage           PipelineStage     @default(CONTACTING)
-  priority        Priority          @default(MEDIUM)
+  stage    PipelineStage @default(CONTACTING)
+  priority Priority      @default(MEDIUM)
 
   // Key dates
   contactedAt     DateTime?
@@ -345,55 +373,55 @@ model Opportunity {
   closedAt        DateTime?
 
   // Financial terms
-  offerPrice      Decimal?          @db.Decimal(14, 2)
-  offerTerms      String?           @db.Text
+  offerPrice Decimal? @db.Decimal(14, 2)
+  offerTerms String?  @db.Text
 
   // Deal scoring
-  winProbability  Float?
-  dealValue       Float?
+  winProbability Float?
+  dealValue      Float?
 
   // Lost reason
-  lostReason      String?
-  lostCategory    String?
+  lostReason   String?
+  lostCategory String?
 
   // ── Thesis-specific deal fields ─────────────
-  actualRevenue         Decimal?          @db.Decimal(14, 2)
-  actualEbitda          Decimal?          @db.Decimal(14, 2)
+  actualRevenue         Decimal?      @db.Decimal(14, 2)
+  actualEbitda          Decimal?      @db.Decimal(14, 2)
   actualEbitdaMargin    Float?
   revenueTrend          RevenueTrend?
   recurringRevenuePct   Float?
-  customerConcentration Float?            // Top customer as % of revenue
-  backlog               Decimal?          @db.Decimal(14, 2)
+  customerConcentration Float? // Top customer as % of revenue
+  backlog               Decimal?      @db.Decimal(14, 2)
 
   // Deal structuring
-  offeredMultiple       Float?
-  dealStructure         String?           @db.Text
-  synergyEstimate       Decimal?          @db.Decimal(14, 2)
+  offeredMultiple Float?
+  dealStructure   String?  @db.Text
+  synergyEstimate Decimal? @db.Decimal(14, 2)
 
   // Risk assessment
   integrationComplexity     IntegrationComplexity?
   keyPersonRisk             KeyPersonRisk?
-  certificationTransferRisk String?       @db.Text
-  customerRetentionRisk     String?       @db.Text
+  certificationTransferRisk String?                @db.Text
+  customerRetentionRisk     String?                @db.Text
 
   // Additional dates
-  loiDate               DateTime?
-  dueDiligenceStart     DateTime?
-  targetCloseDate       DateTime?
+  loiDate           DateTime?
+  dueDiligenceStart DateTime?
+  targetCloseDate   DateTime?
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  notes           Note[]
-  emails          EmailLink[]
-  stageHistory    StageChange[]
-  tags            OpportunityTag[]
-  documents       DealDocument[]
-  contacts        Contact[]
-  tasks           Task[]
-  aiAnalyses      AIAnalysisResult[]
-  auditLogs       AuditLog[]
+  notes            Note[]
+  emails           EmailLink[]
+  stageHistory     StageChange[]
+  tags             OpportunityTag[]
+  documents        DealDocument[]
+  contacts         Contact[]
+  tasks            Task[]
+  aiAnalyses       AIAnalysisResult[]
+  auditLogs        AuditLog[]
   financialPeriods FinancialPeriod[]
   historicPnLs     HistoricPnL[]
   valuationModels  ValuationModel[]
@@ -407,22 +435,22 @@ model Opportunity {
 // ─────────────────────────────────────────────
 
 model AIAnalysisResult {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String?
-  opportunity     Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  listingId       String?
-  listing         Listing?      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
-  documentId      String?       // If analysis was for a specific document
-  analysisType    String        // "DEEP_DIVE" | "ENRICHMENT" | "OUTREACH_DRAFT" | "CIM_EXTRACTION" | "RISK_ASSESSMENT"
-  resultData      Json          // Full AI extraction result
-  modelUsed       String        // e.g. "claude-sonnet-4-20250514"
-  inputTokens     Int
-  outputTokens    Int
+  documentId   String? // If analysis was for a specific document
+  analysisType String // "DEEP_DIVE" | "ENRICHMENT" | "OUTREACH_DRAFT" | "CIM_EXTRACTION" | "RISK_ASSESSMENT"
+  resultData   Json // Full AI extraction result
+  modelUsed    String // e.g. "claude-sonnet-4-20250514"
+  inputTokens  Int
+  outputTokens Int
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([opportunityId])
   @@index([listingId])
@@ -438,32 +466,32 @@ enum ContactInterest {
 }
 
 model Contact {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String
-  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  name            String
-  email           String?
-  phone           String?
-  company         String?
-  role            String?
+  name    String
+  email   String?
+  phone   String?
+  company String?
+  role    String?
 
-  interestLevel   ContactInterest   @default(UNKNOWN)
-  isPrimary       Boolean           @default(false)
-  notes           String?           @db.Text
+  interestLevel ContactInterest @default(UNKNOWN)
+  isPrimary     Boolean         @default(false)
+  notes         String?         @db.Text
 
   // ── Thesis-specific contact fields ──────────
-  linkedinUrl         String?
-  estimatedAgeRange   String?         // e.g., "55-65"
-  yearsInIndustry     Int?
-  yearsAtCompany      Int?
-  foundedCompany      Boolean?
-  ownershipPct        Float?
-  hasPartner          Boolean?
-  partnerName         String?
-  hasSuccessor        Boolean?
-  successorName       String?
+  linkedinUrl             String?
+  estimatedAgeRange       String? // e.g., "55-65"
+  yearsInIndustry         Int?
+  yearsAtCompany          Int?
+  foundedCompany          Boolean?
+  ownershipPct            Float?
+  hasPartner              Boolean?
+  partnerName             String?
+  hasSuccessor            Boolean?
+  successorName           String?
   familyBusiness          Boolean?
   familyMembersInBusiness String[]
   education               String?
@@ -474,8 +502,8 @@ model Contact {
   lastInteractionType     InteractionType?
   nextFollowUpDate        DateTime?
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([opportunityId])
   @@index([email])
@@ -503,16 +531,16 @@ enum Priority {
 }
 
 model StageChange {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String
-  opportunity     Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  fromStage       PipelineStage
-  toStage         PipelineStage
-  note            String?
+  fromStage PipelineStage
+  toStage   PipelineStage
+  note      String?
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([opportunityId])
 }
@@ -526,20 +554,20 @@ enum NoteType {
 }
 
 model Note {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  content         String        @db.Text
-  title           String?
-  noteType        NoteType      @default(GENERAL)
+  content  String   @db.Text
+  title    String?
+  noteType NoteType @default(GENERAL)
 
-  listingId       String?
-  listing         Listing?      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
-  opportunityId   String?
-  opportunity     Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([listingId])
   @@index([opportunityId])
@@ -550,23 +578,23 @@ model Note {
 // ─────────────────────────────────────────────
 
 model DealDocument {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String
-  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  filePath        String?           // Legacy import path (null for uploaded docs)
-  fileName        String
-  fileType        String
-  fileSize        Int?
-  category        DocumentCategory
+  filePath String? // Legacy import path (null for uploaded docs)
+  fileName String
+  fileType String
+  fileSize Int?
+  category DocumentCategory
 
-  fileData        Bytes?            // Actual file content (PostgreSQL bytea)
-  mimeType        String?           // MIME type (e.g. "application/pdf")
-  description     String?           // Optional user notes about the document
-  uploadedAt      DateTime?         // Set for uploaded docs, null for legacy imports
+  fileData    Bytes? // Actual file content (PostgreSQL bytea)
+  mimeType    String? // MIME type (e.g. "application/pdf")
+  description String? // Optional user notes about the document
+  uploadedAt  DateTime? // Set for uploaded docs, null for legacy imports
 
-  importedAt      DateTime          @default(now())
+  importedAt DateTime @default(now())
 
   @@index([opportunityId])
   @@index([category])
@@ -588,25 +616,25 @@ enum DocumentCategory {
 // ─────────────────────────────────────────────
 
 model EmailAccount {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  email           String        @unique
-  displayName     String?
-  provider        EmailProvider @default(MICROSOFT)
+  email       String        @unique
+  displayName String?
+  provider    EmailProvider @default(MICROSOFT)
 
-  accessToken     String        @db.Text
-  refreshToken    String        @db.Text
-  tokenExpiresAt  DateTime
+  accessToken    String   @db.Text
+  refreshToken   String   @db.Text
+  tokenExpiresAt DateTime
 
-  lastSyncAt      DateTime?
-  syncCursor      String?       @db.Text
+  lastSyncAt DateTime?
+  syncCursor String?   @db.Text
 
-  isConnected     Boolean       @default(true)
+  isConnected Boolean @default(true)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  emails          Email[]
+  emails Email[]
 }
 
 enum EmailProvider {
@@ -628,49 +656,49 @@ enum EmailCategory {
 }
 
 model Email {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  emailAccountId  String?
-  emailAccount    EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: SetNull)
+  emailAccountId String?
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: SetNull)
 
-  externalMessageId  String     @unique
+  externalMessageId String @unique
 
   /// Content-based hash for cross-account dedup: SHA256(fromAddress + subject + sentAt)
-  messageHash     String?
+  messageHash String?
 
-  subject         String?
-  bodyPreview     String?       @db.Text
-  bodyHtml        String?       @db.Text
-  fromAddress     String
-  fromName        String?
-  toAddresses     String[]
-  ccAddresses     String[]
+  subject     String?
+  bodyPreview String?  @db.Text
+  bodyHtml    String?  @db.Text
+  fromAddress String
+  fromName    String?
+  toAddresses String[]
+  ccAddresses String[]
 
-  sentAt          DateTime?
-  receivedAt      DateTime?
+  sentAt     DateTime?
+  receivedAt DateTime?
 
-  conversationId  String?
-  isRead          Boolean       @default(false)
-  hasAttachments  Boolean       @default(false)
-  importance      String?
-  webLink         String?
+  conversationId String?
+  isRead         Boolean @default(false)
+  hasAttachments Boolean @default(false)
+  importance     String?
+  webLink        String?
 
-  isListingAlert       Boolean  @default(false)
-  listingAlertParsed   Boolean  @default(false)
-  emailCategory        EmailCategory?
+  isListingAlert     Boolean        @default(false)
+  listingAlertParsed Boolean        @default(false)
+  emailCategory      EmailCategory?
 
   // AI-generated fields
-  aiSummary            String?       @db.Text
-  aiClassifiedAt       DateTime?
+  aiSummary      String?   @db.Text
+  aiClassifiedAt DateTime?
 
   // Outbound email fields
-  isSent               Boolean       @default(false)
-  inReplyToExternalId  String?
+  isSent              Boolean @default(false)
+  inReplyToExternalId String?
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
-  links           EmailLink[]
-  attachments     EmailAttachment[]
+  links       EmailLink[]
+  attachments EmailAttachment[]
 
   @@index([emailAccountId])
   @@index([fromAddress])
@@ -682,35 +710,35 @@ model Email {
 }
 
 model EmailAttachment {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  emailId         String
-  email           Email         @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  emailId String
+  email   Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
   /// Gmail attachment ID (used to download the attachment content on demand)
-  externalAttachmentId  String?
-  filename        String
-  mimeType        String
-  size            Int           @default(0)
+  externalAttachmentId String?
+  filename             String
+  mimeType             String
+  size                 Int     @default(0)
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([emailId, filename])
   @@index([emailId])
 }
 
 model EmailLink {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  emailId         String
-  email           Email         @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  emailId String
+  email   Email  @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
-  opportunityId   String
-  opportunity     Opportunity   @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  linkedBy        String        @default("manual")
+  linkedBy String @default("manual")
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([emailId, opportunityId])
   @@index([emailId])
@@ -727,16 +755,16 @@ enum EmailTemplateCategory {
 }
 
 model EmailTemplate {
-  id          String                 @id @default(cuid())
+  id String @id @default(cuid())
 
-  name        String
-  subject     String
-  bodyHtml    String                 @db.Text
-  category    EmailTemplateCategory  @default(GENERAL)
-  isDefault   Boolean                @default(false)
+  name      String
+  subject   String
+  bodyHtml  String                @db.Text
+  category  EmailTemplateCategory @default(GENERAL)
+  isDefault Boolean               @default(false)
 
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────
@@ -774,20 +802,20 @@ enum AuditActorType {
 }
 
 model AuditLog {
-  id              String           @id @default(cuid())
-  eventType       AuditEventType
-  entityType      AuditEntityType
-  entityId        String
-  opportunityId   String?
-  opportunity     Opportunity?     @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
-  userId          String?
-  user            User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  fieldName       String?
-  oldValue        String?          @db.Text
-  newValue        String?          @db.Text
-  summary         String           @db.Text
-  actorType       AuditActorType   @default(USER)
-  createdAt       DateTime         @default(now())
+  id            String          @id @default(cuid())
+  eventType     AuditEventType
+  entityType    AuditEntityType
+  entityId      String
+  opportunityId String?
+  opportunity   Opportunity?    @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  userId        String?
+  user          User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fieldName     String?
+  oldValue      String?         @db.Text
+  newValue      String?         @db.Text
+  summary       String          @db.Text
+  actorType     AuditActorType  @default(USER)
+  createdAt     DateTime        @default(now())
 
   @@index([opportunityId])
   @@index([entityType])
@@ -801,39 +829,39 @@ model AuditLog {
 // ─────────────────────────────────────────────
 
 model PlatformCookie {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  platform        Platform      @unique
+  platform Platform @unique
 
-  cookieData      String        @db.Text
+  cookieData      String    @db.Text
   capturedAt      DateTime
   expiresAt       DateTime?
-  isValid         Boolean       @default(true)
+  isValid         Boolean   @default(true)
   lastUsedAt      DateTime?
   lastValidatedAt DateTime?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ScrapeRun {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  platform        Platform
-  triggeredBy     String
+  platform    Platform
+  triggeredBy String
 
-  status          ScrapeStatus  @default(PENDING)
+  status ScrapeStatus @default(PENDING)
 
-  listingsFound   Int           @default(0)
-  listingsNew     Int           @default(0)
-  listingsUpdated Int           @default(0)
-  errors          Int           @default(0)
+  listingsFound   Int @default(0)
+  listingsNew     Int @default(0)
+  listingsUpdated Int @default(0)
+  errors          Int @default(0)
 
-  startedAt       DateTime?
-  completedAt     DateTime?
-  errorLog        String?       @db.Text
+  startedAt   DateTime?
+  completedAt DateTime?
+  errorLog    String?   @db.Text
 
-  createdAt       DateTime      @default(now())
+  createdAt DateTime @default(now())
 
   @@index([platform])
   @@index([status])
@@ -849,16 +877,16 @@ enum ScrapeStatus {
 }
 
 model ScrapeSchedule {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  platform        Platform      @unique
-  cronExpression  String
-  isEnabled       Boolean       @default(true)
-  lastRunAt       DateTime?
-  nextRunAt       DateTime?
+  platform       Platform  @unique
+  cronExpression String
+  isEnabled      Boolean   @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────
@@ -866,28 +894,28 @@ model ScrapeSchedule {
 // ─────────────────────────────────────────────
 
 model Tag {
-  id              String            @id @default(cuid())
-  name            String            @unique
-  color           String?
+  id    String  @id @default(cuid())
+  name  String  @unique
+  color String?
 
-  listings        ListingTag[]
-  opportunities   OpportunityTag[]
+  listings      ListingTag[]
+  opportunities OpportunityTag[]
 }
 
 model ListingTag {
-  listingId       String
-  listing         Listing           @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  tagId           String
-  tag             Tag               @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([listingId, tagId])
 }
 
 model OpportunityTag {
-  opportunityId   String
-  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
-  tagId           String
-  tag             Tag               @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  tagId         String
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([opportunityId, tagId])
 }
@@ -897,29 +925,29 @@ model OpportunityTag {
 // ─────────────────────────────────────────────
 
 model IndustryMultiple {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  industry        String
-  category        String?
+  industry String
+  category String?
 
-  sdeLow          Float?
-  sdeMedian       Float?
-  sdeHigh         Float?
+  sdeLow    Float?
+  sdeMedian Float?
+  sdeHigh   Float?
 
-  ebitdaLow       Float?
-  ebitdaMedian    Float?
-  ebitdaHigh      Float?
+  ebitdaLow    Float?
+  ebitdaMedian Float?
+  ebitdaHigh   Float?
 
-  revenueLow      Float?
-  revenueMedian   Float?
-  revenueHigh     Float?
+  revenueLow    Float?
+  revenueMedian Float?
+  revenueHigh   Float?
 
   ebitdaMarginLow    Float?
   ebitdaMarginMedian Float?
   ebitdaMarginHigh   Float?
 
-  source          String?
-  updatedAt       DateTime      @updatedAt
+  source    String?
+  updatedAt DateTime @updatedAt
 
   @@unique([industry, category])
   @@index([industry])
@@ -930,26 +958,26 @@ model IndustryMultiple {
 // ─────────────────────────────────────────────
 
 model Notification {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  type            NotificationType
-  title           String
-  message         String
+  type    NotificationType
+  title   String
+  message String
 
-  listingId       String?
-  listing         Listing?          @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
 
   // Enhanced fields (Phase 1)
-  priority        String?           @default("normal")  // "high" | "normal" | "low"
-  entityType      String?           // "listing" | "operator" | "gc" | "opportunity" | "news"
-  entityId        String?           // Generic link to related record
-  actionUrl       String?           // Deep link within app
-  isEmailed       Boolean           @default(false)
+  priority   String? @default("normal") // "high" | "normal" | "low"
+  entityType String? // "listing" | "operator" | "gc" | "opportunity" | "news"
+  entityId   String? // Generic link to related record
+  actionUrl  String? // Deep link within app
+  isEmailed  Boolean @default(false)
 
-  isRead          Boolean           @default(false)
-  readAt          DateTime?
+  isRead Boolean   @default(false)
+  readAt DateTime?
 
-  createdAt       DateTime          @default(now())
+  createdAt DateTime @default(now())
 
   @@index([isRead])
   @@index([createdAt])
@@ -982,9 +1010,9 @@ enum NotificationType {
 // ─────────────────────────────────────────────
 
 model AppSetting {
-  key             String        @id
-  value           String        @db.Text
-  updatedAt       DateTime      @updatedAt
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────
@@ -1000,24 +1028,24 @@ enum TaskSource {
 }
 
 model Task {
-  id              String        @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String?
-  opportunity     Opportunity?  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  title           String
-  description     String?       @db.Text
-  dueDate         DateTime?
-  isCompleted     Boolean       @default(false)
-  completedAt     DateTime?
-  priority        String        @default("MEDIUM")
+  title       String
+  description String?   @db.Text
+  dueDate     DateTime?
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  priority    String    @default("MEDIUM")
 
   // Workflow automation fields
-  source          TaskSource    @default(MANUAL)
-  triggerStage    String?       // Pipeline stage that triggered this task (dedup key)
+  source       TaskSource @default(MANUAL)
+  triggerStage String? // Pipeline stage that triggered this task (dedup key)
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([opportunityId])
   @@index([dueDate])
@@ -1055,38 +1083,38 @@ enum AddBackCategory {
 }
 
 model FinancialPeriod {
-  id              String              @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String
-  opportunity     Opportunity         @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
   // Period identification
-  periodType      FinancialPeriodType
-  year            Int
-  quarter         Int?
-  label           String?
+  periodType FinancialPeriodType
+  year       Int
+  quarter    Int?
+  label      String?
 
   // Provenance
-  dataSource      FinancialDataSource @default(MANUAL)
+  dataSource       FinancialDataSource @default(MANUAL)
   sourceDocumentId String?
-  confidence      Float?
+  confidence       Float?
 
   // Computed / cached summary values (recomputed on line item changes)
-  totalRevenue        Decimal?        @db.Decimal(14, 2)
-  totalCogs           Decimal?        @db.Decimal(14, 2)
-  grossProfit         Decimal?        @db.Decimal(14, 2)
-  totalOpex           Decimal?        @db.Decimal(14, 2)
-  ebitda              Decimal?        @db.Decimal(14, 2)
-  depreciationAmort   Decimal?        @db.Decimal(14, 2)
-  ebit                Decimal?        @db.Decimal(14, 2)
-  interestExpense     Decimal?        @db.Decimal(14, 2)
-  taxExpense          Decimal?        @db.Decimal(14, 2)
-  netIncome           Decimal?        @db.Decimal(14, 2)
+  totalRevenue      Decimal? @db.Decimal(14, 2)
+  totalCogs         Decimal? @db.Decimal(14, 2)
+  grossProfit       Decimal? @db.Decimal(14, 2)
+  totalOpex         Decimal? @db.Decimal(14, 2)
+  ebitda            Decimal? @db.Decimal(14, 2)
+  depreciationAmort Decimal? @db.Decimal(14, 2)
+  ebit              Decimal? @db.Decimal(14, 2)
+  interestExpense   Decimal? @db.Decimal(14, 2)
+  taxExpense        Decimal? @db.Decimal(14, 2)
+  netIncome         Decimal? @db.Decimal(14, 2)
 
   // Adjusted values (after add-backs)
-  totalAddBacks       Decimal?        @db.Decimal(14, 2)
-  adjustedEbitda      Decimal?        @db.Decimal(14, 2)
-  sde                 Decimal?        @db.Decimal(14, 2)
+  totalAddBacks  Decimal? @db.Decimal(14, 2)
+  adjustedEbitda Decimal? @db.Decimal(14, 2)
+  sde            Decimal? @db.Decimal(14, 2)
 
   // Computed margins
   grossMargin          Float?
@@ -1096,25 +1124,25 @@ model FinancialPeriod {
 
   // Manual overrides — when set, these values are used instead of computed values
   // Allows users to enter exact P&L values that don't match the line-item sum
-  overrideTotalRevenue     Decimal?        @db.Decimal(14, 2)
-  overrideTotalCogs        Decimal?        @db.Decimal(14, 2)
-  overrideGrossProfit      Decimal?        @db.Decimal(14, 2)
-  overrideTotalOpex        Decimal?        @db.Decimal(14, 2)
-  overrideEbitda           Decimal?        @db.Decimal(14, 2)
-  overrideAdjustedEbitda   Decimal?        @db.Decimal(14, 2)
-  overrideEbit             Decimal?        @db.Decimal(14, 2)
-  overrideNetIncome        Decimal?        @db.Decimal(14, 2)
+  overrideTotalRevenue   Decimal? @db.Decimal(14, 2)
+  overrideTotalCogs      Decimal? @db.Decimal(14, 2)
+  overrideGrossProfit    Decimal? @db.Decimal(14, 2)
+  overrideTotalOpex      Decimal? @db.Decimal(14, 2)
+  overrideEbitda         Decimal? @db.Decimal(14, 2)
+  overrideAdjustedEbitda Decimal? @db.Decimal(14, 2)
+  overrideEbit           Decimal? @db.Decimal(14, 2)
+  overrideNetIncome      Decimal? @db.Decimal(14, 2)
 
   // Metadata
-  notes               String?         @db.Text
-  isLocked            Boolean         @default(false)
+  notes    String? @db.Text
+  isLocked Boolean @default(false)
 
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  lineItems       FinancialLineItem[]
-  addBacks        AddBack[]
+  lineItems FinancialLineItem[]
+  addBacks  AddBack[]
 
   @@unique([opportunityId, periodType, year, quarter])
   @@index([opportunityId])
@@ -1122,49 +1150,49 @@ model FinancialPeriod {
 }
 
 model FinancialLineItem {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  periodId        String
-  period          FinancialPeriod   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  periodId String
+  period   FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
   // Canonical mapping
-  category        String            // REVENUE, COGS, OPEX, D_AND_A, INTEREST, TAX, OTHER_INCOME, OTHER_EXPENSE
-  subcategory     String?
-  rawLabel        String
-  displayOrder    Int               @default(0)
+  category     String // REVENUE, COGS, OPEX, D_AND_A, INTEREST, TAX, OTHER_INCOME, OTHER_EXPENSE
+  subcategory  String?
+  rawLabel     String
+  displayOrder Int     @default(0)
 
-  amount          Decimal           @db.Decimal(14, 2)
-  isNegative      Boolean           @default(false)
+  amount     Decimal @db.Decimal(14, 2)
+  isNegative Boolean @default(false)
 
-  notes           String?
+  notes String?
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([periodId])
   @@index([category])
 }
 
 model AddBack {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  periodId        String
-  period          FinancialPeriod   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  periodId String
+  period   FinancialPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
-  category        AddBackCategory
-  description     String
-  amount          Decimal           @db.Decimal(14, 2)
-  confidence      Float?
-  isVerified      Boolean           @default(false)
+  category    AddBackCategory
+  description String
+  amount      Decimal         @db.Decimal(14, 2)
+  confidence  Float?
+  isVerified  Boolean         @default(false)
 
-  includeInSde    Boolean           @default(true)
-  includeInEbitda Boolean           @default(true)
+  includeInSde    Boolean @default(true)
+  includeInEbitda Boolean @default(true)
 
-  notes           String?
-  sourceLabel     String?
+  notes       String?
+  sourceLabel String?
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([periodId])
   @@index([category])
@@ -1175,50 +1203,50 @@ model AddBack {
 // ─────────────────────────────────────────────
 
 model HistoricPnL {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  opportunityId   String
-  opportunity     Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  title           String?           // e.g., "Profit and Loss - North Office (Commercial Division)"
-  companyName     String?           // e.g., "Precision Media Solutions, LLC"
-  basis           String?           // e.g., "Cash Basis"
-  sourceFileName  String?           // Original uploaded file name
-  workbookGroup   String?           // UUID grouping sheets from same file upload
+  title          String? // e.g., "Profit and Loss - North Office (Commercial Division)"
+  companyName    String? // e.g., "Precision Media Solutions, LLC"
+  basis          String? // e.g., "Cash Basis"
+  sourceFileName String? // Original uploaded file name
+  workbookGroup  String? // UUID grouping sheets from same file upload
 
   // Column definitions as JSON array:
   // [{ "header": "2025 YTD", "subheader": "Jan 1 - Oct 15" }, { "header": "2024", "subheader": "Jan - Dec" }]
-  columns         Json              @default("[]")
+  columns Json @default("[]")
 
-  rows            HistoricPnLRow[]
+  rows HistoricPnLRow[]
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([opportunityId])
   @@index([workbookGroup])
 }
 
 model HistoricPnLRow {
-  id              String            @id @default(cuid())
+  id String @id @default(cuid())
 
-  historicPnlId   String
-  historicPnl     HistoricPnL       @relation(fields: [historicPnlId], references: [id], onDelete: Cascade)
+  historicPnlId String
+  historicPnl   HistoricPnL @relation(fields: [historicPnlId], references: [id], onDelete: Cascade)
 
-  label           String            // Raw label exactly as it appears in the spreadsheet
-  displayOrder    Int               @default(0)
-  depth           Int               @default(0)   // Visual indentation level (0 = top-level)
-  isTotal         Boolean           @default(false) // "Total X" rows — rendered bold
-  isSummary       Boolean           @default(false) // Gross Profit, Net Income, etc. — rendered bold
-  isBlank         Boolean           @default(false) // Empty separator row
-  notes           String?           // Annotation text from extra columns
+  label        String // Raw label exactly as it appears in the spreadsheet
+  displayOrder Int     @default(0)
+  depth        Int     @default(0) // Visual indentation level (0 = top-level)
+  isTotal      Boolean @default(false) // "Total X" rows — rendered bold
+  isSummary    Boolean @default(false) // Gross Profit, Net Income, etc. — rendered bold
+  isBlank      Boolean @default(false) // Empty separator row
+  notes        String? // Annotation text from extra columns
 
   // Values for each column as JSON array: [629800.67, 873730.61] or [null, null]
   // Array length matches the columns array on the parent HistoricPnL
-  values          Json              @default("[]")
+  values Json @default("[]")
 
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([historicPnlId])
 }
@@ -1239,98 +1267,98 @@ enum AccessRequestStatus {
 }
 
 model User {
-  id              String        @id @default(cuid())
-  name            String?
-  email           String        @unique
-  emailVerified   DateTime?
-  image           String?
-  role            UserRole      @default(USER)
-  isApproved      Boolean       @default(false)
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(USER)
+  isApproved    Boolean   @default(false)
 
-  lastLoginAt     DateTime?
-  lastActiveAt    DateTime?
-  lastActivePath  String?
+  lastLoginAt    DateTime?
+  lastActiveAt   DateTime?
+  lastActivePath String?
 
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  accounts        Account[]
-  sessions        Session[]
-  accessRequest   AccessRequest?
-  loginHistory    LoginHistory[]
-  auditLogs       AuditLog[]
+  accounts      Account[]
+  sessions      Session[]
+  accessRequest AccessRequest?
+  loginHistory  LoginHistory[]
+  auditLogs     AuditLog[]
 }
 
 model Account {
-  id                    String    @id @default(cuid())
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  type                  String
-  provider              String
-  providerAccountId     String
+  type              String
+  provider          String
+  providerAccountId String
 
-  refresh_token         String?   @db.Text
-  access_token          String?   @db.Text
-  expires_at            Int?
-  token_type            String?
-  scope                 String?
-  id_token              String?   @db.Text
-  session_state         String?
+  refresh_token String? @db.Text
+  access_token  String? @db.Text
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String? @db.Text
+  session_state String?
 
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([provider, providerAccountId])
   @@map("auth_account")
 }
 
 model Session {
-  id              String    @id @default(cuid())
-  sessionToken    String    @unique
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expires         DateTime
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model VerificationToken {
-  identifier      String
-  token           String    @unique
-  expires         DateTime
+  identifier String
+  token      String   @unique
+  expires    DateTime
 
   @@unique([identifier, token])
   @@map("verification_token")
 }
 
 model AccessRequest {
-  id              String              @id @default(cuid())
-  userId          String              @unique
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  reason          String?             @db.Text
-  status          AccessRequestStatus @default(PENDING)
-  reviewedBy      String?
-  reviewedAt      DateTime?
-  reviewNote      String?
+  reason     String?             @db.Text
+  status     AccessRequestStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  reviewNote String?
 
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LoginHistory {
-  id              String    @id @default(cuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  provider        String
-  ipAddress       String?
-  userAgent       String?
+  provider  String
+  ipAddress String?
+  userAgent String?
 
-  createdAt       DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([createdAt])
@@ -1341,23 +1369,23 @@ model LoginHistory {
 // ─────────────────────────────────────────────
 
 model AIAgentRun {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  agentName       String    // "daily_scan" | "news_monitor" | "market_pulse" | "enrichment"
-  status          String    @default("running") // "running" | "success" | "partial" | "error"
+  agentName String // "daily_scan" | "news_monitor" | "market_pulse" | "enrichment"
+  status    String @default("running") // "running" | "success" | "partial" | "error"
 
-  itemsProcessed  Int       @default(0)
-  itemsCreated    Int       @default(0)
-  itemsUpdated    Int       @default(0)
-  apiCallsMade    Int       @default(0)
-  totalTokens     Int       @default(0)
-  totalCost       Float     @default(0)
+  itemsProcessed Int   @default(0)
+  itemsCreated   Int   @default(0)
+  itemsUpdated   Int   @default(0)
+  apiCallsMade   Int   @default(0)
+  totalTokens    Int   @default(0)
+  totalCost      Float @default(0)
 
-  errorMessage    String?   @db.Text
-  summary         String?   @db.Text
+  errorMessage String? @db.Text
+  summary      String? @db.Text
 
-  startedAt       DateTime  @default(now())
-  completedAt     DateTime?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
 
   @@index([agentName])
   @@index([startedAt])
@@ -1365,31 +1393,31 @@ model AIAgentRun {
 }
 
 model NewsItem {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  source          String    // "google_alerts" | "rss_dcd" | "rss_dcf" | etc.
-  url             String    @unique
-  headline        String?
-  rawContent      String?   @db.Text
+  source     String // "google_alerts" | "rss_dcd" | "rss_dcf" | etc.
+  url        String  @unique
+  headline   String?
+  rawContent String? @db.Text
 
-  publishedAt     DateTime?
-  fetchedAt       DateTime  @default(now())
+  publishedAt DateTime?
+  fetchedAt   DateTime  @default(now())
 
   // AI classification fields
-  category        String?   // "dc_construction" | "gc_award" | "legislation" | etc.
-  urgency         String?   // "immediate" | "this_week" | "monitor" | "background"
-  impactOnThesis  String?   // "positive" | "negative" | "neutral"
-  aiSummary       String?   @db.Text
-  actionItems     Json?     // JSON array of action item strings
-  relatedOperatorIds Json?  // JSON array of operator IDs
-  relatedGcIds    Json?     // JSON array of GC IDs
-  relatedListingIds Json?   // JSON array of listing IDs
-  estimatedCablingValue Decimal? @db.Decimal(14, 2)
-  classifiedAt    DateTime?
+  category              String? // "dc_construction" | "gc_award" | "legislation" | etc.
+  urgency               String? // "immediate" | "this_week" | "monitor" | "background"
+  impactOnThesis        String? // "positive" | "negative" | "neutral"
+  aiSummary             String?   @db.Text
+  actionItems           Json? // JSON array of action item strings
+  relatedOperatorIds    Json? // JSON array of operator IDs
+  relatedGcIds          Json? // JSON array of GC IDs
+  relatedListingIds     Json? // JSON array of listing IDs
+  estimatedCablingValue Decimal?  @db.Decimal(14, 2)
+  classifiedAt          DateTime?
 
   // Automation
-  automationRanAt        DateTime?
-  surfacedTargetIds      Json?     // JSON array of listing IDs surfaced by automation
+  automationRanAt   DateTime?
+  surfacedTargetIds Json? // JSON array of listing IDs surfaced by automation
 
   @@index([category])
   @@index([urgency])
@@ -1397,21 +1425,21 @@ model NewsItem {
 }
 
 model WeeklyBrief {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  weekStart       DateTime
-  weekEnd         DateTime
+  weekStart DateTime
+  weekEnd   DateTime
 
-  thesisHealth    String?   // "strong" | "stable" | "caution" | "at_risk"
-  marketMomentum  String?   // "accelerating" | "stable" | "decelerating"
+  thesisHealth   String? // "strong" | "stable" | "caution" | "at_risk"
+  marketMomentum String? // "accelerating" | "stable" | "decelerating"
 
-  rawBrief        Json?     // Full JSON response from Claude
-  keyDevelopments Json?     // JSON array of development strings
-  recommendedActions Json?  // JSON array of action strings
-  pipelineMetrics Json?     // JSON object with pipeline stats
-  marketMetrics   Json?     // JSON object with market stats
+  rawBrief           Json? // Full JSON response from Claude
+  keyDevelopments    Json? // JSON array of development strings
+  recommendedActions Json? // JSON array of action strings
+  pipelineMetrics    Json? // JSON object with pipeline stats
+  marketMetrics      Json? // JSON object with market stats
 
-  createdAt       DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([weekStart])
 }
@@ -1421,42 +1449,42 @@ model WeeklyBrief {
 // ─────────────────────────────────────────────
 
 model ValuationModel {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  listingId       String?
-  listing         Listing?  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  listingId String?
+  listing   Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
 
-  opportunityId   String?
-  opportunity     Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  opportunityId String?
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
 
-  modelName       String?   // User can name scenarios (e.g., "Base Case", "Aggressive")
-  inputs          Json      // All input parameters
-  outputs         Json      // All calculated outputs
-  aiCommentary    Json?     // Claude AI commentary
+  modelName    String? // User can name scenarios (e.g., "Base Case", "Aggressive")
+  inputs       Json // All input parameters
+  outputs      Json // All calculated outputs
+  aiCommentary Json? // Claude AI commentary
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([listingId])
   @@index([opportunityId])
 }
 
 model RollupModel {
-  id                  String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  modelName           String    @default("Primary Roll-Up")
-  platformListingId   String?
-  boltOnListingIds    Json?     // JSON array of listing IDs
-  synergyAssumptions  Json?     // SG&A savings, procurement, cross-sell, margin expansion
-  exitAssumptions     Json?     // Exit year, exit multiple, etc.
-  projectionData      Json?     // Year-by-year projection table
-  valueBridgeData     Json?     // Waterfall chart data
-  aiCommentary        Json?     // Claude AI commentary
+  modelName          String  @default("Primary Roll-Up")
+  platformListingId  String?
+  boltOnListingIds   Json? // JSON array of listing IDs
+  synergyAssumptions Json? // SG&A savings, procurement, cross-sell, margin expansion
+  exitAssumptions    Json? // Exit year, exit multiple, etc.
+  projectionData     Json? // Year-by-year projection table
+  valueBridgeData    Json? // Waterfall chart data
+  aiCommentary       Json? // Claude AI commentary
 
-  isActive            Boolean   @default(true)
+  isActive Boolean @default(true)
 
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────
@@ -1464,17 +1492,17 @@ model RollupModel {
 // ─────────────────────────────────────────────
 
 model ScraperConfig {
-  id              String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  sourceName      String    @unique  // "bizbuysell" | "csos" | "dora" | "google_alerts" | "dodge_construction"
-  isActive        Boolean   @default(true)
-  frequency       String?   // "daily" | "weekly" | "every_6_hours"
-  lastRunAt       DateTime?
-  nextRunAt       DateTime?
-  config          Json?     // Source-specific config (URLs, keywords, filters)
+  sourceName String    @unique // "bizbuysell" | "csos" | "dora" | "google_alerts" | "dodge_construction"
+  isActive   Boolean   @default(true)
+  frequency  String? // "daily" | "weekly" | "every_6_hours"
+  lastRunAt  DateTime?
+  nextRunAt  DateTime?
+  config     Json? // Source-specific config (URLs, keywords, filters)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────
@@ -1482,15 +1510,15 @@ model ScraperConfig {
 // ─────────────────────────────────────────────
 
 model MarketMetric {
-  id                        String    @id @default(cuid())
+  id String @id @default(cuid())
 
-  recordedAt                DateTime
-  targetsTracked            Int?
-  actionableTargets         Int?      // Targets with composite score >= threshold
-  newListingsThisPeriod     Int?
-  listingsForSaleVolume     Int?
-  weightedPipelineValue     Decimal?  @db.Decimal(14, 2)
-  extraMetrics              Json?     // Extensible key-value for trade-specific or market metrics
+  recordedAt            DateTime
+  targetsTracked        Int?
+  actionableTargets     Int? // Targets with composite score >= threshold
+  newListingsThisPeriod Int?
+  listingsForSaleVolume Int?
+  weightedPipelineValue Decimal? @db.Decimal(14, 2)
+  extraMetrics          Json? // Extensible key-value for trade-specific or market metrics
 
   @@index([recordedAt])
 }
