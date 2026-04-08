@@ -46,6 +46,7 @@ import { AcquisitionScorePanel } from "@/components/listings/acquisition-score-p
 import { DealStructurePanel } from "@/components/listings/deal-structure-panel";
 import { MarketCompsPanel } from "@/components/listings/market-comps-panel";
 import { DueDiligencePanel } from "@/components/listings/due-diligence-panel";
+import { PriorityAPanel } from "@/components/listings/priority-a-panel";
 
 export default function ListingDetailPage({
   params,
@@ -594,6 +595,13 @@ export default function ListingDetailPage({
 
       {/* Due Diligence Checklist */}
       <DueDiligencePanel listingId={listing.id} />
+
+      {/* Priority A Fast-Track Package */}
+      <PriorityAPanel
+        listingId={listing.id}
+        acquisitionTier={listing.acquisitionTier}
+        listingTitle={listing.title || listing.businessName || "Untitled"}
+      />
 
       {/* ─── AI Deep Dive Panel ───────────────────────────────── */}
       {(deepDiveQuery.data?.analysis || runDeepDive.isPending) && (
