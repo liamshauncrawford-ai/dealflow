@@ -520,7 +520,7 @@ export default function ListingDetailPage({
               {runDeepDive.isPending ? "Analyzing..." : "🤖 AI Deep Dive"}
             </button>
             <button
-              onClick={() => generateOutreach.mutate()}
+              onClick={() => generateOutreach.mutate(undefined)}
               disabled={generateOutreach.isPending}
               className="inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm hover:bg-muted transition-colors disabled:opacity-50"
             >
