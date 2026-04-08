@@ -109,7 +109,7 @@ export async function loadScoringConfig(): Promise<ScoringConfig> {
     );
   }
 
-  cachedConfig = row.value as unknown as ScoringConfig;
+  cachedConfig = JSON.parse(row.value) as ScoringConfig;
   cacheTimestamp = now;
   return cachedConfig;
 }

@@ -166,13 +166,17 @@ export async function POST(request: NextRequest) {
     log.push(`Mapped ${ranked} listings to ranks, ${unranked} unranked`);
 
     // ── 4. Rescore all with new rubric ───────────────────
+    // Refetch listings to get updated targetRank values from step 3
     clearScoringConfigCache();
     const config = await loadScoringConfig();
+    const updatedListings = await prisma.listing.findMany({
+      where: { isActive: true },
+    });
 
     const tierCounts: Record<string, number> = { A: 0, B: 0, C: 0, Inactive: 0 };
     let disqualified = 0;
 
-    for (const listing of allListings) {
+    for (const listing of updatedListings) {
       const input: AcquisitionScoreInput = {
         targetRank: listing.targetRank,
         ebitda: listing.ebitda ? Number(listing.ebitda) : (listing.inferredEbitda ? Number(listing.inferredEbitda) : null),
@@ -212,7 +216,7 @@ export async function POST(request: NextRequest) {
       tierCounts[result.tier]++;
       if (result.disqualifiers.length > 0) disqualified++;
     }
-    log.push(`Scored ${allListings.length} listings: A=${tierCounts.A} B=${tierCounts.B} C=${tierCounts.C} Inactive=${tierCounts.Inactive} (${disqualified} disqualified)`);
+    log.push(`Scored ${updatedListings.length} listings: A=${tierCounts.A} B=${tierCounts.B} C=${tierCounts.C} Inactive=${tierCounts.Inactive} (${disqualified} disqualified)`);
 
     return NextResponse.json({ success: true, steps: log, tierCounts });
   } catch (error) {
