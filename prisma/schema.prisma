@@ -1565,3 +1565,79 @@ model MarketMetric {
 
   @@index([recordedAt])
 }
+
+// ─────────────────────────────────────────────
+// BVR MARKET DATA
+// ─────────────────────────────────────────────
+
+model BvrTransaction {
+  id String @id @default(cuid())
+
+  // Source tracking
+  sourceDatabase String // "DealStats" | "BizComps"
+  importId       String
+  import         BvrImportHistory @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  // Industry classification
+  sicCode   String?
+  naicsCode String?
+  industry  String?
+
+  // Transaction details
+  transactionDate DateTime?
+  mvic            Decimal?  @db.Decimal(15, 2)
+  revenue         Decimal?  @db.Decimal(15, 2)
+  ebitda          Decimal?  @db.Decimal(15, 2)
+  sde             Decimal?  @db.Decimal(15, 2)
+  ebitdaMarginPct Float?
+
+  // Multiples
+  mvicEbitdaMultiple  Float?
+  mvicRevenueMultiple Float?
+  mvicSdeMultiple     Float?
+
+  // Deal structure
+  pctCashAtClose      Float?
+  sellerNoteAmount    Decimal? @db.Decimal(15, 2)
+  sellerNoteTermYears Float?
+  sellerNoteRate      Float?
+  earnoutAmount       Decimal? @db.Decimal(15, 2)
+
+  // Company profile
+  employeeCount   Int?
+  yearsInBusiness Int?
+  state           String?
+
+  // Mapped target rank (derived from SIC/NAICS)
+  targetRank Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([sourceDatabase])
+  @@index([sicCode])
+  @@index([naicsCode])
+  @@index([targetRank])
+  @@index([transactionDate])
+  @@index([revenue])
+  @@index([mvic])
+}
+
+model BvrImportHistory {
+  id String @id @default(cuid())
+
+  sourceDatabase String // "DealStats" | "BizComps"
+  fileName       String
+  rowsTotal      Int
+  rowsImported   Int
+  rowsDuplicate  Int
+  rowsRejected   Int
+  sicCodesUsed   String[]
+  naicsCodesUsed String[]
+
+  transactions BvrTransaction[]
+
+  createdAt DateTime @default(now())
+
+  @@index([sourceDatabase])
+  @@index([createdAt])
+}
