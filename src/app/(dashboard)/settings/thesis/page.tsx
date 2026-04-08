@@ -27,6 +27,7 @@ import {
   FIT_SCORE_WEIGHT_LABELS,
 } from "@/lib/thesis-defaults";
 import { formatCurrency } from "@/lib/utils";
+import { BvrImportSection } from "@/components/settings/bvr-import-section";
 
 export default function ThesisSettingsPage() {
   const { data: config, isLoading } = useThesisSettings();
@@ -89,6 +90,8 @@ export default function ThesisSettingsPage() {
       />
 
       <TargetTypesSection />
+
+      <BvrImportSection />
     </div>
   );
 }
