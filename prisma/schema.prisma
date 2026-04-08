@@ -170,7 +170,8 @@ model Listing {
   dedupGroup      DedupGroup?        @relation(fields: [dedupGroupId], references: [id])
   notifications   Notification[]
   valuationModels ValuationModel[]
-  aiAnalyses      AIAnalysisResult[]
+  aiAnalyses        AIAnalysisResult[]
+  dueDiligenceItems DueDiligenceItem[]
 
   @@index([city, state])
   @@index([industry])
@@ -1640,4 +1641,28 @@ model BvrImportHistory {
 
   @@index([sourceDatabase])
   @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────
+// DUE DILIGENCE CHECKLISTS
+// ─────────────────────────────────────────────
+
+model DueDiligenceItem {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  stage       String    // "PRE_NDA" | "POST_NDA" | "LOI_DD"
+  itemText    String
+  order       Int
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  notes       String?   @db.Text
+  isCustom    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listingId])
+  @@index([stage])
 }
