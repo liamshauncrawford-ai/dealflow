@@ -12,3 +12,14 @@ export {
   type ValuationResult,
   type MultipleAdjustment,
 } from "./valuation-calculator";
+
+export {
+  scoreAcquisitionTarget,
+  checkDisqualifiers,
+  loadScoringConfig,
+  clearScoringConfigCache,
+  type AcquisitionScoreInput,
+  type AcquisitionScoreResult,
+  type ScoringConfig,
+  type SubScoreDetail,
+} from "./acquisition-scorer";
