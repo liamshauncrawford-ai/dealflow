@@ -24,6 +24,8 @@ import {
 import { cn, formatCurrency, formatRelativeDate, truncate } from "@/lib/utils";
 import { PLATFORMS, type PlatformKey } from "@/lib/constants";
 import type { ListingWithSources } from "@/types/listing";
+import { RankBadge } from "@/components/listings/rank-badge";
+import { AcquisitionTierBadge } from "@/components/listings/acquisition-tier-badge";
 
 interface ListingsTableProps {
   listings: ListingWithSources[];
@@ -210,6 +212,23 @@ export function ListingsTable({
           </span>
         );
       },
+    }) as ColumnDef<ListingWithSources, unknown>,
+    columnHelper.accessor("targetRank", {
+      header: "Rank",
+      cell: ({ row }) => (
+        <RankBadge rank={row.original.targetRank} label={row.original.targetRankLabel} />
+      ),
+      size: 80,
+    }) as ColumnDef<ListingWithSources, unknown>,
+    columnHelper.accessor("acquisitionTier", {
+      header: "Tier",
+      cell: ({ row }) => (
+        <AcquisitionTierBadge
+          tier={row.original.acquisitionTier}
+          score={row.original.acquisitionScore}
+        />
+      ),
+      size: 80,
     }) as ColumnDef<ListingWithSources, unknown>,
     columnHelper.accessor("compositeScore", {
       header: "Score",

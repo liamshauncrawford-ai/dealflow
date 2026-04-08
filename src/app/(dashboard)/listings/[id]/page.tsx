@@ -42,6 +42,7 @@ import { PIPELINE_STAGES, PRIMARY_TRADES, TIERS, type PrimaryTradeKey, type Tier
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DeepDivePanel } from "@/components/ai/deep-dive-panel";
 import { OutreachDraftPanel } from "@/components/ai/outreach-draft-panel";
+import { AcquisitionScorePanel } from "@/components/listings/acquisition-score-panel";
 
 export default function ListingDetailPage({
   params,
@@ -549,6 +550,18 @@ export default function ListingDetailPage({
           </div>
         )}
       </div>
+
+      {/* ─── Acquisition Score Panel ────────────────────────────── */}
+      <AcquisitionScorePanel
+        targetRank={listing.targetRank}
+        targetRankLabel={listing.targetRankLabel}
+        acquisitionScore={listing.acquisitionScore}
+        financialScore={listing.financialScore}
+        strategicScore={listing.strategicScore}
+        operatorScore={listing.operatorScore}
+        acquisitionTier={listing.acquisitionTier}
+        disqualifiers={listing.acquisitionDisqualifiers ?? []}
+      />
 
       {/* ─── AI Deep Dive Panel ───────────────────────────────── */}
       {(deepDiveQuery.data?.analysis || runDeepDive.isPending) && (

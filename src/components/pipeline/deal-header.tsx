@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { useUpdateOpportunity, useDeleteOpportunity } from "@/hooks/use-pipeline";
 import { TierBadge } from "@/components/listings/tier-badge";
 import { FitScoreGauge } from "@/components/listings/fit-score-gauge";
+import { RankBadge } from "@/components/listings/rank-badge";
+import { AcquisitionTierBadge } from "@/components/listings/acquisition-tier-badge";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 interface DealHeaderProps {
@@ -157,6 +159,8 @@ export function DealHeader({ opportunity }: DealHeaderProps) {
                   {opportunity.listing?.fitScore !== null && opportunity.listing?.fitScore !== undefined && (
                     <FitScoreGauge score={opportunity.listing.fitScore} size="sm" showLabel={false} />
                   )}
+                  <RankBadge rank={opportunity.listing?.targetRank} label={opportunity.listing?.targetRankLabel} />
+                  <AcquisitionTierBadge tier={opportunity.listing?.acquisitionTier} score={opportunity.listing?.acquisitionScore} />
                 </div>
                 {opportunity.description && (
                   <p className="mt-1 text-sm text-muted-foreground">
