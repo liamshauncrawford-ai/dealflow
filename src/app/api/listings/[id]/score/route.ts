@@ -132,6 +132,18 @@ export async function POST(
       },
     });
 
+    // Auto-generate Priority A package if target reaches Tier A
+    if (acqResult.tier === "A") {
+      // Fire and forget — don't block the score response
+      const baseUrl = request.nextUrl.origin;
+      fetch(`${baseUrl}/api/listings/${id}/priority-a-package`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }).catch((err) => {
+        console.warn(`Failed to auto-generate Priority A package for listing ${id}:`, err);
+      });
+    }
+
     return NextResponse.json({
       // Legacy
       fitScore: result.fitScore,
