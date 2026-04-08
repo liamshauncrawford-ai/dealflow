@@ -109,11 +109,15 @@ export default function ListingDetailPage({
 
   // Outreach Draft: run generation
   const generateOutreach = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { templateType?: string; referralContactName?: string }) => {
       const res = await fetch("/api/ai/outreach-draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listingId: id }),
+        body: JSON.stringify({
+          listingId: id,
+          templateType: opts?.templateType,
+          referralContactName: opts?.referralContactName,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -609,7 +613,16 @@ export default function ListingDetailPage({
         <OutreachDraftPanel
           draft={generateOutreach.data?.draft ?? null}
           isLoading={generateOutreach.isPending}
-          onGenerate={() => generateOutreach.mutate()}
+          onGenerate={(opts) => generateOutreach.mutate(opts)}
+          listing={listing ? {
+            id: listing.id,
+            title: listing.title,
+            businessName: listing.businessName,
+            brokerName: listing.brokerName,
+            brokerCompany: listing.brokerCompany,
+            askingPrice: listing.askingPrice,
+            targetRankLabel: listing.targetRankLabel,
+          } : null}
         />
       )}
 
