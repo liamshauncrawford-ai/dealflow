@@ -12,6 +12,8 @@ import {
   BarChart3,
   Sliders,
   Target,
+  ChevronDown,
+  Layers,
 } from "lucide-react";
 import {
   useThesisSettings,
@@ -85,6 +87,8 @@ export default function ThesisSettingsPage() {
         onSave={(weights) => mutation.mutateAsync({ fitScoreWeights: weights })}
         isSaving={mutation.isPending}
       />
+
+      <TargetTypesSection />
     </div>
   );
 }
@@ -643,6 +647,413 @@ function FitScoreWeightsSection({
             Save Weights
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Types for Target Types Section ─── */
+
+interface AcquisitionThesisConfig {
+  id: string;
+  targetRank: number;
+  rankLabel: string;
+  description: string | null;
+  synergyDescription: string | null;
+  isActive: boolean;
+  hardFilterMinRevenue: number | null;
+  hardFilterMinEbitda: number | null;
+  hardFilterMinEbitdaMargin: number | null;
+  hardFilterMinMrrPct: number | null;
+  hardFilterMinYears: number | null;
+  softFilterRevenueLow: number | null;
+  softFilterRevenueHigh: number | null;
+  softFilterEbitdaLow: number | null;
+  softFilterEbitdaHigh: number | null;
+  valuationMultipleLow: number | null;
+  valuationMultipleMid: number | null;
+  valuationMultipleHigh: number | null;
+  impliedPriceLow: number | null;
+  impliedPriceHigh: number | null;
+  sicCodes: string[];
+  naicsCodes: string[];
+}
+
+const RANK_COLORS: Record<number, { border: string; bg: string; text: string; badge: string }> = {
+  1: { border: "border-blue-300 dark:border-blue-700", bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", badge: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" },
+  2: { border: "border-purple-300 dark:border-purple-700", bg: "bg-purple-50 dark:bg-purple-950/30", text: "text-purple-700 dark:text-purple-300", badge: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200" },
+  3: { border: "border-amber-300 dark:border-amber-700", bg: "bg-amber-50 dark:bg-amber-950/30", text: "text-amber-700 dark:text-amber-300", badge: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200" },
+  4: { border: "border-emerald-300 dark:border-emerald-700", bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", badge: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200" },
+};
+
+/* ─── Section 5: Target Types ─── */
+
+function TargetTypesSection() {
+  const [configs, setConfigs] = useState<AcquisitionThesisConfig[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings/acquisition-thesis")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch");
+        return res.json();
+      })
+      .then((data) => setConfigs(data))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Layers className="h-5 w-5 text-muted-foreground" />
+        <h2 className="text-lg font-semibold">Target Types</h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Configure acquisition target rank definitions, hard/soft filter thresholds, and valuation multiples for each target type.
+      </p>
+
+      {loading && (
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border bg-card p-8 text-center">
+          <AlertCircle className="mx-auto h-8 w-8 text-destructive" />
+          <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && configs.map((cfg) => (
+        <TargetTypeCard
+          key={cfg.id}
+          config={cfg}
+          onSaved={(updated) =>
+            setConfigs((prev) =>
+              prev.map((c) => (c.id === updated.id ? updated : c))
+            )
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Target Type Card ─── */
+
+function TargetTypeCard({
+  config,
+  onSaved,
+}: {
+  config: AcquisitionThesisConfig;
+  onSaved: (updated: AcquisitionThesisConfig) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [form, setForm] = useState(config);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSavedState] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setForm(config);
+  }, [config]);
+
+  const colors = RANK_COLORS[config.targetRank] ?? RANK_COLORS[1];
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(config);
+
+  const handleSave = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      const { id, sicCodes, naicsCodes, ...fields } = form;
+      const res = await fetch("/api/settings/acquisition-thesis", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save");
+      }
+      const updated = await res.json();
+      onSaved(updated);
+      setSavedState(true);
+      setTimeout(() => setSavedState(false), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setField = (field: keyof AcquisitionThesisConfig, value: number | boolean | null) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  return (
+    <div className={`rounded-lg border ${colors.border} bg-card overflow-hidden`}>
+      {/* Header */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className={`flex w-full items-center justify-between px-5 py-3 ${colors.bg} hover:opacity-90 transition-opacity`}
+      >
+        <div className="flex items-center gap-3">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors.badge}`}>
+            Rank {config.targetRank}
+          </span>
+          <span className={`font-semibold ${colors.text}`}>{config.rankLabel}</span>
+          {config.description && (
+            <span className="text-sm text-muted-foreground hidden sm:inline">
+              — {config.description}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span
+            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              form.isActive
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+            }`}
+          >
+            {form.isActive ? "Active" : "Inactive"}
+          </span>
+          <ChevronDown
+            className={`h-4 w-4 text-muted-foreground transition-transform ${
+              expanded ? "rotate-180" : ""
+            }`}
+          />
+        </div>
+      </button>
+
+      {/* Expandable body */}
+      {expanded && (
+        <div className="p-5 space-y-5">
+          {/* Active toggle */}
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isActive}
+                onChange={(e) => setField("isActive", e.target.checked)}
+                className="h-4 w-4 rounded border-muted-foreground/30"
+              />
+              <span className="text-sm font-medium">Active</span>
+            </label>
+            <span className="text-xs text-muted-foreground">
+              Inactive types are excluded from scoring and pipeline matching
+            </span>
+          </div>
+
+          {/* Hard Filters */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Hard Filter Thresholds</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Minimum values required for a deal to qualify for this target type.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <NumericField
+                label="Min Revenue"
+                value={form.hardFilterMinRevenue}
+                onChange={(v) => setField("hardFilterMinRevenue", v)}
+                prefix="$"
+                step={100000}
+              />
+              <NumericField
+                label="Min EBITDA"
+                value={form.hardFilterMinEbitda}
+                onChange={(v) => setField("hardFilterMinEbitda", v)}
+                prefix="$"
+                step={50000}
+              />
+              <NumericField
+                label="Min EBITDA Margin"
+                value={form.hardFilterMinEbitdaMargin}
+                onChange={(v) => setField("hardFilterMinEbitdaMargin", v)}
+                suffix="%"
+                step={1}
+              />
+              <NumericField
+                label="Min MRR %"
+                value={form.hardFilterMinMrrPct}
+                onChange={(v) => setField("hardFilterMinMrrPct", v)}
+                suffix="%"
+                step={5}
+              />
+              <NumericField
+                label="Min Years in Business"
+                value={form.hardFilterMinYears}
+                onChange={(v) => setField("hardFilterMinYears", v)}
+                step={1}
+              />
+            </div>
+          </div>
+
+          {/* Soft Filters */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Soft Filter Ranges</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Preferred ranges for scoring. Deals within range score higher.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Revenue Range</span>
+                <div className="flex items-center gap-2">
+                  <NumericField
+                    label="Low"
+                    value={form.softFilterRevenueLow}
+                    onChange={(v) => setField("softFilterRevenueLow", v)}
+                    prefix="$"
+                    step={100000}
+                    compact
+                  />
+                  <span className="text-muted-foreground mt-5">—</span>
+                  <NumericField
+                    label="High"
+                    value={form.softFilterRevenueHigh}
+                    onChange={(v) => setField("softFilterRevenueHigh", v)}
+                    prefix="$"
+                    step={100000}
+                    compact
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium">EBITDA Range</span>
+                <div className="flex items-center gap-2">
+                  <NumericField
+                    label="Low"
+                    value={form.softFilterEbitdaLow}
+                    onChange={(v) => setField("softFilterEbitdaLow", v)}
+                    prefix="$"
+                    step={50000}
+                    compact
+                  />
+                  <span className="text-muted-foreground mt-5">—</span>
+                  <NumericField
+                    label="High"
+                    value={form.softFilterEbitdaHigh}
+                    onChange={(v) => setField("softFilterEbitdaHigh", v)}
+                    prefix="$"
+                    step={50000}
+                    compact
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Valuation Multiples */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Valuation Multiples</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              EBITDA multiples used to calculate implied acquisition price range.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <NumericField
+                label="Low Multiple"
+                value={form.valuationMultipleLow}
+                onChange={(v) => setField("valuationMultipleLow", v)}
+                suffix="x"
+                step={0.5}
+              />
+              <NumericField
+                label="Mid Multiple"
+                value={form.valuationMultipleMid}
+                onChange={(v) => setField("valuationMultipleMid", v)}
+                suffix="x"
+                step={0.5}
+              />
+              <NumericField
+                label="High Multiple"
+                value={form.valuationMultipleHigh}
+                onChange={(v) => setField("valuationMultipleHigh", v)}
+                suffix="x"
+                step={0.5}
+              />
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              {error}
+            </div>
+          )}
+
+          {/* Save */}
+          <div className="flex items-center justify-end gap-2 border-t pt-3">
+            {saved && (
+              <span className="flex items-center gap-1 text-sm text-green-600">
+                <CheckCircle2 className="h-4 w-4" /> Saved
+              </span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || saving}
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save {config.rankLabel}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Numeric Field Helper ─── */
+
+function NumericField({
+  label,
+  value,
+  onChange,
+  prefix,
+  suffix,
+  step = 1,
+  compact = false,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  prefix?: string;
+  suffix?: string;
+  step?: number;
+  compact?: boolean;
+}) {
+  return (
+    <div className={compact ? "flex-1 min-w-0" : ""}>
+      <label className="block text-xs font-medium text-muted-foreground mb-1">
+        {label}
+      </label>
+      <div className="flex items-center gap-1.5">
+        {prefix && (
+          <span className="text-sm text-muted-foreground">{prefix}</span>
+        )}
+        <input
+          type="number"
+          step={step}
+          value={value ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange(v === "" ? null : parseFloat(v) || null);
+          }}
+          placeholder="—"
+          className="w-full rounded-md border bg-background px-3 py-1.5 text-sm tabular-nums"
+        />
+        {suffix && (
+          <span className="text-sm text-muted-foreground">{suffix}</span>
+        )}
       </div>
     </div>
   );
