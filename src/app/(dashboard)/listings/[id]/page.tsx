@@ -43,6 +43,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DeepDivePanel } from "@/components/ai/deep-dive-panel";
 import { OutreachDraftPanel } from "@/components/ai/outreach-draft-panel";
 import { AcquisitionScorePanel } from "@/components/listings/acquisition-score-panel";
+import { DealStructurePanel } from "@/components/listings/deal-structure-panel";
 
 export default function ListingDetailPage({
   params,
@@ -561,6 +562,20 @@ export default function ListingDetailPage({
         operatorScore={listing.operatorScore}
         acquisitionTier={listing.acquisitionTier}
         disqualifiers={listing.acquisitionDisqualifiers ?? []}
+      />
+
+      {/* Deal Structure Calculator */}
+      <DealStructurePanel
+        askingPrice={listing.askingPrice ? Number(listing.askingPrice) : null}
+        ebitda={
+          listing.ebitda
+            ? Number(listing.ebitda)
+            : listing.inferredEbitda
+              ? Number(listing.inferredEbitda)
+              : null
+        }
+        earningsType={listing.earningsType}
+        revenue={listing.revenue ? Number(listing.revenue) : null}
       />
 
       {/* ─── AI Deep Dive Panel ───────────────────────────────── */}
