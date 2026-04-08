@@ -83,11 +83,14 @@ export async function POST(
     // ── New acquisition score ──
     const config = await loadScoringConfig();
 
+    // Safe Decimal→number conversion (preserves zero, converts null to null)
+    const toNum = (val: unknown): number | null => val !== null && val !== undefined ? Number(val) : null;
+
     const acqInput: AcquisitionScoreInput = {
       targetRank: listing.targetRank,
-      ebitda: Number(listing.ebitda) || Number(listing.inferredEbitda) || null,
-      revenue: Number(listing.revenue) || null,
-      askingPrice: Number(listing.askingPrice) || null,
+      ebitda: toNum(listing.ebitda) ?? toNum(listing.inferredEbitda),
+      revenue: toNum(listing.revenue),
+      askingPrice: toNum(listing.askingPrice),
       mrrPctOfRevenue: listing.mrrPctOfRevenue,
       revenueTrendDetail: listing.revenueTrendDetail,
       topClientPct: listing.topClientPct,

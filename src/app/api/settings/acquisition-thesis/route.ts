@@ -30,13 +30,32 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { targetRank, ...updates } = body;
+    const { targetRank, ...rawUpdates } = body;
 
     if (typeof targetRank !== "number") {
       return NextResponse.json(
         { error: "targetRank (number) is required in the request body" },
         { status: 400 }
       );
+    }
+
+    // Allowlist of editable fields — prevents overwriting id, targetRank, createdAt
+    const EDITABLE_FIELDS = new Set([
+      "rankLabel", "description", "synergyDescription", "isActive",
+      "hardFilterMinRevenue", "hardFilterMinEbitda", "hardFilterMinEbitdaMargin",
+      "hardFilterMinMrrPct", "hardFilterMinYears",
+      "softFilterRevenueLow", "softFilterRevenueHigh",
+      "softFilterEbitdaLow", "softFilterEbitdaHigh",
+      "valuationMultipleLow", "valuationMultipleMid", "valuationMultipleHigh",
+      "impliedPriceLow", "impliedPriceHigh",
+      "sicCodes", "naicsCodes",
+    ]);
+
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(rawUpdates)) {
+      if (EDITABLE_FIELDS.has(key)) {
+        updates[key] = value;
+      }
     }
 
     const updated = await prisma.acquisitionThesisConfig.update({

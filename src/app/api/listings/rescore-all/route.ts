@@ -1,16 +1,27 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireCronOrAuth } from "@/lib/auth-helpers";
 import {
   scoreAcquisitionTarget,
   loadScoringConfig,
   type AcquisitionScoreInput,
 } from "@/lib/scoring/acquisition-scorer";
+import type { Decimal } from "@prisma/client/runtime/library";
+
+/** Safely convert Prisma Decimal to number, preserving zero and null. */
+function toNum(val: Decimal | null): number | null {
+  return val !== null ? Number(val) : null;
+}
 
 /**
  * POST /api/listings/rescore-all
  * Recompute acquisition scores for all active listings.
+ * Auth: CRON_SECRET or authenticated user session.
  */
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const authResult = await requireCronOrAuth(request);
+  if (!authResult.authorized) return authResult.error;
+
   try {
     const config = await loadScoringConfig();
 
@@ -25,9 +36,9 @@ export async function POST() {
     for (const listing of listings) {
       const input: AcquisitionScoreInput = {
         targetRank: listing.targetRank,
-        ebitda: Number(listing.ebitda) || Number(listing.inferredEbitda) || null,
-        revenue: Number(listing.revenue) || null,
-        askingPrice: Number(listing.askingPrice) || null,
+        ebitda: toNum(listing.ebitda) ?? toNum(listing.inferredEbitda),
+        revenue: toNum(listing.revenue),
+        askingPrice: toNum(listing.askingPrice),
         mrrPctOfRevenue: listing.mrrPctOfRevenue,
         revenueTrendDetail: listing.revenueTrendDetail,
         topClientPct: listing.topClientPct,

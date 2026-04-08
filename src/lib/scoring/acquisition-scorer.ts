@@ -143,7 +143,7 @@ export function checkDisqualifiers(
 
   // 3. Revenue declining
   if (input.revenueTrendDetail === "Declining >10%") {
-    reasons.push("Revenue declining >15% YoY for 2+ consecutive years");
+    reasons.push("Revenue declining >10% YoY");
   }
 
   // 4. Residential-only
