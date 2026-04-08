@@ -134,6 +134,9 @@ model Listing {
   hasActiveLitigation   Boolean? @default(false) // disqualifier #7
   hasKeyManInsurance    Boolean? @default(true) // lapse = disqualifier #8
 
+  // ── Deal Structure Fields ─────────────────
+  earningsType String? // "SDE" | "EBITDA" | "OwnerBenefit" | "Unknown"
+
   // Market intel automation
   gcRelationshipBoost       Int?    @default(0)
   nearestFacilityId         String?
