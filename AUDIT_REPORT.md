@@ -1,387 +1,198 @@
-# DealFlow Current State Audit
+# DealFlow Codebase Audit Report
+## Pre-Upgrade Assessment — Companion Acquisition Spec v2.0
 
-> Generated: 2026-02-26 | Phase 0 of Thesis Broadening
-
----
-
-## 1. Project Structure
-
-```
-dealflow/
-├── prisma/
-│   ├── schema.prisma              # 558+ lines, 30+ models, 20+ enums
-│   ├── seed.ts                    # DC-thesis seed targets + config
-│   ├── seed-market-intel.ts       # DC operators, facilities, GCs, cabling opps
-│   ├── seed-targets.ts            # Named thesis targets (SPC, ISI, MSI, etc.)
-│   └── seed-scrapers.ts           # DC-specific scraper keywords
-├── src/
-│   ├── app/
-│   │   ├── (dashboard)/           # 15 sidebar pages + 3 hidden pages
-│   │   │   ├── activity/
-│   │   │   ├── agents/
-│   │   │   ├── audit/
-│   │   │   ├── contacts/
-│   │   │   ├── dashboard/         # Main KPI hub with DC-specific cards
-│   │   │   ├── financial/
-│   │   │   │   ├── compare/       # Deal comparison
-│   │   │   │   ├── rollup/        # Roll-up model
-│   │   │   │   └── valuation/     # Valuation calculator
-│   │   │   ├── hidden/
-│   │   │   ├── listings/          # Target businesses table + detail
-│   │   │   ├── market-intel/      # ★ 100% DC-SPECIFIC (6 pages)
-│   │   │   │   ├── gcs/           # GC Tracker
-│   │   │   │   ├── intelligence/  # Market Intelligence dashboard
-│   │   │   │   ├── map/           # Facility map (Google Maps)
-│   │   │   │   ├── network/       # Relationship network (D3)
-│   │   │   │   ├── operators/     # DC Operators directory
-│   │   │   │   └── opportunities/ # Cabling Pipeline
-│   │   │   ├── pipeline/          # Kanban + opportunity detail
-│   │   │   └── settings/          # Settings hub (7 sub-pages)
-│   │   └── api/                   # 60+ API routes
-│   │       ├── market-intel/      # ★ 14 DC-specific API routes
-│   │       ├── pipeline/          # 25+ endpoints (generic CRM)
-│   │       ├── listings/          # 8 endpoints (generic CRM)
-│   │       ├── cron/              # 7 cron jobs (mixed DC/generic)
-│   │       └── ...
-│   ├── components/                # 73 component files
-│   │   ├── market-intel/          # ★ 4 DC-specific forms/graph
-│   │   ├── maps/                  # ★ 6 DC facility map components
-│   │   ├── pipeline/              # 25 components (mostly generic)
-│   │   ├── financials/            # 12 components (generic)
-│   │   ├── charts/                # 12 chart components (mixed)
-│   │   └── ...
-│   ├── hooks/                     # 25 custom hooks
-│   │   ├── use-market-intel.ts    # ★ DC-specific data fetching
-│   │   └── ...                    # Rest are generic
-│   ├── lib/
-│   │   ├── ai/                    # ★ 13 AI modules (ALL have DC prompts)
-│   │   ├── market-intel/          # ★ 4 DC-specific engines
-│   │   ├── financial/             # 14 files (generic)
-│   │   ├── scoring/               # 3 files (DC-weighted scoring)
-│   │   ├── scrapers/              # 17 files (generic infra, DC keywords)
-│   │   ├── email/                 # 5 files (generic)
-│   │   └── ...
-│   └── types/                     # 3 type definition files
-├── CLAUDE.md                      # ★ DC-specific project description
-└── docs/plans/                    # DC market intel architecture docs
-```
-
-**Key counts:**
-- 33 user-facing pages (18 generic, 10 DC-specific, 5 mixed)
-- 60+ API routes (40+ generic, 14 DC-specific, 7 mixed)
-- 73 component files (59 generic, 10 DC-specific, 4 mixed)
-- 13 AI modules (ALL contain DC-specific system prompts)
+**Auditor:** Claude Code (Opus 4.6)
+**Date:** 2026-04-07
+**Previous audit:** 2026-02-26 (Phase 0 of Thesis Broadening)
+**Purpose:** Audit existing codebase before implementing the 4-rank companion acquisition thesis with 100-point scoring, BVR market data integration, and browser-assisted marketplace search.
 
 ---
 
-## 2. Page Inventory
+## 1. Tech Stack
 
-### Sidebar Navigation (15 pages)
-
-| # | Section | Page | Route | DC-Specific? |
-|---|---------|------|-------|--------------|
-| 1 | Main | Dashboard | `/dashboard` | MIXED — has `CablingPipelineSummaryCard`, `market-intel-summary` card |
-| 2 | Main | Target Businesses | `/listings` | MIXED — `dcRelevanceScore`, `dcCertifications` columns/filters |
-| 3 | Main | Pipeline | `/pipeline` | Generic (CRM Kanban) |
-| 4 | Main | Contacts | `/contacts` | Generic |
-| 5 | Market Intel | Market Map | `/market-intel/map` | ★ DC-SPECIFIC — DC facility pins, operator tiers |
-| 6 | Market Intel | DC Operators | `/market-intel/operators` | ★ DC-SPECIFIC — DataCenterOperator CRUD |
-| 7 | Market Intel | GC Tracker | `/market-intel/gcs` | ★ DC-SPECIFIC — GeneralContractor directory |
-| 8 | Market Intel | Cabling Pipeline | `/market-intel/opportunities` | ★ DC-SPECIFIC — CablingOpportunity stages |
-| 9 | Market Intel | Network | `/market-intel/network` | ★ DC-SPECIFIC — GC-Operator-Target graph |
-| 10 | Market Intel | Intelligence | `/market-intel/intelligence` | ★ DC-SPECIFIC — MW tracked, cabling TAM |
-| 11 | Financial | Valuation Calc | `/financial/valuation` | MIXED — DC-weighted commentary |
-| 12 | Financial | Roll-Up Model | `/financial/rollup` | Generic structure, DC-weighted commentary |
-| 13 | Financial | Deal Comparison | `/financial/compare` | Generic |
-| 14 | AI | Agent Dashboard | `/agents` | Generic |
-| 15 | Bottom | Settings | `/settings` | MIXED — thesis config has DC defaults |
-
-### Hidden Pages (not in sidebar)
-
-| Page | Route | DC-Specific? |
-|------|-------|--------------|
-| Activity | `/activity` | Generic |
-| Audit Log | `/audit` | Generic |
-| Hidden Listings | `/hidden` | Generic |
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16.1.6 (App Router, Turbopack dev) |
+| Language | TypeScript 5.9.3 |
+| Runtime | React 19.2.4 |
+| Database | PostgreSQL (Railway production, Docker local) |
+| ORM | Prisma 5.22.0 |
+| Auth | NextAuth v5.0.0-beta.30 (Google OAuth, Azure AD) |
+| Styling | Tailwind CSS 4.1.18 |
+| State | TanStack React Query 5.90.20 |
+| Forms | React Hook Form 7.71.1 + Zod 4.3.6 |
+| AI | Anthropic SDK 0.74.0 (Claude Sonnet/Opus) |
+| Charts | Recharts 3.7.0 |
+| Maps | Leaflet + Google Maps |
+| Scraping | Apify, Cheerio, Playwright (mostly disabled) |
+| Drag & Drop | @dnd-kit |
+| Monitoring | Sentry + PostHog |
+| Deployment | Railway (production), Docker (local) |
 
 ---
 
-## 3. Market Intel Pages — Detailed Assessment
+## 2. Existing Routes (25+ screens)
 
-**Verdict: 100% DC-specific. Must be completely rebuilt for broad commercial services.**
-
-### Market Map (`/market-intel/map`)
-- **Data**: `DCFacility` pins on Google Maps + nearby `Listing` targets
-- **Filters**: Operator tier, facility status, proximity radius
-- **DC content**: Facility capacity in MW, operator color-coding, cabling scope value estimates
-- **What changes**: Replace DC facility overlay with generalized industry market view (client locations, project sites, service territory visualization)
-
-### DC Operators (`/market-intel/operators`)
-- **Data**: `DataCenterOperator` model — tier classification, relationship status, cabling opportunity score
-- **DC content**: Operator tiers (Tier 1 Active Construction → Tier 4 Rumored), MW capacity, construction timelines
-- **What changes**: Replace with generalized Client Tracker (any industry customer, not just DC operators)
-
-### GC Tracker (`/market-intel/gcs`)
-- **Data**: `GeneralContractor` model — DC experience level, sub-qualification status, approved sub lists
-- **DC content**: DC-specific GC qualifications, sub-qualification pipeline, facility assignments
-- **What changes**: Repurpose as Channel Partner / Referral Source tracker
-
-### Cabling Pipeline (`/market-intel/opportunities`)
-- **Data**: `CablingOpportunity` model — 12-stage pipeline from IDENTIFIED → COMPLETED
-- **DC content**: Cabling scopes (BACKBONE_FIBER, HORIZONTAL_COPPER, etc.), MW sizing, RFQ dates
-- **What changes**: Replace with generalized Project Pipeline (bid tracking for any commercial services project)
-
-### Network (`/market-intel/network`)
-- **Data**: D3 force-directed graph of GC ↔ Operator ↔ Target relationships
-- **DC content**: Sub-qualification gap identification, operator-GC relationship mapping
-- **What changes**: Generalize to Relationship Network mapping clients, referral sources, and targets
-
-### Intelligence (`/market-intel/intelligence`)
-- **Data**: `MarketMetric` time series — MW tracked, construction projects, cabling TAM
-- **DC content**: "Total MW Tracked", "Active Construction Projects", "Estimated Cabling TAM"
-- **What changes**: Replace KPIs with broad commercial services metrics (total addressable market, industry growth rates, M&A activity)
+| Route | Purpose | Maturity |
+|-------|---------|----------|
+| `/dashboard` | Main metrics overview | 9/10 |
+| `/pipeline` | Kanban board (11 stages, drag-drop) | 9/10 |
+| `/pipeline/add` | Create new deal | 9/10 |
+| `/pipeline/[id]` | Deal detail (multi-tab) | 9/10 |
+| `/listings` | Searchable listings table | 9/10 |
+| `/listings/add` | Manual listing entry | 8/10 |
+| `/listings/[id]` | Listing detail | 8/10 |
+| `/financial/valuation` | Multi-scenario valuation | 8/10 |
+| `/financial/compare` | Cross-deal comparison | 8/10 |
+| `/financial/rollup` | Portfolio modeling | 8/10 |
+| `/market-intel/overview` | Market dashboard | 5/10 |
+| `/market-intel/map` | Geographic map | 5/10 |
+| `/contacts` | Contact management | 8/10 |
+| `/audit` | Audit log viewer | 9/10 |
+| `/hidden` | Hidden listings | 8/10 |
+| `/settings/*` | 6 settings subsections | 9/10 |
 
 ---
 
-## 4. Financial Analysis Pages — Detailed Assessment
+## 3. Pipeline Stages (Current — KEEP AS-IS)
 
-**Verdict: Mostly generic infrastructure. AI commentary prompts are DC-specific.**
-
-### Valuation Calculator (`/financial/valuation`)
-- **Generic**: EBITDA inputs, multiple ranges, sensitivity tables, IRR/MOIC calculations
-- **DC-specific**: AI valuation commentary prompt references "DC services platform roll-up", 3-5x entry / 8-10x exit multiples hardcoded in AI prompt
-- **Change needed**: Update AI commentary prompt and default multiples
-
-### Roll-Up Model (`/financial/rollup`)
-- **Generic**: Multi-company aggregation, platform EBITDA, blended multiples
-- **DC-specific**: AI commentary references "specialty trade contractors" and "Colorado Front Range"
-- **Change needed**: Update AI commentary prompt only
-
-### Deal Comparison (`/financial/compare`)
-- **Generic**: Side-by-side listing comparison
-- **DC-specific**: Minimal — inherits thesis fit scores which use DC weights
-- **Change needed**: No direct changes needed (inherits from scoring engine update)
+| Stage | Order | Display Label |
+|-------|-------|---------------|
+| CONTACTING | 1 | Contacting |
+| REQUESTED_CIM | 2 | Requested CIM |
+| SIGNED_NDA | 3 | Signed NDA |
+| SCHEDULING_FIRST_MEETING | 4 | Initial Owner Meeting |
+| OFFER_SENT | 5 | LOI & Offer Sent |
+| COUNTER_OFFER_RECEIVED | 6 | Counter Offer |
+| DUE_DILIGENCE | 7 | Due Diligence |
+| UNDER_CONTRACT | 8 | Under Contract |
+| CLOSED_WON | 9 | Closed Won |
+| CLOSED_LOST | 10 | Closed Lost |
+| ON_HOLD | 11 | On Hold |
 
 ---
 
-## 5. CRM Pages — DC Reference Check
+## 4. Feature Maturity Assessment
 
-### Dashboard (`/dashboard`)
-- **DC references**: `CablingPipelineSummaryCard` component, `market-intel-summary` card, `DC_PROJECT_NEWS` notification type
-- **Change needed**: Remove cabling pipeline summary card, update market intel summary to show generalized metrics
-
-### Target Businesses (`/listings`)
-- **DC references in Listing model fields**: `dcRelevanceScore`, `dcExperience`, `dcClients[]`, `dcCertifications[]`
-- **DC references in filters/columns**: DC relevance column, DC certification badges
-- **Change needed**: Remove DC-specific fields from schema, remove from table columns and filters
-
-### Pipeline (`/pipeline`)
-- **DC references**: Minimal — opportunity detail tabs are generic CRM. AI analysis panels use DC-weighted prompts.
-- **Change needed**: Update AI analysis prompts (inherited from AI module changes)
-
-### Contacts (`/contacts`)
-- **DC references**: None — fully generic contact directory
-- **Change needed**: None
-
-### Settings (`/settings`)
-- **DC references in thesis settings**: Default target trades (`STRUCTURED_CABLING`, `SECURITY_SURVEILLANCE`, `BUILDING_AUTOMATION_BMS`), geographic defaults (`CO`, `Denver Metro`), search keywords
-- **Change needed**: Broaden thesis defaults, update target trades list, expand geography
+| Feature | Maturity | Notes |
+|---------|----------|-------|
+| Pipeline/Kanban | 9/10 | Production-ready, drag-drop, 11 stages |
+| Deal detail pages | 9/10 | Multi-tab: Overview, Financials, Contacts, Docs, Emails, Notes, History, Risk, Tasks |
+| Financial P&L extraction (AI) | 8/10 | Line items, add-backs, overrides, year editing |
+| Valuation scenarios | 8/10 | EBITDA/SDE/Revenue methods, sensitivity analysis |
+| Fit scoring (current) | 8/10 | 10-factor weighted — **TO BE REPLACED** with 100-point rubric |
+| AI features (17 modules) | 9/10 | Deep dives, extraction, risk, outreach |
+| Email integration | 8/10 | Outlook + Gmail sync + classify |
+| Contact management | 8/10 | Rich profiles, sentiment, owner intelligence |
+| Document management | 8/10 | Upload, categorize, preview, AI extraction |
+| Task automation | 8/10 | Stage triggers + follow-up chains |
+| Settings/config | 9/10 | Comprehensive thesis config |
+| Audit logging | 9/10 | Field-level change tracking |
+| Notifications | 8/10 | 15+ types |
+| Scraping | 3/10 | Only Apify BizBuySell + email parsing work |
+| Market intelligence | 5/10 | UI exists, data layer incomplete |
 
 ---
 
-## 6. Codebase String Search Results
+## 5. Scraper Audit
 
-### DC-Specific Terms Found (80+ occurrences)
+### Working Reliably
+| Source | Method | Reliability |
+|--------|--------|-------------|
+| Apify BizBuySell | Cloud actor (paid) | HIGH — bypasses Akamai |
+| Email listing parser | Parse broker emails | HIGH — passive |
+| CSOS entity search | HTTP form POST | HIGH — government site |
+| DORA license search | ASP.NET form POST | MEDIUM — fragile page structure |
 
-| Category | Files Affected | Key Locations |
-|----------|---------------|---------------|
-| "data center" / "DC" | 15+ files | CLAUDE.md, schema.prisma, all AI modules, seed files, map-constants.ts |
-| "structured cabling" / "cabling" | 20+ files | constants.ts, seed.ts, seed-market-intel.ts, AI prompts, scrapers, dashboard |
-| "low voltage" / "low-voltage" | 10+ files | constants.ts, AI prompts, seed.ts, scraper keywords |
-| BICSI / RCDD certifications | 5 files | daily-scan.ts, seed.ts, seed-targets.ts |
-| Company names (SPC, ISI, MSI, PMS) | 6 files | seed.ts, seed-targets.ts, admin/seed/route.ts |
-| DC operators (QTS, CoreSite, Flexential) | 8 files | seed-market-intel.ts, AI prompts (deep-dive, news-monitor), admin/seed |
-| GCs (DPR, Holder, Hensel Phelps, Mortenson) | 6 files | seed-market-intel.ts, AI prompts, admin/seed |
-| Colorado / Front Range / Denver | 20+ files | constants.ts, AI prompts, seed files, thesis-defaults.ts, scrapers |
+### Disabled / Broken (Bot Detection)
+| Source | Code Status | Why Broken |
+|--------|-------------|------------|
+| BizQuest | Complete | Akamai bot detection |
+| DealStream | Complete | Bot detection |
+| Transworld | Complete | Untested, no bypass |
+| LoopNet | Complete (most comprehensive) | Aggressive anti-bot |
+| BusinessBroker | Complete | Untested, lighter protection |
 
-### Prisma Models — DC-Specific (4 models, 8 enums)
-
-**Models to remove/replace:**
-1. `DataCenterOperator` (40 fields) — tier, MW capacity, construction timeline, relationship
-2. `DCFacility` (20 fields) — capacity, coordinates, operator link, GC assignment
-3. `GeneralContractor` (30 fields) — DC experience, sub-qualification, priority
-4. `CablingOpportunity` (30 fields) — cabling scopes, bid stages, win probability
-
-**Enums to remove/replace:**
-1. `OperatorTier` — TIER_1_ACTIVE_CONSTRUCTION through TIER_4_RUMORED
-2. `FacilityStatus` — OPERATING, UNDER_CONSTRUCTION, PLANNED, DECOMMISSIONED
-3. `GCPriority` — P1 through P3
-4. `GCDCExperience` — SPECIALIST, EXPERIENCED, SOME, NONE
-5. `GCRelationshipStatus` — 7 stages from NO_CONTACT to WORK_IN_PROGRESS
-6. `OperatorRelationshipStatus` — 8 stages
-7. `CablingScope` — 9 scope types (BACKBONE_FIBER, HORIZONTAL_COPPER, etc.)
-8. `CablingOpportunityStatus` — 12 stages from IDENTIFIED to COMPLETED
-
-**Listing model DC fields to remove:**
-- `dcRelevanceScore Int?`
-- `dcExperience Boolean?`
-- `dcClients String[]`
-- `dcCertifications String[]`
+**Assessment:** 5 of 7 marketplace scrapers are dead code. The `/api/scraping/trigger` route explicitly skips all non-Apify platforms. The recommended path forward is **Claude Code browser-assisted searching** using the user's real Chrome session.
 
 ---
 
-## 7. Database Schema
+## 6. Gap Analysis — Spec v2.0 vs. Existing
 
-### Generic / Reusable Models (KEEP)
+### Completely Missing (New Build)
+1. **4-rank target type system** (MSP, UCaaS, Security, Cabling)
+2. **100-point scoring rubric** (Financial 40 / Strategic 35 / Operator 25)
+3. **Disqualifier engine** (8 auto-disqualifiers)
+4. **BVR market data import & intelligence**
+5. **Deal structure calculator** (3 SBA scenarios + PMS bridge)
+6. **Outreach template system** (3 personalized templates)
+7. **Due diligence checklists** (stage-gated)
+8. **Priority A fast-track packages**
+9. **BVR Query Assistant**
+10. **Browser-assisted marketplace search** (Claude Code + Chrome)
+11. **`POST /api/import/scraped-listings`** endpoint
 
-| Model | Purpose | DC Content? |
-|-------|---------|-------------|
-| Listing | Deal listings with financials | 4 DC fields to remove |
-| ListingSource | Platform scrape tracking | Generic |
-| Opportunity | Pipeline deal tracking | Generic (thesis fields are configurable) |
-| Contact | Owner/principal directory | Generic |
-| FinancialPeriod | P&L periods with overrides | Generic |
-| FinancialLineItem | Detailed P&L line items | Generic |
-| AddBack | EBITDA add-back items | Generic |
-| HistoricPnL / HistoricPnLRow | Uploaded spreadsheet data | Generic |
-| ValuationModel | Single-deal valuation | Generic |
-| RollupModel | Platform roll-up valuation | Generic |
-| DealDocument | File attachments | Generic |
-| Email / EmailAccount / EmailAttachment / EmailLink | Email integration | Generic |
-| EmailTemplate | Email templates | Content is DC-specific |
-| Note | Deal notes | Generic |
-| StageChange | Pipeline stage history | Generic |
-| AuditLog | Immutable audit trail | Generic |
-| AIAnalysisResult | Cached AI results | Generic structure |
-| AIAgentRun | Agent execution logs | Generic |
-| NewsItem | News article classification | Generic structure, DC classification logic |
-| WeeklyBrief | Weekly intelligence digest | Generic structure |
-| MarketMetric | Time series metrics | DC-specific field names (MW, cabling TAM) |
-| DedupGroup / DedupCandidate | Duplicate detection | Generic |
-| IndustryMultiple | Valuation benchmarks | Generic |
-| ScrapeRun / ScrapeSchedule / ScraperConfig | Scraper infrastructure | Generic |
-| PlatformCookie | Scraper authentication | Generic |
-| Tag / ListingTag / OpportunityTag | Tagging system | Generic |
-| Notification | Push notifications | Has DC_PROJECT_NEWS type |
-| Task | Task management | Generic |
-| AppSetting | Key-value configuration | Contains DC-specific seed values |
-| User / Account / Session / AccessRequest / LoginHistory | Auth & access | Generic |
+### Exists — Needs Enhancement
+1. **Scoring engine** → Replace 10-factor with 100-point rubric
+2. **Settings/thesis config** → Add 4-rank configuration
+3. **Pipeline cards** → Add rank + acquisition tier badges
+4. **Listings table** → Add rank/tier columns + filters
+5. **Deal detail page** → Add acquisition score panel
 
-### Models to Remove Entirely
-
-| Model | Fields | Relationships |
-|-------|--------|---------------|
-| DataCenterOperator | 40 | → DCFacility[], CablingOpportunity[] |
-| DCFacility | 20 | → DataCenterOperator, GeneralContractor, CablingOpportunity[] |
-| GeneralContractor | 30 | → DCFacility[], CablingOpportunity[] |
-| CablingOpportunity | 30 | → DataCenterOperator, GeneralContractor, DCFacility |
+### Already Better Than Spec (Preserve As-Is)
+1. Pipeline stages (more nuanced than spec's proposal)
+2. Financial extraction (full P&L with line items)
+3. Email integration (sync + classify + associate)
+4. AI analysis (17 modules)
+5. Audit logging (field-level tracking)
+6. Task automation (stage triggers + follow-up chains)
+7. Valuation modeling (multi-method + sensitivity)
+8. Document management (categorized + AI extraction)
 
 ---
 
-## 8. AI Integration Points
+## 7. Implementation Plan
 
-All AI modules live in `src/lib/ai/`. Every module uses the shared `claude-client.ts` (Anthropic SDK v0.74.0).
+### Approach: Incremental Layers
 
-| Module | File | Model | DC-Specific? | What Must Change |
-|--------|------|-------|--------------|-----------------|
-| Deep Dive | `deep-dive.ts` | sonnet4 | ★ YES — buyer profile, DC market context, GC names, operator projects | Rewrite system prompt for broad commercial services |
-| Enrichment | `enrichment.ts` | sonnet4 | ★ YES — DC relevance scoring, cabling contractor revenue benchmarks | Remove DC relevance field, broaden trade benchmarks |
-| Daily Scan | `daily-scan.ts` | sonnet4 | ★ YES — DC trades roll-up scoring, BICSI premiums, GC relationship bonuses | Rewrite scoring criteria for generalized commercial services |
-| CIM Parser | `cim-parser.ts` | sonnet4 | ★ YES — thesis fit evaluates "CO DC trades roll-up" fit | Update thesis fit assessment to broad commercial services |
-| News Monitor | `news-monitor.ts` | sonnet4 | ★ YES — RSS queries for DC construction, operator names, GC projects | Replace RSS queries with broad industry signals |
-| Market Pulse | `market-pulse.ts` | sonnet4 | ★ YES — thesis health, MW tracking, cabling TAM, DC market momentum | Rewrite for generalized market health assessment |
-| Valuation Commentary | `valuation-commentary.ts` | sonnet4 | ★ YES — DC services platform, Colorado Front Range, 3-5x/8-10x multiples | Update to broad commercial services context |
-| Risk Assessment | `risk-assessment.ts` | sonnet4 | ★ YES — thesis fit score references DC trades context | Update thesis fit criteria |
-| Outreach Draft | `outreach-draft.ts` | sonnet4 | ★ YES — frames DC market opportunity in outreach letter | Generalize market opportunity framing |
-| Financial Extractor | `financial-extractor.ts` | sonnet4 | Minimal — recognizes trades-specific COGS (materials, labor, vehicles) | Minor updates to trade examples |
-| Email Intelligence | `email-intelligence.ts` | haiku | NO — generic email classification | No changes needed |
-| Claude Client | `claude-client.ts` | — | NO — generic API wrapper | No changes needed |
+**Layer 1 — Foundation** (current session)
+- Schema: `targetRank`, acquisition score fields, new Listing fields
+- Schema: `AcquisitionThesisConfig` table for 4 ranks
+- 100-point scoring engine (Financial/Strategic/Operator)
+- Disqualifier engine (8 rules)
+- Reclassify all existing deals
+- UI: rank badges, tier badges, score breakdown panels
+- Settings: 4-rank thesis configuration
+- New `POST /api/import/scraped-listings` endpoint
+- Deploy
 
----
+**Layer 2 — Target Detail Enrichment**
+- Deal structure calculator (3 SBA scenarios)
+- SDE→EBITDA adjustment logic
+- BVR database schema + import module
+- Market intelligence panel on detail pages
+- Outreach template system
 
-## 9. Seed Data Inventory
+**Layer 3 — Intelligence**
+- BVR Query Assistant screen
+- Market data dashboard (per-rank tabs)
+- Priority A fast-track auto-generation
+- Due diligence checklists
 
-### Thesis Target Companies (seed.ts, seed-targets.ts)
+**Layer 4 — Discovery**
+- Claude Code browser-assisted marketplace search skill
+- Off-market target entry form
+- Dashboard upgrades with BVR snapshots
+- Export to CSV/Excel
 
-| Company | Tier | Revenue | Trade | DC-Specific? |
-|---------|------|---------|-------|--------------|
-| PMS Commercial Division | OWNED | $1.4M | Security, AV | ★ YES — DC clients, dcRelevanceScore: 8 |
-| SPC Communications | TIER_1 | $5M | Structured Cabling | ★ YES — BiCSI RCDD, dcRelevanceScore: 9 |
-| ISI Technology | TIER_1 | $6M | Cabling + Security | ★ YES — dcRelevanceScore: 8 |
-| Mechanical Solutions Inc | TIER_1 | $5M | BMS / HVAC Controls | ★ YES — dcRelevanceScore: 9 |
-| Colorado Controls | TIER_2 | $2M | Building Automation | ★ YES — dcRelevanceScore: 6 |
-| Anchor Network Solutions | TIER_2 | $3M | Managed IT + Cabling | ★ YES — dcRelevanceScore: 5 |
-| 5 Tier 3 companies | TIER_3 | Various | Various | ★ YES — DC-specific disqualification reasons |
-
-### Market Intel Seed Data (seed-market-intel.ts)
-
-| Category | Count | Examples |
-|----------|-------|---------|
-| DC Operators | 15+ | QTS, CoreSite, Flexential, Global AI/Humain, Iron Mountain, STACK, Zenlayer, RadiusDC, Novva, Expedient, CyrusOne, Viaero |
-| Facilities | 10+ | QTS Aurora (177MW), CoreSite DE1/DE2/DE3, Flexential Parker, Novva CO Springs, Iron Mountain DEN-1 |
-| General Contractors | 10+ | DPR, Holder, Hensel Phelps, Mortenson, Constructiv, JE Dunn, PCL, Saunders, Turner, Whiting-Turner |
-| Cabling Opportunities | 3+ | QTS Aurora Phase 1, CoreSite DE3, Flexential Parker |
-
-### Configuration Seed Data (AppSetting)
-
-| Key | DC-Specific? | Content |
-|-----|-------------|---------|
-| Email templates | ★ YES | References "low-voltage / data center trades", "Colorado-based businesses" |
-| Search keywords | ★ YES | 22 keyword sets: "structured cabling" AND Colorado, DC-specific terms |
-| Broker contacts | Partial | Colorado-focused brokers (reusable pattern) |
-| Target email domains | ★ YES | structuredplus.com, intsysinst.com, msicolorado.com |
-
-### Industry Multiples (Generic — KEEP)
-
-18 industry/category combinations (Construction, Transportation, Manufacturing, Food Service, Retail, Professional Services, Healthcare, Technology, Automotive). These are generic and reusable.
+### Principles
+- Never delete working functionality without replacement
+- All thresholds configurable in settings (not hardcoded)
+- Scores recalculate in real time on field changes
+- Existing pipeline stages preserved exactly
+- BVR integration is import-based (no API dependency)
+- Browser-assisted search uses real Chrome session (no bot detection)
 
 ---
 
-## 10. Summary: What Must Change
-
-### Remove Entirely
-- [ ] 4 Prisma models: `DataCenterOperator`, `DCFacility`, `GeneralContractor`, `CablingOpportunity`
-- [ ] 8 DC-specific enums (OperatorTier, FacilityStatus, GCPriority, etc.)
-- [ ] 4 Listing model fields: `dcRelevanceScore`, `dcExperience`, `dcClients`, `dcCertifications`
-- [ ] 14 market-intel API routes (`/api/market-intel/*`)
-- [ ] 6 market-intel UI pages (`/market-intel/*`)
-- [ ] 4 market-intel components (`cabling-form.tsx`, `gc-form.tsx`, `operator-form.tsx`, `network-graph.tsx`)
-- [ ] 6 map components (`map-view.tsx`, `map-filter-panel.tsx`, `map-legend.tsx`, etc.)
-- [ ] 4 market-intel lib engines (`acquisition-flow-engine.ts`, `dc-project-automation.ts`, `gc-relationship-engine.ts`, `proximity.ts`)
-- [ ] `market-intel-constants.ts`, `map-constants.ts`
-- [ ] `use-market-intel.ts` hook
-- [ ] All DC-specific seed data (market-intel seed, thesis targets with DC scores)
-- [ ] `CablingPipelineSummaryCard` from dashboard
-- [ ] `DC_PROJECT_NEWS` notification type
-- [ ] Sidebar labels: "DC Operators", "GC Tracker", "Cabling Pipeline"
-
-### Rewrite / Update
-- [ ] 11 AI module system prompts (all except `email-intelligence.ts` and `claude-client.ts`)
-- [ ] `fit-score-engine.ts` — new 100-point scoring model for broad commercial services
-- [ ] `constants.ts` — `PRIMARY_TRADES`, `TARGET_TRADES`, `SECONDARY_TARGET_TRADES`, `TARGET_STATES`, `TARGET_METROS`, `THESIS_SEARCH_QUERIES`, `FIT_SCORE_WEIGHTS`
-- [ ] `thesis-defaults.ts` — default exit multiples, minimum EBITDA, fit score weights
-- [ ] `CLAUDE.md` — project description, acquisition thesis, target profile
-- [ ] Dashboard summary cards — replace DC metrics with generalized market intel
-- [ ] `MarketMetric` model fields — replace MW/cabling fields with generic market metrics
-- [ ] `Notification` types — remove `DC_PROJECT_NEWS`, add generalized industry update type
-- [ ] Sidebar navigation labels and icons for Market Intel section
-- [ ] Seed data — new generic example companies, new industry-agnostic search keywords
-- [ ] Email templates — remove DC/Colorado-specific language
-- [ ] News monitor RSS queries — replace with broad industry signals
-
-### Keep As-Is (Generic Infrastructure)
-- Pipeline CRM (Kanban, opportunity detail, stage tracking)
-- Financial modeling (valuation engine, rollup engine, period tracking, line items, add-backs, overrides)
-- Email integration (Gmail/Outlook sync, send, classify)
-- Contact management
-- Document management
-- Audit logging
-- Scraper infrastructure (platform scrapers, rate limiting, cookie management)
-- Deduplication engine
-- Import system (Excel/PDF/deal importer)
-- Authentication & access control
-- Industry multiples reference data
-
----
-
-*End of Phase 0 Audit — Ready for Phase 1: Strip DC-Specific Content*
+*Audit completed 2026-04-07 by Claude Code (Opus 4.6)*
