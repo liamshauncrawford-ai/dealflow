@@ -14,7 +14,7 @@ import { z } from "zod";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { listingId } = body;
+    const { listingId, templateType, referralContactName } = body;
 
     if (!listingId || typeof listingId !== "string") {
       return NextResponse.json(
@@ -71,6 +71,16 @@ export async function POST(request: NextRequest) {
           certifications: (listing.certifications as string[]) ?? [],
           knownProjects: listing.synergyNotes,
           additionalContext: null,
+          // Template system fields
+          templateType: templateType ?? undefined,
+          targetRankLabel: listing.targetRankLabel ?? null,
+          brokerName: listing.brokerName ?? null,
+          brokerCompany: listing.brokerCompany ?? null,
+          askingPrice: listing.askingPrice
+            ? formatCurrency(Number(listing.askingPrice))
+            : null,
+          listingTitle: listing.title ?? null,
+          referralContactName: referralContactName ?? null,
         });
 
         // Log the agent run
