@@ -35,12 +35,16 @@ RUN npm run build
 
 # Stage 3: Production runner
 FROM node:24-alpine AS runner
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl \
+    chromium nss freetype harfbuzz ca-certificates ttf-freefont
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
+# Use Alpine's system Chromium instead of Playwright's bundled browser
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -67,6 +71,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@anthropic-ai ./node
 # Copy @react-pdf/renderer + native deps (serverExternalPackage with @emnapi native bindings)
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@react-pdf ./node_modules/@react-pdf
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@emnapi ./node_modules/@emnapi
+
+# Copy Playwright (serverExternalPackage — uses system Chromium via PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/playwright ./node_modules/playwright
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/playwright-core ./node_modules/playwright-core
 
 COPY --from=builder --chown=nextjs:nodejs /app/start.sh ./start.sh
 

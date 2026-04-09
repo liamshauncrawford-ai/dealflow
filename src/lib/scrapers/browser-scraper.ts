@@ -16,7 +16,7 @@
  */
 
 import { Platform } from "@prisma/client";
-import type { Browser, BrowserContext, Page } from "playwright";
+import type { Browser, BrowserContext, Page } from "playwright-core";
 import { prisma } from "@/lib/db";
 import { loadCookies } from "./cookie-manager";
 import type { RawListing, ScrapeResult, ScraperFilters } from "./base-scraper";
@@ -75,7 +75,7 @@ interface BrowserSession {
 
 async function connectToChrome(): Promise<BrowserSession | null> {
   try {
-    const { chromium } = await import("playwright");
+    const { chromium } = await import("playwright-core");
 
     // Try to connect to user's Chrome via CDP
     const browser = await chromium.connectOverCDP(`http://127.0.0.1:${CDP_PORT}`, {
@@ -95,15 +95,22 @@ async function connectToChrome(): Promise<BrowserSession | null> {
 }
 
 async function launchPlaywright(): Promise<BrowserSession> {
-  const { chromium } = await import("playwright");
+  const { chromium } = await import("playwright-core");
+
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined;
+  if (executablePath) {
+    console.log(`[BROWSER] Using system Chromium at ${executablePath}`);
+  }
 
   const browser = await chromium.launch({
     headless: true,
+    executablePath,
     args: [
       "--disable-blink-features=AutomationControlled",
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
+      "--disable-gpu",
       "--lang=en-US,en",
     ],
   });
