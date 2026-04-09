@@ -153,10 +153,27 @@ async function stageDiscoveryListings(
     // Check if already discovered
     const existingDiscovery = await prisma.discoveryListing.findUnique({
       where: { sourceUrl: raw.sourceUrl },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (existingDiscovery) {
+      // Update existing NEW discoveries with fresher data (e.g. better titles)
+      if (existingDiscovery.status === "NEW") {
+        await prisma.discoveryListing.update({
+          where: { id: existingDiscovery.id },
+          data: {
+            title: raw.title,
+            askingPrice: raw.askingPrice,
+            revenue: raw.revenue,
+            cashFlow: raw.cashFlow,
+            ebitda: raw.ebitda,
+            city: raw.city,
+            state: raw.state,
+            description: raw.description,
+            rawData: (raw.rawData ?? {}) as Prisma.InputJsonValue,
+          },
+        });
+      }
       skippedCount++;
       continue;
     }

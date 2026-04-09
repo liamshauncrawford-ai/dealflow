@@ -848,10 +848,21 @@ export default function DiscoveryPage() {
         ) : (
           <>
             <div className="overflow-x-auto rounded-lg border bg-card">
-              <table className="w-full text-sm">
+              <table className="w-full table-fixed text-sm">
+                <colgroup>
+                  <col className="w-10" />
+                  <col className="w-[30%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-[10%]" />
+                  <col className="w-20" />
+                </colgroup>
                 <thead>
                   <tr className="border-b bg-muted/50 text-left">
-                    <th className="w-10 px-3 py-3">
+                    <th className="px-3 py-3">
                       <input
                         type="checkbox"
                         checked={
@@ -883,7 +894,7 @@ export default function DiscoveryPage() {
                     <th className="px-3 py-3 font-medium text-muted-foreground">
                       Discovered
                     </th>
-                    <th className="w-24 px-3 py-3 font-medium text-muted-foreground">
+                    <th className="px-3 py-3 font-medium text-muted-foreground">
                       Actions
                     </th>
                   </tr>
@@ -902,12 +913,13 @@ export default function DiscoveryPage() {
                           className="h-4 w-4 rounded border-input"
                         />
                       </td>
-                      <td className="max-w-xs px-3 py-2.5">
+                      <td className="px-3 py-2.5 overflow-hidden">
                         <a
                           href={item.sourceUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 font-medium text-foreground hover:text-primary transition-colors"
+                          className="flex items-center gap-1 font-medium text-foreground hover:text-primary transition-colors min-w-0"
+                          title={item.title}
                         >
                           <span className="truncate">
                             {item.title}
@@ -915,26 +927,26 @@ export default function DiscoveryPage() {
                           <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
                         </a>
                       </td>
-                      <td className="px-3 py-2.5 tabular-nums">
+                      <td className="px-3 py-2.5 tabular-nums truncate overflow-hidden">
                         {item.askingPrice
                           ? formatCurrency(Number(item.askingPrice))
                           : "\u2014"}
                       </td>
-                      <td className="px-3 py-2.5 tabular-nums">
+                      <td className="px-3 py-2.5 tabular-nums truncate overflow-hidden">
                         {item.cashFlow
                           ? formatCurrency(Number(item.cashFlow))
                           : "\u2014"}
                       </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">
+                      <td className="px-3 py-2.5 text-muted-foreground truncate overflow-hidden">
                         {formatLocation(item.city, item.state)}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2.5 overflow-hidden">
                         {platformBadge(item.platform)}
                       </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">
+                      <td className="px-3 py-2.5 text-muted-foreground truncate overflow-hidden">
                         {item.searchProfile?.name ?? "\u2014"}
                       </td>
-                      <td className="px-3 py-2.5 text-muted-foreground">
+                      <td className="px-3 py-2.5 text-muted-foreground truncate overflow-hidden">
                         {timeAgo(item.discoveredAt)}
                       </td>
                       <td className="px-3 py-2.5">

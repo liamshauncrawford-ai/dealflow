@@ -597,28 +597,84 @@ async function scrapeBusinessBroker(
           if (seen.has(href)) return;
           seen.add(href);
 
-          // Extract data from the card (parent container)
-          const card = anchor.closest("div, li, article, section") || anchor;
-          const text = card.textContent || "";
+          // Extract the TITLE only — use the first heading, or the first
+          // text node / short child, NOT the full anchor textContent which
+          // includes description, price, location, etc.
+          let title: string | null = null;
 
-          const title = anchor.textContent?.trim() || null;
-          if (!title || title.length < 10) return;
+          // Strategy 1: heading inside or near the anchor
+          const heading = anchor.querySelector("h1, h2, h3, h4, h5, h6, [class*='title'], [class*='Title']");
+          if (heading) {
+            title = heading.textContent?.trim() || null;
+          }
+
+          // Strategy 2: the anchor's own direct text (not children's text)
+          if (!title) {
+            // Get only direct text nodes of the anchor
+            const directText = Array.from(anchor.childNodes)
+              .filter(n => n.nodeType === Node.TEXT_NODE)
+              .map(n => n.textContent?.trim())
+              .filter(t => t && t.length > 5)
+              .join(" ")
+              .trim();
+            if (directText && directText.length > 5 && directText.length < 200) {
+              title = directText;
+            }
+          }
+
+          // Strategy 3: derive title from the URL slug
+          if (!title) {
+            const slugMatch = href.match(/\/business-for-sale\/([^/]+)\//);
+            if (slugMatch) {
+              title = slugMatch[1]
+                .replace(/-/g, " ")
+                .replace(/\b\w/g, c => c.toUpperCase());
+            }
+          }
+
+          if (!title || title.length < 5) return;
+
+          // Clean up: strip embedded financial data from the title
+          title = title
+            .replace(/Asking\s*Price[:\s]*\$?[\d,]+/gi, "")
+            .replace(/Cash\s*Flow[:\s]*\$?[\d,]+/gi, "")
+            .replace(/Revenue[:\s]*\$?[\d,]+/gi, "")
+            .replace(/\$[\d,]+/g, "")
+            .replace(/\s{2,}/g, " ")
+            .trim();
+
+          // Get the card container for financial data extraction
+          // Walk up to find a container that's likely the listing card
+          let card: Element = anchor;
+          let parent = anchor.parentElement;
+          for (let i = 0; i < 5 && parent; i++) {
+            // Stop when we find a container that has multiple listing links (too high)
+            const linksInParent = parent.querySelectorAll('a[href*="/business-for-sale/"]').length;
+            if (linksInParent > 1) break;
+            card = parent;
+            parent = parent.parentElement;
+          }
+          const cardText = card.textContent || "";
 
           // Parse price from text like "Asking Price: $1,399,000"
-          const priceMatch = text.match(/Asking\s*Price[:\s]*\$?([\d,]+)/i);
+          const priceMatch = cardText.match(/Asking\s*Price[:\s]*\$?([\d,]+)/i);
           // Parse location from text like "Denver, CO"
-          const locationMatch = text.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})/);
+          const locationMatch = cardText.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})/);
           // Parse cash flow
-          const cashFlowMatch = text.match(/Cash\s*Flow[:\s]*\$?([\d,]+)/i);
+          const cashFlowMatch = cardText.match(/Cash\s*Flow[:\s]*\$?([\d,]+)/i);
           // Parse revenue
-          const revenueMatch = text.match(/Revenue[:\s]*\$?([\d,]+)/i);
-          // Description — grab first substantial paragraph
+          const revenueMatch = cardText.match(/Revenue[:\s]*\$?([\d,]+)/i);
+          // Description — grab first substantial paragraph that isn't the title
           const descEl = card.querySelector("p, [class*='description'], [class*='snippet']");
-          const description = descEl?.textContent?.trim() || null;
+          let description = descEl?.textContent?.trim() || null;
+          // Truncate long descriptions
+          if (description && description.length > 300) {
+            description = description.substring(0, 300) + "…";
+          }
 
           results.push({
             url: href,
-            title: title.replace(/Asking\s*Price[:\s]*\$?[\d,]+/i, "").trim() || title,
+            title,
             price: priceMatch?.[1] || null,
             location: locationMatch ? `${locationMatch[1]}, ${locationMatch[2]}` : null,
             city: locationMatch?.[1] || null,
