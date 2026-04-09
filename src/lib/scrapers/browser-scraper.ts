@@ -73,7 +73,7 @@ interface BrowserSession {
   isConnected: boolean; // true = CDP or Bright Data connection (don't close browser)
 }
 
-// Platforms that use Akamai bot detection and need Bright Data or CDP
+// Platforms that use Akamai bot detection and need ZenRows, Bright Data, or CDP
 const AKAMAI_PLATFORMS: Set<Platform> = new Set(["BIZBUYSELL", "BIZQUEST"]);
 
 async function connectToChrome(): Promise<BrowserSession | null> {
@@ -98,39 +98,45 @@ async function connectToChrome(): Promise<BrowserSession | null> {
 }
 
 /**
- * Connect to Bright Data's Scraping Browser via CDP.
- * This runs a real Chromium on Bright Data's infrastructure with residential
- * IPs and genuine TLS fingerprints — bypasses Akamai JA3/JA4 detection.
- * Requires BRIGHT_DATA_BROWSER_WS env var (WebSocket endpoint from Bright Data dashboard).
+ * Fetch a URL via ZenRows anti-bot API.
+ * Returns the fully rendered HTML that can be parsed with Cheerio.
+ * Used for Akamai-protected sites (BizBuySell, BizQuest) where
+ * headless browsers get blocked by TLS fingerprinting.
+ *
+ * Requires ZENROWS_API_KEY env var.
  */
-async function connectToBrightData(): Promise<BrowserSession | null> {
-  const wsEndpoint = process.env.BRIGHT_DATA_BROWSER_WS;
-  if (!wsEndpoint) {
+async function fetchViaZenRows(targetUrl: string): Promise<string | null> {
+  const apiKey = process.env.ZENROWS_API_KEY;
+  if (!apiKey) {
     return null;
   }
 
-  try {
-    const { chromium } = await import("playwright-core");
+  const params = new URLSearchParams({
+    apikey: apiKey,
+    url: targetUrl,
+    js_render: "true",
+    antibot: "true",
+    premium_proxy: "true",
+    wait: "5000", // Wait 5s for JS to render (BizBuySell is Angular)
+  });
 
-    const browser = await chromium.connectOverCDP(wsEndpoint, {
-      timeout: 30_000,
-    });
+  const zenRowsUrl = `https://api.zenrows.com/v1/?${params.toString()}`;
+  console.log(`[ZENROWS] Fetching: ${targetUrl}`);
 
-    const context = browser.contexts()[0] || await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-      viewport: { width: 1440, height: 900 },
-      locale: "en-US",
-      timezoneId: "America/Denver",
-    });
+  const response = await fetch(zenRowsUrl, {
+    headers: { "Accept": "text/html" },
+    signal: AbortSignal.timeout(60_000), // 60s timeout (ZenRows can be slow with antibot)
+  });
 
-    console.log("[BROWSER] Connected to Bright Data Scraping Browser via CDP");
-    return { browser, context, isConnected: true };
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`[BROWSER] Bright Data connection failed: ${msg}`);
-    return null;
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    console.error(`[ZENROWS] HTTP ${response.status}: ${body.substring(0, 200)}`);
+    throw new Error(`ZenRows returned HTTP ${response.status}: ${body.substring(0, 200)}`);
   }
+
+  const html = await response.text();
+  console.log(`[ZENROWS] Got ${html.length} bytes of HTML`);
+  return html;
 }
 
 async function launchPlaywright(): Promise<BrowserSession> {
@@ -287,34 +293,46 @@ export async function browserScrapeForDiscovery(
   const startedAt = new Date();
   const needsAntiBot = AKAMAI_PLATFORMS.has(platform);
 
+  // ── Fast path: ZenRows API for Akamai-protected sites ──
+  // ZenRows fetches rendered HTML via their anti-bot infrastructure.
+  // No browser needed — we parse the HTML with existing Cheerio parsers.
+  if (needsAntiBot && process.env.ZENROWS_API_KEY) {
+    try {
+      const result = await scrapeViaZenRows(platform, filters);
+      console.log(
+        `[${platform}] Discovery scrape complete: ${result.listings.length} found (via ZenRows)`
+      );
+      return result;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[${platform}] ZenRows failed: ${msg}, trying browser fallback...`);
+      // Fall through to browser-based scraping
+    }
+  }
+
+  // ── Browser-based scraping ──
   // Connection priority:
   // 1. CDP to real Chrome (works for everything, best fingerprint)
-  // 2. Bright Data Scraping Browser (for Akamai-protected sites — real browser + residential IP)
-  // 3. Local Playwright with system Chromium (works for sites without Akamai)
+  // 2. Local Playwright with system Chromium (works for sites without Akamai)
   let session = await connectToChrome();
   let connectionType = session ? "Chrome CDP" : "";
 
   if (!session && needsAntiBot) {
-    // Akamai platforms MUST use Bright Data or CDP — local Chromium will be 403'd
-    session = await connectToBrightData();
-    connectionType = session ? "Bright Data" : "";
-
-    if (!session) {
-      console.warn(
-        `[${platform}] No anti-bot browser available. ` +
-          `Set BRIGHT_DATA_BROWSER_WS env var or run Chrome with --remote-debugging-port=9222`
-      );
-      return {
-        platform,
-        listings: [],
-        errors: [
-          `${platform} uses Akamai bot detection. Configure BRIGHT_DATA_BROWSER_WS ` +
-            `env var (Bright Data Scraping Browser) or connect Chrome via CDP to scrape this platform.`,
-        ],
-        startedAt,
-        completedAt: new Date(),
-      };
-    }
+    // Akamai platforms need ZenRows or CDP — local Chromium will be 403'd
+    console.warn(
+      `[${platform}] No anti-bot method available. ` +
+        `Set ZENROWS_API_KEY env var or run Chrome with --remote-debugging-port=9222`
+    );
+    return {
+      platform,
+      listings: [],
+      errors: [
+        `${platform} uses Akamai bot detection. Configure ZENROWS_API_KEY ` +
+          `env var or connect Chrome via CDP to scrape this platform.`,
+      ],
+      startedAt,
+      completedAt: new Date(),
+    };
   }
 
   if (!session) {
@@ -366,6 +384,91 @@ export async function browserScrapeForDiscovery(
 // ─────────────────────────────────────────────
 // Platform routing
 // ─────────────────────────────────────────────
+
+/**
+ * Scrape an Akamai-protected platform via ZenRows API + Cheerio parser.
+ * ZenRows handles the anti-bot bypass and returns rendered HTML.
+ * We parse it with the same Cheerio parsers used for detail page enrichment.
+ */
+async function scrapeViaZenRows(
+  platform: Platform,
+  filters: ScraperFilters
+): Promise<ScrapeResult> {
+  const startedAt = new Date();
+  const listings: RawListing[] = [];
+  const errors: string[] = [];
+
+  // Build the search URL using the platform's existing URL builder
+  let searchUrl: string;
+  let parser: { parseSearchResults: (html: string) => Array<{ url: string; preview: Partial<RawListing> }> };
+
+  if (platform === "BIZBUYSELL") {
+    const { BizBuySellScraper } = await import("./bizbuysell");
+    const p = new BizBuySellScraper();
+    searchUrl = p.buildSearchUrl(filters);
+    parser = p;
+  } else if (platform === "BIZQUEST") {
+    const { BizQuestScraper } = await import("./bizquest");
+    const p = new BizQuestScraper();
+    searchUrl = p.buildSearchUrl(filters);
+    parser = p;
+  } else {
+    throw new Error(`ZenRows not configured for platform: ${platform}`);
+  }
+
+  // Fetch rendered HTML via ZenRows
+  const html = await fetchViaZenRows(searchUrl);
+  if (!html) {
+    throw new Error("ZenRows returned no HTML");
+  }
+
+  // Check for access denied in the returned HTML
+  if (html.toLowerCase().includes("access denied") || html.toLowerCase().includes("access to this page has been blocked")) {
+    errors.push(`ZenRows returned blocked page for ${platform}`);
+    return { platform, listings, errors, startedAt, completedAt: new Date() };
+  }
+
+  // Parse search results with existing Cheerio parser
+  const searchResults = parser.parseSearchResults(html);
+  console.log(`[${platform}] ZenRows + Cheerio parsed ${searchResults.length} listings`);
+
+  for (const result of searchResults) {
+    if (listings.length >= MAX_DETAILS_PER_RUN) break;
+    listings.push({
+      sourceId: null,
+      sourceUrl: result.url,
+      title: result.preview.title || "Untitled",
+      businessName: null,
+      askingPrice: result.preview.askingPrice ?? null,
+      revenue: null,
+      cashFlow: result.preview.cashFlow ?? null,
+      ebitda: null,
+      sde: null,
+      industry: null,
+      category: result.preview.category ?? null,
+      city: result.preview.city ?? null,
+      state: result.preview.state ?? null,
+      zipCode: result.preview.zipCode ?? null,
+      description: result.preview.description ?? null,
+      brokerName: null,
+      brokerCompany: null,
+      brokerPhone: null,
+      brokerEmail: null,
+      employees: null,
+      established: null,
+      sellerFinancing: null,
+      inventory: null,
+      ffe: null,
+      realEstate: null,
+      reasonForSale: null,
+      facilities: null,
+      listingDate: null,
+      rawData: { source: "zenrows", scrapedUrl: searchUrl },
+    });
+  }
+
+  return { platform, listings, errors, startedAt, completedAt: new Date() };
+}
 
 async function scrapePlatform(
   platform: Platform,
