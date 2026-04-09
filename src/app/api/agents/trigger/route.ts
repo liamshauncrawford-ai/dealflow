@@ -14,6 +14,7 @@ const ALLOWED_ENDPOINTS = [
   "/api/cron/dora-scan",
   "/api/cron/dedup-scan",
   "/api/cron/weekly-brief",
+  "/api/cron/discovery-scan",
 ];
 
 /**
