@@ -189,7 +189,7 @@ const STATUS_TABS = [
 ];
 
 // All platforms available for profile creation
-const ALL_PLATFORMS = ["BIZBUYSELL", "BIZQUEST", "BUSINESSBROKER"] as const;
+const ALL_PLATFORMS = ["BIZBUYSELL", "BIZQUEST", "BUSINESSBROKER", "DEALSTREAM"] as const;
 
 // ─────────────────────────────────────────────
 // Default form state
@@ -795,6 +795,7 @@ export default function DiscoveryPage() {
             <SelectOption value="BUSINESSBROKER">
               BusinessBroker.net
             </SelectOption>
+            <SelectOption value="DEALSTREAM">DealStream</SelectOption>
           </Select>
         </div>
 
