@@ -1,6 +1,6 @@
 import { Platform, Prisma, SearchProfile } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { getScraperForPlatform } from "@/lib/scrapers/scraper-registry";
+import { browserScrapeForDiscovery } from "@/lib/scrapers/browser-scraper";
 import type { RawListing, ScraperFilters } from "@/lib/scrapers/base-scraper";
 
 // ─────────────────────────────────────────────
@@ -104,23 +104,20 @@ export async function runSearchProfile(
 }
 
 // ─────────────────────────────────────────────
-// Scrape for discovery (no auto-import)
+// Scrape for discovery (browser-based, no auto-import)
 // ─────────────────────────────────────────────
 
 /**
- * Use the Cheerio HTTP scraper (BaseScraper.scrape()) to get raw listings.
- * This does NOT call processScrapedListings — listings are returned raw
- * for staging into the discovery queue.
- *
- * Note: BaseScraper.scrape() creates its own ScrapeRun record internally.
- * For MVP we accept this duplicate tracking. The key point is no auto-import.
+ * Use the browser scraper (Playwright/CDP) to get raw listings WITHOUT
+ * auto-importing them into the pipeline. This bypasses bot detection
+ * (Akamai, Cloudflare) by using a real browser session, while returning
+ * raw ScrapeResult for staging into the discovery queue.
  */
 async function scrapeForDiscovery(
   platform: Platform,
   filters: ScraperFilters
 ): Promise<{ listings: RawListing[]; errors: string[] }> {
-  const scraper = getScraperForPlatform(platform);
-  const result = await scraper.scrape(filters);
+  const result = await browserScrapeForDiscovery(platform, filters);
 
   return {
     listings: result.listings,

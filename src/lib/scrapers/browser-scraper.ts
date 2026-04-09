@@ -226,6 +226,71 @@ export async function browserScrape(
 }
 
 // ─────────────────────────────────────────────
+// Discovery-mode browser scrape (no auto-import)
+// ─────────────────────────────────────────────
+
+/**
+ * Browser scrape that returns raw listings WITHOUT calling processScrapedListings.
+ * Used by the discovery runner to stage results in the DiscoveryListing table
+ * instead of auto-importing into the Listing pipeline.
+ */
+export async function browserScrapeForDiscovery(
+  platform: Platform,
+  filters: ScraperFilters = { state: "CO" }
+): Promise<ScrapeResult> {
+  const startedAt = new Date();
+
+  // Try CDP first (real Chrome), fall back to Playwright
+  let session = await connectToChrome();
+  const usedCDP = !!session;
+
+  if (!session) {
+    session = await launchPlaywright();
+
+    // Load cookies from DB for fallback Playwright browser
+    const cookies = await loadCookies(platform);
+    if (cookies && cookies.length > 0) {
+      const playwrightCookies = cookies
+        .filter((c) => c.name && c.value && c.domain)
+        .map((c) => ({
+          name: c.name,
+          value: c.value,
+          domain: c.domain,
+          path: c.path || "/",
+          ...(c.expires && c.expires > 0 ? { expires: c.expires } : {}),
+        }));
+
+      if (playwrightCookies.length > 0) {
+        try {
+          await session.context.addCookies(playwrightCookies);
+          console.log(`[${platform}] Loaded ${playwrightCookies.length} cookies`);
+        } catch (cookieErr) {
+          console.warn(
+            `[${platform}] Cookie load failed:`,
+            cookieErr instanceof Error ? cookieErr.message : cookieErr
+          );
+        }
+      }
+    }
+  }
+
+  try {
+    const result = await scrapePlatform(platform, session.context, filters);
+
+    console.log(
+      `[${platform}] Discovery scrape complete: ${result.listings.length} found` +
+        (usedCDP ? " (via Chrome CDP)" : " (via Playwright)")
+    );
+
+    return result;
+  } finally {
+    if (!usedCDP) {
+      await session.browser.close();
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // Platform routing
 // ─────────────────────────────────────────────
 
