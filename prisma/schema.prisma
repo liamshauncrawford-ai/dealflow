@@ -173,6 +173,7 @@ model Listing {
   aiAnalyses        AIAnalysisResult[]
   dueDiligenceItems DueDiligenceItem[]
   priorityAPackage  PriorityAPackage?
+  discoveryListings DiscoveryListing[]
 
   @@index([city, state])
   @@index([industry])
@@ -855,6 +856,9 @@ model ScrapeRun {
   platform    Platform
   triggeredBy String
 
+  searchProfileId String?
+  searchProfile   SearchProfile? @relation(fields: [searchProfileId], references: [id])
+
   status ScrapeStatus @default(PENDING)
 
   listingsFound   Int @default(0)
@@ -892,6 +896,67 @@ model ScrapeSchedule {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum DiscoveryStatus {
+  NEW
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// ─────────────────────────────────────────────
+// DISCOVERY
+// ─────────────────────────────────────────────
+
+model SearchProfile {
+  id             String     @id @default(cuid())
+  name           String
+  platforms      Platform[]
+  filters        Json       // ScraperFilters shape
+  cronExpression String?
+  isEnabled      Boolean    @default(true)
+  lastRunAt      DateTime?
+  nextRunAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  discoveryListings DiscoveryListing[]
+  scrapeRuns        ScrapeRun[]
+}
+
+model DiscoveryListing {
+  id              String          @id @default(cuid())
+  searchProfileId String
+  searchProfile   SearchProfile   @relation(fields: [searchProfileId], references: [id], onDelete: Cascade)
+
+  title       String
+  businessName String?
+  askingPrice Decimal?  @db.Decimal(14, 2)
+  revenue     Decimal?  @db.Decimal(14, 2)
+  cashFlow    Decimal?  @db.Decimal(14, 2)
+  ebitda      Decimal?  @db.Decimal(14, 2)
+  industry    String?
+  city        String?
+  state       String?
+  sourceUrl   String    @unique
+  platform    Platform
+  brokerName  String?
+  brokerCompany String?
+  description String?   @db.Text
+  rawData     Json?
+
+  status      DiscoveryStatus @default(NEW)
+  discoveredAt DateTime       @default(now())
+  reviewedAt  DateTime?
+  listingId   String?
+  listing     Listing?        @relation(fields: [listingId], references: [id])
+
+  @@index([status])
+  @@index([searchProfileId])
+  @@index([discoveredAt])
+  @@index([platform])
 }
 
 // ─────────────────────────────────────────────
