@@ -11,7 +11,7 @@ import {
 
 type LoadedCheerio = ReturnType<typeof cheerio.load>;
 
-const BASE_URL = "https://www.dealstream.com";
+const BASE_URL = "https://dealstream.com";
 
 export class DealStreamScraper extends BaseScraper {
   constructor() {
@@ -21,32 +21,24 @@ export class DealStreamScraper extends BaseScraper {
   // ── Search URL builder ──
 
   buildSearchUrl(filters: ScraperFilters): string {
-    const params = new URLSearchParams();
+    // DealStream uses path-based filtering:
+    //   State:       /colorado-businesses-for-sale
+    //   City:        /colorado/denver-businesses-for-sale
+    //   County:      /colorado/denver-county-businesses-for-sale
+    const stateInput = (filters.state ?? "colorado").toLowerCase();
+    const stateMap: Record<string, string> = {
+      co: "colorado", ca: "california", tx: "texas",
+      ny: "new-york", fl: "florida", az: "arizona",
+      wa: "washington", or: "oregon", nv: "nevada",
+    };
+    const state = stateMap[stateInput] ?? stateInput.replace(/\s+/g, "-");
 
-    if (filters.state) {
-      params.set("location", filters.state.toLowerCase().replace(/\s+/g, "-"));
-    }
-    if (filters.minPrice !== undefined) {
-      params.set("min_price", String(filters.minPrice));
-    }
-    if (filters.maxPrice !== undefined) {
-      params.set("max_price", String(filters.maxPrice));
-    }
-    if (filters.minCashFlow !== undefined) {
-      params.set("min_cashflow", String(filters.minCashFlow));
-    }
     if (filters.city) {
-      params.set("city", filters.city.toLowerCase().replace(/\s+/g, "-"));
+      const city = filters.city.toLowerCase().replace(/\s+/g, "-");
+      return `${BASE_URL}/${state}/${city}-businesses-for-sale`;
     }
 
-    const paramString = params.toString();
-    let url = `${BASE_URL}/businesses-for-sale`;
-
-    if (paramString) {
-      url += `?${paramString}`;
-    }
-
-    return url;
+    return `${BASE_URL}/${state}-businesses-for-sale`;
   }
 
   // ── Search results parser ──
@@ -502,32 +494,19 @@ export class DealStreamScraper extends BaseScraper {
 
   /**
    * Extract a DealStream listing source ID from the URL.
-   * URLs follow patterns like: /deal/123456 or /businesses-for-sale/slug-123456
+   * Actual URL pattern: /d/biz-sale/{category}/{alphanumeric-id}
+   * Example: /d/biz-sale/trade-contractor/77t1z9
    */
   private extractSourceId(url: string): string | null {
-    // Pattern: /deal/123456 or trailing numeric ID
-    const dealMatch = url.match(/\/deal\/(\d+)/);
-    if (dealMatch) return dealMatch[1];
+    // Pattern: /d/biz-sale/category/ID (alphanumeric)
+    const bizSaleMatch = url.match(/\/d\/biz-sale\/[^/]+\/([a-z0-9]+)/i);
+    if (bizSaleMatch) return bizSaleMatch[1];
 
-    // Pattern: slug-123456 or /listing/123456
-    const idMatch = url.match(/\/(\d{4,})(?:[/?#]|$)/);
-    if (idMatch) return idMatch[1];
+    // Fallback: last path segment
+    const pathMatch = url.match(/\/([a-z0-9]{4,})(?:[/?#]|$)/i);
+    if (pathMatch) return pathMatch[1];
 
-    // Trailing ID after a hyphen: /some-deal-name-123456
-    const trailingIdMatch = url.match(/-(\d{4,})(?:[/?#]|$)/);
-    if (trailingIdMatch) return trailingIdMatch[1];
-
-    // Try query parameter
-    try {
-      const urlObj = new URL(url);
-      return (
-        urlObj.searchParams.get("id") ||
-        urlObj.searchParams.get("deal_id") ||
-        null
-      );
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   /**

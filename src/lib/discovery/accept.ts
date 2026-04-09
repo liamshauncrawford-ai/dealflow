@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { Platform, Prisma } from "@prisma/client";
 import { getScraperForPlatform } from "@/lib/scrapers/scraper-registry";
 import { processScrapedListings } from "@/lib/scrapers/post-processor";
+import { findDuplicatesForListing } from "@/lib/dedup/dedup-engine";
 import type { RawListing, ScrapeResult } from "@/lib/scrapers/base-scraper";
 
 // ─────────────────────────────────────────────
@@ -50,10 +51,10 @@ export async function acceptDiscoveryListing(id: string): Promise<AcceptResult> 
     const scraper = getScraperForPlatform(discovery.platform);
 
     // For Akamai-protected platforms, use ZenRows to fetch the detail page
-    const akamaiPlatforms = new Set(["BIZBUYSELL", "BIZQUEST"]);
+    const antiBotPlatforms = new Set(["BIZBUYSELL", "BIZQUEST", "DEALSTREAM"]);
     let html: string;
 
-    if (akamaiPlatforms.has(discovery.platform) && process.env.ZENROWS_API_KEY) {
+    if (antiBotPlatforms.has(discovery.platform) && process.env.ZENROWS_API_KEY) {
       const params = new URLSearchParams({
         apikey: process.env.ZENROWS_API_KEY,
         url: discovery.sourceUrl,
@@ -117,6 +118,24 @@ export async function acceptDiscoveryListing(id: string): Promise<AcceptResult> 
       listingId: listingSource.listingId,
     },
   });
+
+  // ── Step 5: Run dedup check for the new listing ──
+  // This creates DedupCandidate records if the listing matches existing ones.
+  // High-confidence matches (>0.85) are auto-merged by the dedup cron job.
+  try {
+    const candidates = await findDuplicatesForListing(listingSource.listingId);
+    if (candidates.length > 0) {
+      console.log(
+        `[accept] Found ${candidates.length} potential duplicate(s) for listing ${listingSource.listingId}`
+      );
+    }
+  } catch (dedupErr) {
+    // Don't fail the accept if dedup errors — it's a secondary concern
+    console.warn(
+      "[accept] Dedup check failed:",
+      dedupErr instanceof Error ? dedupErr.message : dedupErr
+    );
+  }
 
   return {
     success: true,

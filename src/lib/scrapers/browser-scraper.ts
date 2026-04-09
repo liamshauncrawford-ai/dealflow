@@ -73,8 +73,8 @@ interface BrowserSession {
   isConnected: boolean; // true = CDP or Bright Data connection (don't close browser)
 }
 
-// Platforms that use Akamai bot detection and need ZenRows, Bright Data, or CDP
-const AKAMAI_PLATFORMS: Set<Platform> = new Set(["BIZBUYSELL", "BIZQUEST"]);
+// Platforms with bot detection that need ZenRows or CDP to scrape reliably
+const ANTIBOT_PLATFORMS: Set<Platform> = new Set(["BIZBUYSELL", "BIZQUEST", "DEALSTREAM"]);
 
 async function connectToChrome(): Promise<BrowserSession | null> {
   try {
@@ -291,7 +291,7 @@ export async function browserScrapeForDiscovery(
   filters: ScraperFilters = { state: "CO" }
 ): Promise<ScrapeResult> {
   const startedAt = new Date();
-  const needsAntiBot = AKAMAI_PLATFORMS.has(platform);
+  const needsAntiBot = ANTIBOT_PLATFORMS.has(platform);
 
   // ── Fast path: ZenRows API for Akamai-protected sites ──
   // ZenRows fetches rendered HTML via their anti-bot infrastructure.
@@ -410,6 +410,11 @@ async function scrapeViaZenRows(
   } else if (platform === "BIZQUEST") {
     const { BizQuestScraper } = await import("./bizquest");
     const p = new BizQuestScraper();
+    searchUrl = p.buildSearchUrl(filters);
+    parser = p;
+  } else if (platform === "DEALSTREAM") {
+    const { DealStreamScraper } = await import("./dealstream");
+    const p = new DealStreamScraper();
     searchUrl = p.buildSearchUrl(filters);
     parser = p;
   } else {
@@ -943,14 +948,11 @@ async function scrapeDealStream(
       const results: Array<Record<string, string | null>> = [];
       const seen = new Set<string>();
 
-      // DealStream listing links: /deal/, /business/, /listing/ patterns
+      // DealStream listing links: /d/biz-sale/{category}/{id}
+      // e.g., /d/biz-sale/trade-contractor/77t1z9
       const linkSelectors = [
-        'a[href*="/deal/"]',
-        'a[href*="/business/"]',
-        'a[href*="/listing/"]',
-        '.deal-card a',
-        '.listing a',
-        '.search-result a',
+        'a[href*="/d/biz-sale/"]',
+        'a[href*="/d/biz-buy/"]',
       ];
 
       for (const selector of linkSelectors) {
@@ -958,9 +960,8 @@ async function scrapeDealStream(
           const anchor = el as HTMLAnchorElement;
           const href = anchor.href;
           if (!href || seen.has(href)) return;
-          // Skip navigation/category links
-          if (href.includes("/search") || href.includes("/category") ||
-              href.includes("/login") || href.includes("/register") ||
+          // Skip non-listing links
+          if (href.includes("/login") || href.includes("/register") ||
               href.includes("/about") || href.includes("/contact")) return;
           seen.add(href);
 
