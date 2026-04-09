@@ -20,6 +20,7 @@ import {
   Layers,
   GitCompare,
   Bot,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -35,6 +36,7 @@ const mainNavItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Target Businesses", href: "/listings", icon: Building2 },
   { label: "Pipeline", href: "/pipeline", icon: Kanban },
+  { label: "Discovery", href: "/discovery", icon: Search },
   { label: "Contacts", href: "/contacts", icon: Users },
 ];
 
