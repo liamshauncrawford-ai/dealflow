@@ -290,11 +290,7 @@ async function scrapeBizBuySell(
   const listings: RawListing[] = [];
   const errors: string[] = [];
   const parser = new BizBuySellScraper();
-
-  const stateInput = (filters.state ?? "colorado").toLowerCase();
-  const state = stateInput === "co" ? "colorado" : stateInput.replace(/\s+/g, "-");
-  // Correct URL pattern: /colorado-businesses-for-sale/
-  let currentUrl: string | null = `https://www.bizbuysell.com/${state}-businesses-for-sale/`;
+  let currentUrl: string | null = parser.buildSearchUrl(filters);
 
   const page = await context.newPage();
 
@@ -458,7 +454,8 @@ async function scrapeBizQuest(
   const page = await context.newPage();
 
   try {
-    const searchUrl = `https://www.bizquest.com/businesses-for-sale/colorado/`;
+    const { BizQuestScraper } = await import("./bizquest");
+    const searchUrl = new BizQuestScraper().buildSearchUrl(filters);
     console.log(`[BIZQUEST] Fetching: ${searchUrl}`);
     await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT });
     await humanDelay(page, 2500, 4000);
@@ -498,7 +495,8 @@ async function scrapeBusinessBroker(
   const page = await context.newPage();
 
   try {
-    const searchUrl = `https://www.businessbroker.net/businesses-for-sale/colorado`;
+    const { BusinessBrokerScraper } = await import("./businessbroker");
+    const searchUrl = new BusinessBrokerScraper().buildSearchUrl(filters);
     console.log(`[BUSINESSBROKER] Fetching: ${searchUrl}`);
     await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT });
     await humanDelay(page, 2500, 4000);
