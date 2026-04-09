@@ -48,7 +48,33 @@ export async function acceptDiscoveryListing(id: string): Promise<AcceptResult> 
 
   try {
     const scraper = getScraperForPlatform(discovery.platform);
-    const html = await scraper.fetchSinglePage(discovery.sourceUrl);
+
+    // For Akamai-protected platforms, use ZenRows to fetch the detail page
+    const akamaiPlatforms = new Set(["BIZBUYSELL", "BIZQUEST"]);
+    let html: string;
+
+    if (akamaiPlatforms.has(discovery.platform) && process.env.ZENROWS_API_KEY) {
+      const params = new URLSearchParams({
+        apikey: process.env.ZENROWS_API_KEY,
+        url: discovery.sourceUrl,
+        js_render: "true",
+        antibot: "true",
+        premium_proxy: "true",
+        wait: "3000",
+      });
+      const response = await fetch(`https://api.zenrows.com/v1/?${params.toString()}`, {
+        headers: { "Accept": "text/html" },
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (!response.ok) {
+        throw new Error(`ZenRows HTTP ${response.status}`);
+      }
+      html = await response.text();
+      console.log(`[accept] Fetched detail page via ZenRows (${html.length} bytes)`);
+    } else {
+      html = await scraper.fetchSinglePage(discovery.sourceUrl);
+    }
+
     rawListing = await scraper.parseDetailPage(html, discovery.sourceUrl);
     enriched = true;
   } catch (err) {
