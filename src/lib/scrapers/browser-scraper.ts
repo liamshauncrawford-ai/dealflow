@@ -70,8 +70,11 @@ const STEALTH_SCRIPT = `
 interface BrowserSession {
   browser: Browser;
   context: BrowserContext;
-  isConnected: boolean; // true = CDP connection to real Chrome
+  isConnected: boolean; // true = CDP or Bright Data connection (don't close browser)
 }
+
+// Platforms that use Akamai bot detection and need Bright Data or CDP
+const AKAMAI_PLATFORMS: Set<Platform> = new Set(["BIZBUYSELL", "BIZQUEST"]);
 
 async function connectToChrome(): Promise<BrowserSession | null> {
   try {
@@ -90,6 +93,42 @@ async function connectToChrome(): Promise<BrowserSession | null> {
     return { browser, context, isConnected: true };
   } catch {
     console.log("[BROWSER] CDP connection failed — Chrome not running with --remote-debugging-port");
+    return null;
+  }
+}
+
+/**
+ * Connect to Bright Data's Scraping Browser via CDP.
+ * This runs a real Chromium on Bright Data's infrastructure with residential
+ * IPs and genuine TLS fingerprints — bypasses Akamai JA3/JA4 detection.
+ * Requires BRIGHT_DATA_BROWSER_WS env var (WebSocket endpoint from Bright Data dashboard).
+ */
+async function connectToBrightData(): Promise<BrowserSession | null> {
+  const wsEndpoint = process.env.BRIGHT_DATA_BROWSER_WS;
+  if (!wsEndpoint) {
+    return null;
+  }
+
+  try {
+    const { chromium } = await import("playwright-core");
+
+    const browser = await chromium.connectOverCDP(wsEndpoint, {
+      timeout: 30_000,
+    });
+
+    const context = browser.contexts()[0] || await browser.newContext({
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+      viewport: { width: 1440, height: 900 },
+      locale: "en-US",
+      timezoneId: "America/Denver",
+    });
+
+    console.log("[BROWSER] Connected to Bright Data Scraping Browser via CDP");
+    return { browser, context, isConnected: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[BROWSER] Bright Data connection failed: ${msg}`);
     return null;
   }
 }
@@ -246,13 +285,41 @@ export async function browserScrapeForDiscovery(
   filters: ScraperFilters = { state: "CO" }
 ): Promise<ScrapeResult> {
   const startedAt = new Date();
+  const needsAntiBot = AKAMAI_PLATFORMS.has(platform);
 
-  // Try CDP first (real Chrome), fall back to Playwright
+  // Connection priority:
+  // 1. CDP to real Chrome (works for everything, best fingerprint)
+  // 2. Bright Data Scraping Browser (for Akamai-protected sites — real browser + residential IP)
+  // 3. Local Playwright with system Chromium (works for sites without Akamai)
   let session = await connectToChrome();
-  const usedCDP = !!session;
+  let connectionType = session ? "Chrome CDP" : "";
+
+  if (!session && needsAntiBot) {
+    // Akamai platforms MUST use Bright Data or CDP — local Chromium will be 403'd
+    session = await connectToBrightData();
+    connectionType = session ? "Bright Data" : "";
+
+    if (!session) {
+      console.warn(
+        `[${platform}] No anti-bot browser available. ` +
+          `Set BRIGHT_DATA_BROWSER_WS env var or run Chrome with --remote-debugging-port=9222`
+      );
+      return {
+        platform,
+        listings: [],
+        errors: [
+          `${platform} uses Akamai bot detection. Configure BRIGHT_DATA_BROWSER_WS ` +
+            `env var (Bright Data Scraping Browser) or connect Chrome via CDP to scrape this platform.`,
+        ],
+        startedAt,
+        completedAt: new Date(),
+      };
+    }
+  }
 
   if (!session) {
     session = await launchPlaywright();
+    connectionType = "Playwright";
 
     // Load cookies from DB for fallback Playwright browser
     const cookies = await loadCookies(platform);
@@ -285,13 +352,12 @@ export async function browserScrapeForDiscovery(
     const result = await scrapePlatform(platform, session.context, filters);
 
     console.log(
-      `[${platform}] Discovery scrape complete: ${result.listings.length} found` +
-        (usedCDP ? " (via Chrome CDP)" : " (via Playwright)")
+      `[${platform}] Discovery scrape complete: ${result.listings.length} found (via ${connectionType})`
     );
 
     return result;
   } finally {
-    if (!usedCDP) {
+    if (!session.isConnected) {
       await session.browser.close();
     }
   }
@@ -313,6 +379,8 @@ async function scrapePlatform(
       return scrapeBizQuest(context, filters);
     case "BUSINESSBROKER":
       return scrapeBusinessBroker(context, filters);
+    case "DEALSTREAM":
+      return scrapeDealStream(context, filters);
     default:
       return {
         platform,
@@ -736,6 +804,225 @@ async function scrapeBusinessBroker(
   }
 
   return { platform: "BUSINESSBROKER", listings, errors, startedAt, completedAt: new Date() };
+}
+
+// ─────────────────────────────────────────────
+// DealStream browser scraper
+// ─────────────────────────────────────────────
+
+async function scrapeDealStream(
+  context: BrowserContext,
+  filters: ScraperFilters
+): Promise<ScrapeResult> {
+  const startedAt = new Date();
+  const listings: RawListing[] = [];
+  const errors: string[] = [];
+  const page = await context.newPage();
+
+  try {
+    const { DealStreamScraper } = await import("./dealstream");
+    const parser = new DealStreamScraper();
+    const searchUrl = parser.buildSearchUrl(filters);
+    console.log(`[DEALSTREAM] Fetching: ${searchUrl}`);
+    await page.goto(searchUrl, { waitUntil: "domcontentloaded", timeout: PAGE_TIMEOUT });
+    await humanDelay(page, 2500, 4000);
+    await humanMouseMove(page);
+    await humanScroll(page);
+
+    const title = await page.title();
+    if (title.toLowerCase().includes("access denied") || title.toLowerCase().includes("blocked")) {
+      errors.push(`DealStream access denied: "${title}"`);
+      return { platform: "DEALSTREAM", listings, errors, startedAt, completedAt: new Date() };
+    }
+
+    // DealStream-specific DOM extraction
+    const dsListings = await page.evaluate(() => {
+      const results: Array<Record<string, string | null>> = [];
+      const seen = new Set<string>();
+
+      // DealStream listing links: /deal/, /business/, /listing/ patterns
+      const linkSelectors = [
+        'a[href*="/deal/"]',
+        'a[href*="/business/"]',
+        'a[href*="/listing/"]',
+        '.deal-card a',
+        '.listing a',
+        '.search-result a',
+      ];
+
+      for (const selector of linkSelectors) {
+        document.querySelectorAll(selector).forEach((el) => {
+          const anchor = el as HTMLAnchorElement;
+          const href = anchor.href;
+          if (!href || seen.has(href)) return;
+          // Skip navigation/category links
+          if (href.includes("/search") || href.includes("/category") ||
+              href.includes("/login") || href.includes("/register") ||
+              href.includes("/about") || href.includes("/contact")) return;
+          seen.add(href);
+
+          // Find the card container
+          let card: Element = anchor;
+          let parent = anchor.parentElement;
+          for (let i = 0; i < 5 && parent; i++) {
+            const links = parent.querySelectorAll(selector).length;
+            if (links > 1) break;
+            card = parent;
+            parent = parent.parentElement;
+          }
+
+          // Title: heading inside card, or anchor text
+          const heading = card.querySelector("h1, h2, h3, h4, h5, [class*='title'], [class*='Title']");
+          let title = heading?.textContent?.trim() || null;
+          if (!title) {
+            const directText = Array.from(anchor.childNodes)
+              .filter(n => n.nodeType === Node.TEXT_NODE)
+              .map(n => n.textContent?.trim())
+              .filter(t => t && t.length > 3)
+              .join(" ")
+              .trim();
+            if (directText && directText.length > 3 && directText.length < 200) {
+              title = directText;
+            }
+          }
+          if (!title || title.length < 3) return;
+
+          const cardText = card.textContent || "";
+
+          // Parse financials
+          const priceMatch = cardText.match(/(?:Asking\s*)?Price[:\s]*\$?([\d,]+)/i)
+            || cardText.match(/\$\s*([\d,]{5,})/);
+          const cashFlowMatch = cardText.match(/Cash\s*Flow[:\s]*\$?([\d,]+)/i);
+          const revenueMatch = cardText.match(/Revenue[:\s]*\$?([\d,]+)/i);
+          const ebitdaMatch = cardText.match(/EBITDA[:\s]*\$?([\d,]+)/i);
+
+          // Location
+          const locationMatch = cardText.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})/);
+
+          // Description
+          const descEl = card.querySelector("p, [class*='description'], [class*='snippet'], [class*='summary']");
+          let description = descEl?.textContent?.trim() || null;
+          if (description && description.length > 300) {
+            description = description.substring(0, 300) + "…";
+          }
+
+          // Industry/category
+          const catEl = card.querySelector("[class*='category'], [class*='industry'], [class*='sector']");
+          const category = catEl?.textContent?.trim() || null;
+
+          // Broker/advisor
+          const brokerEl = card.querySelector("[class*='advisor'], [class*='broker'], [class*='contact']");
+          const broker = brokerEl?.textContent?.trim() || null;
+
+          results.push({
+            url: href,
+            title,
+            price: priceMatch?.[1] || null,
+            cashFlow: cashFlowMatch?.[1] || null,
+            revenue: revenueMatch?.[1] || null,
+            ebitda: ebitdaMatch?.[1] || null,
+            city: locationMatch?.[1] || null,
+            state: locationMatch?.[2] || null,
+            description,
+            category,
+            broker,
+          });
+        });
+        // Stop if we found listings from a selector
+        if (results.length > 0) break;
+      }
+
+      return results;
+    });
+
+    // If DOM extraction found nothing, fall back to Cheerio
+    if (dsListings.length === 0) {
+      const html = await page.content();
+      const searchResults = parser.parseSearchResults(html);
+      console.log(`[DEALSTREAM] Cheerio fallback found ${searchResults.length} listings`);
+
+      for (const result of searchResults) {
+        if (listings.length >= MAX_DETAILS_PER_RUN) break;
+        listings.push({
+          sourceId: null,
+          sourceUrl: result.url,
+          title: result.preview.title || "Untitled",
+          businessName: null,
+          askingPrice: result.preview.askingPrice ?? null,
+          revenue: null,
+          cashFlow: result.preview.cashFlow ?? null,
+          ebitda: null,
+          sde: null,
+          industry: null,
+          category: result.preview.category ?? null,
+          city: result.preview.city ?? null,
+          state: result.preview.state ?? null,
+          zipCode: result.preview.zipCode ?? null,
+          description: null,
+          brokerName: null,
+          brokerCompany: null,
+          brokerPhone: null,
+          brokerEmail: null,
+          employees: null,
+          established: null,
+          sellerFinancing: null,
+          inventory: null,
+          ffe: null,
+          realEstate: null,
+          reasonForSale: null,
+          facilities: null,
+          listingDate: null,
+          rawData: {},
+        });
+      }
+    } else {
+      const { parsePrice, normalizeText } = await import("./parser-utils");
+
+      for (const item of dsListings) {
+        if (!item.url || !item.title || listings.length >= MAX_DETAILS_PER_RUN) continue;
+        listings.push({
+          sourceId: null,
+          sourceUrl: item.url,
+          title: normalizeText(item.title || "Untitled"),
+          businessName: null,
+          askingPrice: item.price ? parsePrice(item.price) : null,
+          revenue: item.revenue ? parsePrice(item.revenue) : null,
+          cashFlow: item.cashFlow ? parsePrice(item.cashFlow) : null,
+          ebitda: item.ebitda ? parsePrice(item.ebitda) : null,
+          sde: null,
+          industry: null,
+          category: item.category || null,
+          city: item.city || null,
+          state: item.state || null,
+          zipCode: null,
+          description: item.description ? normalizeText(item.description).substring(0, 500) : null,
+          brokerName: item.broker || null,
+          brokerCompany: null,
+          brokerPhone: null,
+          brokerEmail: null,
+          employees: null,
+          established: null,
+          sellerFinancing: null,
+          inventory: null,
+          ffe: null,
+          realEstate: null,
+          reasonForSale: null,
+          facilities: null,
+          listingDate: null,
+          rawData: item as unknown as Record<string, unknown>,
+        });
+      }
+    }
+
+    console.log(`[DEALSTREAM] Extracted ${listings.length} listings`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`DealStream scrape failed: ${msg}`);
+  } finally {
+    await page.close();
+  }
+
+  return { platform: "DEALSTREAM", listings, errors, startedAt, completedAt: new Date() };
 }
 
 // ─────────────────────────────────────────────
