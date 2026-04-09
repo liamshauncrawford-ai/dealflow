@@ -21,9 +21,14 @@ export class BusinessBrokerScraper extends BaseScraper {
   // ── Search URL builder ──
 
   buildSearchUrl(filters: ScraperFilters): string {
-    // BusinessBroker.net uses path-based state filtering plus query params
+    // BusinessBroker.net URL pattern (as of 2026):
+    //   /state/{state}-businesses-for-sale.aspx
     const state = (filters.state ?? "colorado").toLowerCase().replace(/\s+/g, "-");
-    let url = `${BASE_URL}/businesses-for-sale/${state}`;
+    // Handle state abbreviations
+    const stateMap: Record<string, string> = { co: "colorado", ca: "california", tx: "texas", ny: "new-york", fl: "florida" };
+    const fullState = stateMap[state] ?? state;
+
+    let url = `${BASE_URL}/state/${fullState}-businesses-for-sale.aspx`;
 
     const params = new URLSearchParams();
 

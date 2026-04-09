@@ -568,9 +568,103 @@ async function scrapeBusinessBroker(
     await humanMouseMove(page);
     await humanScroll(page);
 
-    const browserListings = await extractListingsFromBrowser(page);
-    listings.push(...browserListings.slice(0, MAX_DETAILS_PER_RUN));
-    console.log(`[BUSINESSBROKER] Extracted ${listings.length} listings`);
+    const title = await page.title();
+    const httpStatus = (await page.evaluate(() => document.title.includes("No such page"))) ? 404 : 200;
+
+    if (title.includes("No such page") || title.includes("Access Denied")) {
+      errors.push(`BusinessBroker returned: ${title}`);
+    } else {
+      // BusinessBroker.net-specific extraction: links match /business-for-sale/SLUG/ID.aspx
+      const bbListings = await page.evaluate(() => {
+        const results: Array<Record<string, string | null>> = [];
+        const seen = new Set<string>();
+
+        document.querySelectorAll('a[href*="/business-for-sale/"]').forEach((el) => {
+          const anchor = el as HTMLAnchorElement;
+          const href = anchor.href;
+
+          // Skip navigation/category links
+          if (href.includes("/state/") || href.includes("/industry/") ||
+              href.includes("/keyword/") || href.includes("/asking-price/") ||
+              href.includes("/city/") || href.includes("/county/")) return;
+          if (seen.has(href)) return;
+          seen.add(href);
+
+          // Extract data from the card (parent container)
+          const card = anchor.closest("div, li, article, section") || anchor;
+          const text = card.textContent || "";
+
+          const title = anchor.textContent?.trim() || null;
+          if (!title || title.length < 10) return;
+
+          // Parse price from text like "Asking Price: $1,399,000"
+          const priceMatch = text.match(/Asking\s*Price[:\s]*\$?([\d,]+)/i);
+          // Parse location from text like "Denver, CO"
+          const locationMatch = text.match(/([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s*([A-Z]{2})/);
+          // Parse cash flow
+          const cashFlowMatch = text.match(/Cash\s*Flow[:\s]*\$?([\d,]+)/i);
+          // Parse revenue
+          const revenueMatch = text.match(/Revenue[:\s]*\$?([\d,]+)/i);
+          // Description — grab first substantial paragraph
+          const descEl = card.querySelector("p, [class*='description'], [class*='snippet']");
+          const description = descEl?.textContent?.trim() || null;
+
+          results.push({
+            url: href,
+            title: title.replace(/Asking\s*Price[:\s]*\$?[\d,]+/i, "").trim() || title,
+            price: priceMatch?.[1] || null,
+            location: locationMatch ? `${locationMatch[1]}, ${locationMatch[2]}` : null,
+            city: locationMatch?.[1] || null,
+            state: locationMatch?.[2] || null,
+            cashFlow: cashFlowMatch?.[1] || null,
+            revenue: revenueMatch?.[1] || null,
+            description,
+            broker: null,
+          });
+        });
+
+        return results;
+      });
+
+      const { parsePrice, normalizeText } = await import("./parser-utils");
+
+      for (const item of bbListings) {
+        if (!item.url || !item.title || listings.length >= MAX_DETAILS_PER_RUN) continue;
+        listings.push({
+          sourceId: null,
+          sourceUrl: item.url,
+          title: normalizeText(item.title || "Untitled"),
+          businessName: null,
+          askingPrice: item.price ? parsePrice(item.price) : null,
+          revenue: item.revenue ? parsePrice(item.revenue) : null,
+          cashFlow: item.cashFlow ? parsePrice(item.cashFlow) : null,
+          ebitda: null,
+          sde: null,
+          industry: null,
+          category: null,
+          city: item.city || null,
+          state: item.state || "CO",
+          zipCode: null,
+          description: item.description ? normalizeText(item.description).substring(0, 500) : null,
+          brokerName: null,
+          brokerCompany: null,
+          brokerPhone: null,
+          brokerEmail: null,
+          employees: null,
+          established: null,
+          sellerFinancing: null,
+          inventory: null,
+          ffe: null,
+          realEstate: null,
+          reasonForSale: null,
+          facilities: null,
+          listingDate: null,
+          rawData: item as unknown as Record<string, unknown>,
+        });
+      }
+
+      console.log(`[BUSINESSBROKER] Extracted ${listings.length} listings`);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     errors.push(`BusinessBroker scrape failed: ${msg}`);
